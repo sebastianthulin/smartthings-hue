@@ -181,7 +181,10 @@ function makeStatus({
 
 function applyCommands(deviceId, commands) {
   const status = mockState.statuses[deviceId];
-  if (!status) return;
+  if (!status) {
+    console.warn(`Mock SmartThings device "${deviceId}" has no status payload.`);
+    return;
+  }
 
   for (const command of commands) {
     const main = status.components.main;
