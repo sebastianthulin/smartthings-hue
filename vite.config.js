@@ -24,6 +24,8 @@ function pagesArtifactsPlugin() {
 
 export default defineConfig(({ command }) => ({
   appType: 'spa',
+  // Keep dev on the default root path while emitting relative production URLs
+  // so the same bundle can be hosted at / or within a subdirectory.
   base: command === 'build' ? './' : '/',
   plugins: [
     pagesArtifactsPlugin(),
