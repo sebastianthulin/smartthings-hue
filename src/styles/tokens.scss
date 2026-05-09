@@ -1,0 +1,73 @@
+// Design tokens — exposed as SCSS variables and CSS custom properties
+
+// Colors
+$color-bg:               #0d0d0d;
+$color-surface:          #1a1a1a;
+$color-surface-elevated: #222222;
+$color-surface-high:     #2a2a2a;
+$color-border:           rgba(255, 255, 255, 0.06);
+$color-border-subtle:    rgba(255, 255, 255, 0.04);
+
+$color-text-primary:     rgba(255, 255, 255, 0.90);
+$color-text-secondary:   rgba(255, 255, 255, 0.45);
+$color-text-dim:         rgba(255, 255, 255, 0.22);
+
+$color-accent:           #ffb347;
+$color-accent-bright:    #ffd27a;
+$color-on-glow:          rgba(255, 180, 80, 0.18);
+$color-presence-glow:    rgba(255, 195, 100, 0.12);
+
+$color-danger:           #ff6b6b;
+$color-success:          #5adb87;
+
+// Typography
+$font-family:      -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+$font-size-xs:     11px;
+$font-size-sm:     13px;
+$font-size-base:   15px;
+$font-size-md:     17px;
+$font-size-lg:     20px;
+$font-size-xl:     26px;
+$font-size-2xl:    34px;
+
+$font-weight-normal:    400;
+$font-weight-medium:    500;
+$font-weight-semibold:  600;
+$font-weight-bold:      700;
+
+$line-height-tight:  1.1;
+$line-height-snug:   1.3;
+$line-height-normal: 1.5;
+
+// Spacing
+$space-1:  4px;
+$space-2:  8px;
+$space-3:  12px;
+$space-4:  16px;
+$space-5:  20px;
+$space-6:  24px;
+$space-7:  28px;
+$space-8:  32px;
+$space-10: 40px;
+$space-12: 48px;
+$space-16: 64px;
+
+// Border radius
+$radius-sm:   8px;
+$radius-md:   14px;
+$radius-lg:   20px;
+$radius-xl:   28px;
+$radius-full: 9999px;
+
+// Transitions
+$transition-fast:   120ms ease;
+$transition-base:   220ms ease;
+$transition-slow:   380ms ease;
+$transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+// Z-index
+$z-base:    0;
+$z-raised:  10;
+$z-modal:   100;
+$z-overlay: 200;
+$z-toast:   300;
