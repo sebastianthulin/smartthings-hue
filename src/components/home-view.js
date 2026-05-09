@@ -268,6 +268,12 @@ export class HomeView extends LitElement {
     store.removeEventListener('synced',  this._onSynced);
   }
 
+  updated(changed) {
+    if (changed.has('_settingsOpen') && this._settingsOpen) {
+      this.renderRoot.querySelector('.settings-sheet')?.focus();
+    }
+  }
+
   _disconnect() {
     if (!confirm('Disconnect from SmartThings and clear all local data?')) return;
     store.stopSync();
@@ -295,6 +301,12 @@ export class HomeView extends LitElement {
 
   _toggleSettings() {
     this._settingsOpen = !this._settingsOpen;
+  }
+
+  _onSettingsKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._settingsOpen = false;
+    }
   }
 
   _toggleRoomVisibility(e) {
@@ -362,7 +374,12 @@ export class HomeView extends LitElement {
   _renderSettings() {
     return html`
       <div class="settings-backdrop" @click=${this._toggleSettings}>
-        <div class="settings-sheet" @click=${e => e.stopPropagation()}>
+        <div
+          class="settings-sheet"
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onSettingsKeyDown}
+        >
           <h2>Settings</h2>
           <p>Choose which rooms should be visible on this device.</p>
 
