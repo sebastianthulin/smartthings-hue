@@ -1,0 +1,243 @@
+import { LitElement, html, css } from 'lit';
+
+export class TokenSetup extends LitElement {
+  static properties = {
+    authError: { type: Boolean, attribute: 'auth-error' },
+    _token:    { state: true },
+    _loading:  { state: true },
+    _error:    { state: true },
+  };
+
+  static styles = css`
+    :host {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: var(--space-6);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--color-surface);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      border: 1px solid var(--color-border);
+    }
+
+    .logo {
+      width: 52px;
+      height: 52px;
+      background: radial-gradient(circle, var(--color-accent-bright) 0%, var(--color-accent) 70%);
+      border-radius: var(--radius-full);
+      margin: 0 auto var(--space-6);
+      box-shadow: 0 0 32px var(--color-on-glow);
+    }
+
+    h1 {
+      margin: 0 0 var(--space-2);
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      text-align: center;
+      color: var(--color-text-primary);
+      letter-spacing: -0.5px;
+    }
+
+    p {
+      margin: 0 0 var(--space-8);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--space-2);
+    }
+
+    input {
+      width: 100%;
+      background: var(--color-surface-elevated);
+      border: 1.5px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4) var(--space-4);
+      color: var(--color-text-primary);
+      font-family: var(--font-family);
+      font-size: var(--font-size-base);
+      outline: none;
+      transition: border-color var(--transition-base);
+      margin-bottom: var(--space-4);
+    }
+
+    input:focus {
+      border-color: var(--color-accent);
+    }
+
+    input::placeholder {
+      color: var(--color-text-dim);
+      font-family: monospace;
+      font-size: var(--font-size-sm);
+    }
+
+    button {
+      width: 100%;
+      padding: var(--space-4);
+      background: var(--color-accent);
+      color: #0d0d0d;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: var(--font-family);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      cursor: pointer;
+      transition: opacity var(--transition-base), transform var(--transition-fast);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: default;
+      transform: none;
+    }
+
+    .error {
+      background: rgba(255, 107, 107, 0.12);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-radius: var(--radius-sm);
+      padding: var(--space-3) var(--space-4);
+      font-size: var(--font-size-sm);
+      color: #ff6b6b;
+      margin-bottom: var(--space-4);
+    }
+
+    .hint {
+      margin-top: var(--space-5);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-dim);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .hint a {
+      color: var(--color-accent);
+      text-decoration: none;
+    }
+  `;
+
+  constructor() {
+    super();
+    this._token   = '';
+    this._loading = false;
+    this._error   = '';
+  }
+
+  updated(changed) {
+    if (changed.has('authError') && this.authError) {
+      this._error = 'Token is invalid or expired. Please generate a new one.';
+    }
+  }
+
+  _onInput(e) {
+    this._token = e.target.value;
+    this._error = '';
+  }
+
+  _onKeyDown(e) {
+    if (e.key === 'Enter') this._connect();
+  }
+
+  async _connect() {
+    const token = this._token.trim();
+    if (!token) {
+      this._error = 'Please paste your SmartThings Personal Access Token.';
+      return;
+    }
+
+    this._loading = true;
+    this._error   = '';
+
+    // Validate token with a quick locations call
+    try {
+      const testFetch = await fetch('https://api.smartthings.com/v1/locations', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (testFetch.status === 401) {
+        this._error   = 'Token is invalid. Check it and try again.';
+        this._loading = false;
+        return;
+      }
+      if (!testFetch.ok) {
+        this._error   = `Connection error (${testFetch.status}). Try again.`;
+        this._loading = false;
+        return;
+      }
+    } catch {
+      this._error   = 'Could not reach SmartThings. Check your connection.';
+      this._loading = false;
+      return;
+    }
+
+    this._loading = false;
+    this.dispatchEvent(new CustomEvent('token-set', {
+      detail:  { token },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  render() {
+    return html`
+      <div class="card">
+        <div class="logo"></div>
+        <h1>SmartThings Hue</h1>
+        <p>Paste your SmartThings Personal Access Token to connect.</p>
+
+        ${this._error ? html`<div class="error">${this._error}</div>` : ''}
+
+        <label for="token">Personal Access Token</label>
+        <input
+          id="token"
+          type="password"
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          .value=${this._token}
+          @input=${this._onInput}
+          @keydown=${this._onKeyDown}
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+
+        <button
+          @click=${this._connect}
+          ?disabled=${this._loading || !this._token.trim()}
+        >
+          ${this._loading ? 'Connecting…' : 'Connect'}
+        </button>
+
+        <p class="hint">
+          Generate a token at
+          <a href="https://account.smartthings.com/tokens" target="_blank" rel="noopener">
+            account.smartthings.com/tokens
+          </a>.<br/>
+          Your token is stored only on this device.
+        </p>
+      </div>
+    `;
+  }
+}
+
+customElements.define('token-setup', TokenSetup);

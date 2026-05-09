@@ -1,0 +1,99 @@
+@use 'tokens' as *;
+
+// Export tokens as CSS custom properties on :root
+:root {
+  // Colors
+  --color-bg:               #{$color-bg};
+  --color-surface:          #{$color-surface};
+  --color-surface-elevated: #{$color-surface-elevated};
+  --color-surface-high:     #{$color-surface-high};
+  --color-border:           #{$color-border};
+  --color-border-subtle:    #{$color-border-subtle};
+
+  --color-text-primary:     #{$color-text-primary};
+  --color-text-secondary:   #{$color-text-secondary};
+  --color-text-dim:         #{$color-text-dim};
+
+  --color-accent:           #{$color-accent};
+  --color-accent-bright:    #{$color-accent-bright};
+  --color-on-glow:          #{$color-on-glow};
+  --color-presence-glow:    #{$color-presence-glow};
+
+  // Typography
+  --font-family:      #{$font-family};
+  --font-size-xs:     #{$font-size-xs};
+  --font-size-sm:     #{$font-size-sm};
+  --font-size-base:   #{$font-size-base};
+  --font-size-md:     #{$font-size-md};
+  --font-size-lg:     #{$font-size-lg};
+  --font-size-xl:     #{$font-size-xl};
+
+  --font-weight-normal:   #{$font-weight-normal};
+  --font-weight-medium:   #{$font-weight-medium};
+  --font-weight-semibold: #{$font-weight-semibold};
+  --font-weight-bold:     #{$font-weight-bold};
+
+  // Spacing
+  --space-1:  #{$space-1};
+  --space-2:  #{$space-2};
+  --space-3:  #{$space-3};
+  --space-4:  #{$space-4};
+  --space-5:  #{$space-5};
+  --space-6:  #{$space-6};
+  --space-7:  #{$space-7};
+  --space-8:  #{$space-8};
+  --space-10: #{$space-10};
+  --space-12: #{$space-12};
+  --space-16: #{$space-16};
+
+  // Border radius
+  --radius-sm:   #{$radius-sm};
+  --radius-md:   #{$radius-md};
+  --radius-lg:   #{$radius-lg};
+  --radius-xl:   #{$radius-xl};
+  --radius-full: #{$radius-full};
+
+  // Transitions
+  --transition-fast:   #{$transition-fast};
+  --transition-base:   #{$transition-base};
+  --transition-slow:   #{$transition-slow};
+  --transition-spring: #{$transition-spring};
+}
+
+// Reset & base
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+// Selection
+::selection {
+  background: rgba(255, 179, 71, 0.25);
+}
+
+// Focus visible
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
