@@ -282,7 +282,6 @@ export class HomeView extends LitElement {
     store.stopSync();
     store.clearCache();
     smartthings.clearToken();
-    this._saveHiddenRooms([]);
     window.location.reload();
   }
 
@@ -308,13 +307,6 @@ export class HomeView extends LitElement {
 
   _onSettingsKeyDown(e) {
     if (e.key === 'Escape') {
-      this._settingsOpen = false;
-    }
-  }
-
-  _onSettingsBackdropKeyDown(e) {
-    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
       this._settingsOpen = false;
     }
   }
@@ -384,13 +376,7 @@ export class HomeView extends LitElement {
 
   _renderSettings() {
     return html`
-      <div
-        class="settings-backdrop"
-        tabindex="0"
-        aria-label="Close settings"
-        @click=${this._toggleSettings}
-        @keydown=${this._onSettingsBackdropKeyDown}
-      >
+      <div class="settings-backdrop" @click=${this._toggleSettings}>
         <div
           class="settings-sheet"
           role="dialog"
