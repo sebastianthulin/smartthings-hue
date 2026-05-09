@@ -155,7 +155,7 @@ export class RoomCard extends LitElement {
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      background: #fff;
+      background: var(--color-text-primary);
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
       transition: transform var(--transition-base);
     }
@@ -227,7 +227,7 @@ export class RoomCard extends LitElement {
     this._swipeStartX = null;
     this._swipeStartBrightness = null;
     this._swiping = false;
-    this._ignoreClick = false;
+    this._suppressNextClick = false;
   }
 
   // ── Pointer / gesture handling ──────────────────────────────────────────────
@@ -275,7 +275,7 @@ export class RoomCard extends LitElement {
     this._pressing      = false;
     this._swiping       = false;
     this._swipeStartX   = null;
-    this._ignoreClick = wasSwiping;
+    this._suppressNextClick = wasSwiping;
   }
 
   _pointerCancel() {
@@ -289,15 +289,11 @@ export class RoomCard extends LitElement {
   }
 
   _onCardClick() {
-    if (this._ignoreClick) {
-      this._ignoreClick = false;
+    if (this._suppressNextClick) {
+      this._suppressNextClick = false;
       return;
     }
     this._toggleExpanded();
-  }
-
-  _stopPropagation(e) {
-    e.stopPropagation();
   }
 
   _toggleRoom(e) {
@@ -361,10 +357,10 @@ export class RoomCard extends LitElement {
               <button
                 type="button"
                 class="room-toggle ${lightsOn ? 'on' : ''}"
-                @pointerdown=${this._stopPropagation}
-                @pointerup=${this._stopPropagation}
+                @pointerdown=${e => e.stopPropagation()}
+                @pointerup=${e => e.stopPropagation()}
                 @click=${this._toggleRoom}
-                aria-label="${lightsOn ? 'Turn off' : 'Turn on'} ${room.name}"
+                aria-label="${lightsOn ? 'Turn off' : 'Turn on'} lights in ${room.name}"
               >
                 <span class="room-toggle-thumb"></span>
               </button>
