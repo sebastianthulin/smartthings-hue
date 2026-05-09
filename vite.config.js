@@ -22,16 +22,16 @@ function pagesArtifactsPlugin() {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   appType: 'spa',
-  base: '/',
+  base: command === 'build' ? './' : '/',
   plugins: [
     pagesArtifactsPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
-        id: '/',
+        id: './',
         name: 'SmartThings Hue',
         short_name: 'Hue Home',
         description: 'SmartThings but with the Philips Hue experience',
@@ -39,16 +39,16 @@ export default defineConfig({
         background_color: '#0d0d0d',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: './',
+        start_url: './',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: './icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/icons/icon-512.png',
+            src: './icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png'
           }
@@ -58,7 +58,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest,json}'],
-        navigateFallback: '/index.html',
+        navigateFallback: 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.smartthings\.com\/.*/i,
@@ -83,4 +83,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));
