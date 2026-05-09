@@ -330,6 +330,7 @@ export class HomeView extends LitElement {
 
   render() {
     const visibleRooms = this._visibleRooms;
+    const settingsLabel = this._settingsOpen ? 'Close settings' : 'Open settings';
 
     return html`
       <header>
@@ -337,7 +338,7 @@ export class HomeView extends LitElement {
           <h1>Home</h1>
           <div class="header-actions">
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
-            <button class="icon-btn" @click=${this._toggleSettings} aria-label="Open settings">
+            <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm8 3.5l-1.76-.57a6.86 6.86 0 00-.52-1.24l.86-1.65-1.41-1.41-1.65.86a6.86 6.86 0 00-1.24-.52L13 4h-2l-.57 1.76c-.43.11-.84.28-1.24.52l-1.65-.86-1.41 1.41.86 1.65c-.24.4-.41.81-.52 1.24L4 11v2l1.76.57c.11.43.28.84.52 1.24l-.86 1.65 1.41 1.41 1.65-.86c.4.24.81.41 1.24.52L11 20h2l.57-1.76c.43-.11.84-.28 1.24-.52l1.65.86 1.41-1.41-.86-1.65c.24-.4.41-.81.52-1.24L20 13v-2z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -376,6 +377,9 @@ export class HomeView extends LitElement {
       <div class="settings-backdrop" @click=${this._toggleSettings}>
         <div
           class="settings-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Settings"
           tabindex="-1"
           @click=${e => e.stopPropagation()}
           @keydown=${this._onSettingsKeyDown}
