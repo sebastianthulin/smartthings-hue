@@ -298,11 +298,11 @@ export class HomeView extends LitElement {
   }
 
   _toggleRoomVisibility(e) {
-    const { roomId, visible } = e.target.dataset;
-    if (!roomId || visible == null) return;
+    const { roomId } = e.target.dataset;
+    if (!roomId) return;
 
     const hidden = new Set(this._hiddenRoomIds);
-    if (visible === 'true') {
+    if (e.target.checked) {
       hidden.delete(roomId);
     } else {
       hidden.add(roomId);
@@ -379,7 +379,6 @@ export class HomeView extends LitElement {
                           type="checkbox"
                           .checked=${visible}
                           data-room-id=${room.id}
-                          data-visible=${String(!visible)}
                           @change=${this._toggleRoomVisibility}
                         />
                       </label>
