@@ -1,7 +1,7 @@
 {
   "name": "smartthings-hue",
   "version": "1.0.0",
-  "description": "SmartThings but with the Philips HUE experience",
+  "description": "SmartThings but with the Philips Hue experience",
   "type": "module",
   "scripts": {
     "dev": "vite",
