@@ -233,7 +233,7 @@ export class RoomCard extends LitElement {
     }
   }
 
-  _pointerUp(e) {
+  _pointerUp() {
     clearTimeout(this._pressTimer);
     const wasSwiping = this._swiping;
     this._pressing      = false;
