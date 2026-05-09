@@ -4,6 +4,11 @@
  * Only exposes whitelisted capabilities; all internals stay here.
  */
 
+import {
+  handleMockSmartThingsRequest,
+  isMockSmartThingsEnabled,
+} from './smartthings.mock.js';
+
 const API_BASE = 'https://api.smartthings.com/v1';
 
 export const SUPPORTED_CAPABILITIES = new Set([
@@ -25,7 +30,7 @@ class SmartThingsAPI {
   }
 
   get hasToken() {
-    return !!this.#token;
+    return isMockSmartThingsEnabled() || !!this.#token;
   }
 
   setToken(token) {
@@ -39,6 +44,10 @@ class SmartThingsAPI {
   }
 
   async #request(path, options = {}) {
+    if (isMockSmartThingsEnabled()) {
+      return handleMockSmartThingsRequest(path, options);
+    }
+
     if (!this.#token) throw new Error('No SmartThings token configured.');
 
     const res = await fetch(`${API_BASE}${path}`, {
