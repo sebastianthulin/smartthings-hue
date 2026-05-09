@@ -10,10 +10,6 @@
 
 import { SUPPORTED_CAPABILITIES } from './smartthings.js';
 
-const LIGHT_CAPS = new Set(['switch', 'switchLevel', 'colorControl', 'colorTemperature']);
-const CLIMATE_CAPS = new Set(['temperatureMeasurement', 'relativeHumidityMeasurement']);
-const PRESENCE_CAPS = new Set(['occupancySensor', 'motionSensor']);
-
 /**
  * Build a normalized Room[] from raw SmartThings data.
  *

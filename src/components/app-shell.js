@@ -29,7 +29,7 @@ export class AppShell extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    store.addEventListener('error', e => {
+    store.addEventListener('error', () => {
       if (store.authError) {
         this._authError = true;
         this._hasToken  = false;
