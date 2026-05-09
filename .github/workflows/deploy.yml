@@ -39,7 +39,8 @@ jobs:
 
       - name: Run tests
         run: |
-          if npm pkg get scripts.test | grep -qv null; then
+          TEST_SCRIPT="$(node -p "require('./package.json').scripts?.test ?? ''")"
+          if [ -n "$TEST_SCRIPT" ]; then
             npm test
           else
             echo "No tests configured; skipping."
