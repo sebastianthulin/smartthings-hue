@@ -328,6 +328,7 @@ export class RoomCard extends LocalizedElement {
               .value=${avgBrightness}
               @change=${this._onBrightnessChange}
               @click=${this._stopPropagation}
+              aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}
             ></dimmer-slider>
           </div>
         ` : ''}
