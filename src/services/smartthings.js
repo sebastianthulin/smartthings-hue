@@ -95,6 +95,20 @@ class SmartThingsAPI {
     return data.items ?? [];
   }
 
+  /** Fetch available scenes/routines for this location. */
+  async fetchScenes(locationId) {
+    const data = await this.#request('/scenes');
+    const items = data.items ?? [];
+
+    return items
+      .filter(scene => !locationId || !scene.locationId || scene.locationId === locationId)
+      .map(scene => ({
+        id: scene.sceneId ?? scene.id ?? '',
+        name: scene.sceneName ?? scene.name ?? 'Scene',
+      }))
+      .filter(scene => scene.id);
+  }
+
   /** Fetch full status for one device. */
   async fetchDeviceStatus(deviceId) {
     return this.#request(`/devices/${deviceId}/status`);
@@ -107,6 +121,12 @@ class SmartThingsAPI {
    */
   async sendCommand(deviceId, commands) {
     return this.#post(`/devices/${deviceId}/commands`, { commands });
+  }
+
+  async executeScene(sceneId) {
+    return this.#request(`/scenes/${sceneId}/execute`, {
+      method: 'POST',
+    });
   }
 
   // ── Convenience command helpers ────────────────────────────────────────────

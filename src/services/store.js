@@ -71,6 +71,10 @@ class HomeStore extends EventTarget {
     this.#syncTimer = setInterval(() => this.#syncOnce(), SYNC_INTERVAL);
   }
 
+  async syncNow() {
+    await this.#syncOnce();
+  }
+
   stopSync() {
     if (this.#syncTimer) {
       clearInterval(this.#syncTimer);
@@ -146,6 +150,24 @@ class HomeStore extends EventTarget {
     await Promise.allSettled(
       room.lights.map(l =>
         target ? smartthings.switchOn(l.id) : smartthings.switchOff(l.id)
+      )
+    );
+  }
+
+  /** Toggle all lights in the home on/off. */
+  async toggleAllRooms() {
+    const lights = this.#rooms.flatMap(room => room.lights);
+    if (!lights.length) return;
+
+    const anyOn = lights.some(light => light.on);
+    const target = !anyOn;
+
+    lights.forEach(light => (light.on = target));
+    this.#emit();
+
+    await Promise.allSettled(
+      lights.map(light =>
+        target ? smartthings.switchOn(light.id) : smartthings.switchOff(light.id)
       )
     );
   }

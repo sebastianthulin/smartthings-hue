@@ -16,11 +16,12 @@ import './light-group.js';
  */
 export class RoomCard extends LocalizedElement {
   static properties = {
-    room:       { type: Object },
-    detailView: { type: Boolean, attribute: 'detail-view' },
-    _pressing:  { state: true },
-    _expanded: { state: true },
-    _pressing: { state: true },
+    room:         { type: Object },
+    detailView:   { type: Boolean, attribute: 'detail-view' },
+    sceneActions: { type: Array },
+    toggleHandler:{ attribute: false },
+    sceneHandler: { attribute: false },
+    _pressing:    { state: true },
   };
 
   static styles = css`
@@ -231,12 +232,31 @@ export class RoomCard extends LocalizedElement {
       padding: 0 var(--space-5) var(--space-4);
       margin-bottom: var(--space-4);
     }
+
+    .scene-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      padding: 0 var(--space-5) var(--space-4);
+    }
+
+    .scene-btn {
+      border: 1px solid var(--color-border);
+      background: var(--color-surface-elevated);
+      color: var(--color-text-primary);
+      border-radius: var(--radius-full);
+      padding: var(--space-2) var(--space-4);
+      font: inherit;
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+    }
   `;
 
   constructor() {
     super();
-    this.detailView = false;
-    this._pressing  = false;
+    this.detailView   = false;
+    this.sceneActions = [];
+    this._pressing    = false;
   }
 
   // ── Pointer / gesture handling ──────────────────────────────────────────────
@@ -264,16 +284,12 @@ export class RoomCard extends LocalizedElement {
     }));
   }
 
-  _toggleExpanded() {
-    this._expanded = !this._expanded;
-  }
-
-  _onCardClick() {
-    this._toggleExpanded();
-  }
-
   _toggleRoom(e) {
     e.stopPropagation();
+    if (this.toggleHandler) {
+      this.toggleHandler(this.room);
+      return;
+    }
     store.toggleRoom(this.room.id);
   }
 
@@ -284,6 +300,11 @@ export class RoomCard extends LocalizedElement {
 
   _stopPropagation(e) {
     e.stopPropagation();
+  }
+
+  _runScene(sceneId, e) {
+    e.stopPropagation();
+    this.sceneHandler?.(sceneId, this.room);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -369,6 +390,20 @@ export class RoomCard extends LocalizedElement {
               @click=${this._stopPropagation}
               aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}
             ></dimmer-slider>
+          </div>
+        ` : ''}
+
+        ${this.detailView && this.sceneActions.length ? html`
+          <div class="scene-section">
+            ${this.sceneActions.map(scene => html`
+              <button
+                type="button"
+                class="scene-btn"
+                @click=${e => this._runScene(scene.id, e)}
+              >
+                ${scene.name}
+              </button>
+            `)}
           </div>
         ` : ''}
 

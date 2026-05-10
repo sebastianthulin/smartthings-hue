@@ -21,6 +21,15 @@ const MOCK_DEVICES = [
   makeDevice('bedroom-sensor', 'Bedroom Sensor', 'bedroom', ['temperatureMeasurement', 'relativeHumidityMeasurement']),
 ];
 
+const MOCK_SCENES = [
+  makeScene('whole-house-on', 'Whole house on'),
+  makeScene('whole-house-off', 'Whole house off'),
+  makeScene('living-room-bright', 'Living room bright'),
+  makeScene('living-room-cozy', 'Living room cozy'),
+  makeScene('kitchen-on', 'Kitchen on'),
+  makeScene('bedroom-night', 'Bedroom night'),
+];
+
 const INITIAL_STATUSES = {
   'sofa-lamp': makeStatus({
     switch: 'on',
@@ -95,6 +104,10 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
     return { items: clone(devices) };
   }
 
+  if (method === 'GET' && pathname === '/scenes') {
+    return { items: clone(MOCK_SCENES) };
+  }
+
   if (method === 'GET' && pathname.startsWith('/devices/') && pathname.endsWith('/status')) {
     const deviceId = pathname.split('/')[2];
     return clone(mockState.statuses[deviceId] ?? makeStatus({}));
@@ -105,6 +118,12 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
     const body = JSON.parse(options.body ?? '{}');
     applyCommands(deviceId, body.commands ?? []);
     return { results: [{ id: `mock-${deviceId}`, status: 'ACCEPTED' }] };
+  }
+
+  if (method === 'POST' && pathname.startsWith('/scenes/') && pathname.endsWith('/execute')) {
+    const sceneId = pathname.split('/')[2];
+    executeScene(sceneId);
+    return { id: `mock-scene-${sceneId}`, status: 'ACCEPTED' };
   }
 
   throw new Error(`Unsupported mock SmartThings request: ${method} ${path}`);
@@ -122,6 +141,14 @@ function makeDevice(deviceId, label, roomId, capabilities) {
         capabilities: capabilities.map(id => ({ id })),
       },
     ],
+  };
+}
+
+function makeScene(sceneId, sceneName) {
+  return {
+    sceneId,
+    sceneName,
+    locationId: MOCK_LOCATION_ID,
   };
 }
 
@@ -219,6 +246,71 @@ function applyCommands(deviceId, commands) {
         colorTemperature: { value: Number(command.arguments?.[0] ?? 0) },
       };
     }
+  }
+}
+
+function executeScene(sceneId) {
+  switch (sceneId) {
+    case 'whole-house-on':
+      setDeviceState('sofa-lamp', { switch: 'on', level: 100, hue: 16, saturation: 58, colorTemperature: 2600 });
+      setDeviceState('ceiling-strip', { switch: 'on', level: 100, colorTemperature: 3000 });
+      setDeviceState('island-pendant', { switch: 'on', level: 100, colorTemperature: 3200 });
+      setDeviceState('bedside-left', { switch: 'on', level: 100, colorTemperature: 2200 });
+      setDeviceState('bedside-right', { switch: 'on', level: 100, colorTemperature: 2200 });
+      return;
+    case 'whole-house-off':
+      setDeviceState('sofa-lamp', { switch: 'off' });
+      setDeviceState('ceiling-strip', { switch: 'off' });
+      setDeviceState('island-pendant', { switch: 'off' });
+      setDeviceState('bedside-left', { switch: 'off' });
+      setDeviceState('bedside-right', { switch: 'off' });
+      return;
+    case 'living-room-bright':
+      setDeviceState('sofa-lamp', { switch: 'on', level: 100, hue: 14, saturation: 52, colorTemperature: 2800 });
+      setDeviceState('ceiling-strip', { switch: 'on', level: 92, colorTemperature: 3200 });
+      return;
+    case 'living-room-cozy':
+      setDeviceState('sofa-lamp', { switch: 'on', level: 34, hue: 8, saturation: 44, colorTemperature: 2200 });
+      setDeviceState('ceiling-strip', { switch: 'on', level: 20, colorTemperature: 2200 });
+      return;
+    case 'kitchen-on':
+      setDeviceState('island-pendant', { switch: 'on', level: 100, colorTemperature: 3600 });
+      return;
+    case 'bedroom-night':
+      setDeviceState('bedside-left', { switch: 'on', level: 18, colorTemperature: 2000 });
+      setDeviceState('bedside-right', { switch: 'off' });
+      return;
+    default:
+      console.warn(`Mock SmartThings scene "${sceneId}" is not configured.`);
+  }
+}
+
+function setDeviceState(deviceId, nextState) {
+  const status = mockState.statuses[deviceId];
+  if (!status) return;
+
+  const main = status.components.main;
+
+  if (nextState.switch != null) {
+    main.switch = { switch: { value: nextState.switch } };
+  }
+  if (nextState.level != null) {
+    main.switchLevel = { level: { value: nextState.level } };
+  }
+  if (nextState.hue != null || nextState.saturation != null) {
+    main.colorControl = {
+      hue: { value: Number(nextState.hue ?? 0) },
+      saturation: { value: Number(nextState.saturation ?? 0) },
+    };
+  }
+  if (nextState.colorTemperature != null) {
+    main.colorTemperature = {
+      colorTemperature: { value: Number(nextState.colorTemperature) },
+    };
+  }
+
+  if (nextState.switch === 'off' && main.switchLevel?.level) {
+    main.switchLevel.level.value = 0;
   }
 }
 

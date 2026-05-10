@@ -5,6 +5,8 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const ROUTINE_CONFIG_KEY = 'st_routine_config';
+const MAX_ROOM_SCENES = 4;
 
 export class HomeView extends LocalizedElement {
   static properties = {
@@ -13,6 +15,8 @@ export class HomeView extends LocalizedElement {
     _activeRoomId:          { state: true },
     _hiddenRoomIds:         { state: true },
     _rooms:                 { state: true },
+    _routineConfig:         { state: true },
+    _scenes:                { state: true },
     _settingsOpen:          { state: true },
     _syncing:               { state: true },
   };
@@ -78,6 +82,48 @@ export class HomeView extends LocalizedElement {
       display: flex;
       align-items: center;
       gap: var(--space-3);
+    }
+
+    .global-toggle-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--color-text-dim);
+      font-size: var(--font-size-xs);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .global-toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      border-radius: var(--radius-full);
+      background: var(--color-surface-high);
+      border: none;
+      cursor: pointer;
+      transition: background var(--transition-base);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .global-toggle.on {
+      background: var(--color-accent);
+    }
+
+    .global-toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      transition: transform var(--transition-base);
+    }
+
+    .global-toggle.on .global-toggle-thumb {
+      transform: translateX(18px);
     }
 
     .icon-btn {
@@ -282,6 +328,80 @@ export class HomeView extends LocalizedElement {
       font-size: var(--font-size-sm);
     }
 
+    .settings-section {
+      margin-bottom: var(--space-5);
+    }
+
+    .settings-section h3 {
+      margin: 0 0 var(--space-3);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-primary);
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: var(--space-3);
+    }
+
+    .routine-card {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      background: var(--color-surface-elevated);
+      border-radius: var(--radius-md);
+    }
+
+    .routine-card h4 {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-primary);
+    }
+
+    .routine-field {
+      display: grid;
+      gap: var(--space-2);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+
+    .routine-field select {
+      width: 100%;
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text-primary);
+      font: inherit;
+    }
+
+    .scene-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+
+    .scene-option {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-full);
+      background: var(--color-surface);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+    }
+
+    .scene-option input {
+      margin: 0;
+      accent-color: var(--color-accent);
+    }
+
+    .routine-hint {
+      margin: 0;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-dim);
+    }
+
     .settings-actions {
       display: flex;
       align-items: center;
@@ -349,6 +469,8 @@ export class HomeView extends LocalizedElement {
     this._activeRoomId          = null;
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._rooms                 = store.rooms;
+    this._routineConfig         = this._loadRoutineConfig();
+    this._scenes                = [];
     this._settingsOpen          = false;
     this._syncing               = false;
   }
@@ -365,6 +487,7 @@ export class HomeView extends LocalizedElement {
 
     // Sync current state in case store already has data
     this._rooms = [...store.rooms];
+    this._loadScenes();
   }
 
   disconnectedCallback() {
@@ -414,6 +537,50 @@ export class HomeView extends LocalizedElement {
     try {
       localStorage.setItem(HIDDEN_ROOMS_KEY, JSON.stringify(hiddenRoomIds));
     } catch { /* storage unavailable — ignore */ }
+  }
+
+  _loadRoutineConfig() {
+    try {
+      const config = JSON.parse(localStorage.getItem(ROUTINE_CONFIG_KEY) ?? '{}');
+      return {
+        global: {
+          onSceneId: config.global?.onSceneId ?? '',
+          offSceneId: config.global?.offSceneId ?? '',
+        },
+        rooms: Object.fromEntries(
+          Object.entries(config.rooms ?? {}).map(([roomId, roomConfig]) => [
+            roomId,
+            {
+              onSceneId: roomConfig?.onSceneId ?? '',
+              offSceneId: roomConfig?.offSceneId ?? '',
+              sceneIds: Array.isArray(roomConfig?.sceneIds)
+                ? roomConfig.sceneIds.slice(0, MAX_ROOM_SCENES)
+                : [],
+            },
+          ])
+        ),
+      };
+    } catch {
+      return {
+        global: { onSceneId: '', offSceneId: '' },
+        rooms: {},
+      };
+    }
+  }
+
+  _saveRoutineConfig(routineConfig) {
+    this._routineConfig = routineConfig;
+    try {
+      localStorage.setItem(ROUTINE_CONFIG_KEY, JSON.stringify(routineConfig));
+    } catch { /* storage unavailable — ignore */ }
+  }
+
+  async _loadScenes() {
+    try {
+      this._scenes = await smartthings.fetchScenes();
+    } catch {
+      this._scenes = [];
+    }
   }
 
   _toggleSettings() {
@@ -488,9 +655,109 @@ export class HomeView extends LocalizedElement {
     return this._visibleRooms.find(room => room.id === this._activeRoomId) ?? null;
   }
 
+  get _anyLightsOn() {
+    return this._rooms.some(room => room.lights.some(light => light.on));
+  }
+
+  _getRoomRoutineConfig(roomId) {
+    return this._routineConfig.rooms?.[roomId] ?? {
+      onSceneId: '',
+      offSceneId: '',
+      sceneIds: [],
+    };
+  }
+
+  _getRoomSceneActions(roomId) {
+    const sceneIds = new Set(this._getRoomRoutineConfig(roomId).sceneIds);
+    return this._scenes.filter(scene => sceneIds.has(scene.id));
+  }
+
+  _updateGlobalRoutine(e) {
+    const field = e.target.name;
+    this._saveRoutineConfig({
+      ...this._routineConfig,
+      global: {
+        ...this._routineConfig.global,
+        [field]: e.target.value,
+      },
+    });
+  }
+
+  _updateRoomRoutine(e) {
+    const { roomId, field } = e.target.dataset;
+    if (!roomId || !field) return;
+
+    this._saveRoutineConfig({
+      ...this._routineConfig,
+      rooms: {
+        ...this._routineConfig.rooms,
+        [roomId]: {
+          ...this._getRoomRoutineConfig(roomId),
+          [field]: e.target.value,
+        },
+      },
+    });
+  }
+
+  _toggleRoomSceneSelection(e) {
+    const { roomId, sceneId } = e.target.dataset;
+    if (!roomId || !sceneId) return;
+
+    const roomConfig = this._getRoomRoutineConfig(roomId);
+    const nextSceneIds = e.target.checked
+      ? [...roomConfig.sceneIds, sceneId].slice(0, MAX_ROOM_SCENES)
+      : roomConfig.sceneIds.filter(id => id !== sceneId);
+
+    this._saveRoutineConfig({
+      ...this._routineConfig,
+      rooms: {
+        ...this._routineConfig.rooms,
+        [roomId]: {
+          ...roomConfig,
+          sceneIds: nextSceneIds,
+        },
+      },
+    });
+  }
+
+  async _runScene(sceneId) {
+    if (!sceneId) return;
+    await smartthings.executeScene(sceneId);
+    await store.syncNow();
+  }
+
+  async _toggleGlobal() {
+    const sceneId = this._anyLightsOn
+      ? this._routineConfig.global?.offSceneId
+      : this._routineConfig.global?.onSceneId;
+
+    if (sceneId) {
+      await this._runScene(sceneId);
+      return;
+    }
+
+    await store.toggleAllRooms();
+  }
+
+  async _toggleRoomAction(room) {
+    if (!room?.id) return;
+
+    const lightsOn = room.lights.some(light => light.on);
+    const roomConfig = this._getRoomRoutineConfig(room.id);
+    const sceneId = lightsOn ? roomConfig.offSceneId : roomConfig.onSceneId;
+
+    if (sceneId) {
+      await this._runScene(sceneId);
+      return;
+    }
+
+    await store.toggleRoom(room.id);
+  }
+
   render() {
     const visibleRooms = this._visibleRooms;
     const activeRoom = this._activeRoom;
+    const anyLightsOn = this._anyLightsOn;
     const settingsLabel = this._settingsOpen
       ? this.t('home.closeSettings')
       : this.t('home.openSettings');
@@ -510,6 +777,19 @@ export class HomeView extends LocalizedElement {
           </div>
           <div class="header-actions">
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
+            <div class="global-toggle-group">
+              <span>${this.t('home.allLights')}</span>
+              <button
+                type="button"
+                class="global-toggle ${anyLightsOn ? 'on' : ''}"
+                @click=${this._toggleGlobal}
+                aria-label=${anyLightsOn
+                  ? this.t('home.turnOffAllLights')
+                  : this.t('home.turnOnAllLights')}
+              >
+                <span class="global-toggle-thumb"></span>
+              </button>
+            </div>
             <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm8 3.5l-1.76-.57a6.86 6.86 0 00-.52-1.24l.86-1.65-1.41-1.41-1.65.86a6.86 6.86 0 00-1.24-.52L13 4h-2l-.57 1.76c-.43.11-.84.28-1.24.52l-1.65-.86-1.41 1.41.86 1.65c-.24.4-.41.81-.52 1.24L4 11v2l1.76.57c.11.43.28.84.52 1.24l-.86 1.65 1.41 1.41 1.65-.86c.4.24.81.41 1.24.52L11 20h2l.57-1.76c.43-.11.84-.28 1.24-.52l1.65.86 1.41-1.41-.86-1.65c.24-.4.41-.81.52-1.24L20 13v-2z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -519,17 +799,29 @@ export class HomeView extends LocalizedElement {
         </div>
       </header>
 
-      ${activeRoom
-        ? html`
+        ${activeRoom
+          ? html`
             <div class="room-detail">
-              <room-card .room=${activeRoom} detail-view></room-card>
+              <room-card
+                .room=${activeRoom}
+                .sceneActions=${this._getRoomSceneActions(activeRoom.id)}
+                .sceneHandler=${sceneId => this._runScene(sceneId)}
+                .toggleHandler=${room => this._toggleRoomAction(room)}
+                detail-view
+              ></room-card>
             </div>
           `
         : html`
             <div class="rooms">
               ${visibleRooms.length === 0
                 ? this._renderEmpty()
-                : visibleRooms.map(r => html`<room-card .room=${r} @open-room=${this._openRoom}></room-card>`)}
+                : visibleRooms.map(r => html`
+                    <room-card
+                      .room=${r}
+                      .toggleHandler=${room => this._toggleRoomAction(room)}
+                      @open-room=${this._openRoom}
+                    ></room-card>
+                  `)}
             </div>
           `}
 
@@ -554,6 +846,8 @@ export class HomeView extends LocalizedElement {
   }
 
   _renderSettings() {
+    const globalConfig = this._routineConfig.global ?? { onSceneId: '', offSceneId: '' };
+
     return html`
       <div class="settings-backdrop" @click=${this._toggleSettings}>
         <div
@@ -571,23 +865,110 @@ export class HomeView extends LocalizedElement {
           ${this._rooms.length === 0
             ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
             : html`
-                <div class="settings-list">
-                  ${this._rooms.map(room => {
-                    const visible = !this._hiddenRoomIds.includes(room.id);
-                    return html`
-                      <label class="settings-row">
-                        <span>${room.name}</span>
-                        <input
-                          type="checkbox"
-                          .checked=${visible}
-                          data-room-id=${room.id}
-                          @change=${this._toggleRoomVisibility}
-                        />
-                      </label>
-                    `;
-                  })}
+                <div class="settings-section">
+                  <div class="settings-list">
+                    ${this._rooms.map(room => {
+                      const visible = !this._hiddenRoomIds.includes(room.id);
+                      return html`
+                        <label class="settings-row">
+                          <span>${room.name}</span>
+                          <input
+                            type="checkbox"
+                            .checked=${visible}
+                            data-room-id=${room.id}
+                            @change=${this._toggleRoomVisibility}
+                          />
+                        </label>
+                      `;
+                    })}
+                  </div>
                 </div>
               `}
+
+          <div class="settings-section">
+            <h3>${this.t('home.routinesTitle')}</h3>
+            ${this._scenes.length === 0
+              ? html`<div class="settings-empty">${this.t('home.routinesEmpty')}</div>`
+              : html`
+                  <div class="settings-grid">
+                    <div class="routine-card">
+                      <h4>${this.t('home.globalRoutinesTitle')}</h4>
+                      <label class="routine-field">
+                        <span>${this.t('home.globalOnRoutine')}</span>
+                        <select name="onSceneId" .value=${globalConfig.onSceneId} @change=${this._updateGlobalRoutine}>
+                          <option value="">${this.t('home.noRoutine')}</option>
+                          ${this._scenes.map(scene => html`<option value=${scene.id}>${scene.name}</option>`)}
+                        </select>
+                      </label>
+                      <label class="routine-field">
+                        <span>${this.t('home.globalOffRoutine')}</span>
+                        <select name="offSceneId" .value=${globalConfig.offSceneId} @change=${this._updateGlobalRoutine}>
+                          <option value="">${this.t('home.noRoutine')}</option>
+                          ${this._scenes.map(scene => html`<option value=${scene.id}>${scene.name}</option>`)}
+                        </select>
+                      </label>
+                    </div>
+
+                    ${this._rooms.map(room => {
+                      const roomConfig = this._getRoomRoutineConfig(room.id);
+                      const selectedScenes = new Set(roomConfig.sceneIds);
+                      const selectionLimitReached = roomConfig.sceneIds.length >= MAX_ROOM_SCENES;
+
+                      return html`
+                        <div class="routine-card">
+                          <h4>${room.name}</h4>
+                          <label class="routine-field">
+                            <span>${this.t('home.roomOnRoutine')}</span>
+                            <select
+                              .value=${roomConfig.onSceneId}
+                              data-room-id=${room.id}
+                              data-field="onSceneId"
+                              @change=${this._updateRoomRoutine}
+                            >
+                              <option value="">${this.t('home.noRoutine')}</option>
+                              ${this._scenes.map(scene => html`<option value=${scene.id}>${scene.name}</option>`)}
+                            </select>
+                          </label>
+                          <label class="routine-field">
+                            <span>${this.t('home.roomOffRoutine')}</span>
+                            <select
+                              .value=${roomConfig.offSceneId}
+                              data-room-id=${room.id}
+                              data-field="offSceneId"
+                              @change=${this._updateRoomRoutine}
+                            >
+                              <option value="">${this.t('home.noRoutine')}</option>
+                              ${this._scenes.map(scene => html`<option value=${scene.id}>${scene.name}</option>`)}
+                            </select>
+                          </label>
+                          <div class="routine-field">
+                            <span>${this.t('home.roomScenes')}</span>
+                            <div class="scene-list">
+                              ${this._scenes.map(scene => {
+                                const checked = selectedScenes.has(scene.id);
+                                return html`
+                                  <label class="scene-option">
+                                    <input
+                                      type="checkbox"
+                                      .checked=${checked}
+                                      ?disabled=${!checked && selectionLimitReached}
+                                      data-room-id=${room.id}
+                                      data-scene-id=${scene.id}
+                                      @change=${this._toggleRoomSceneSelection}
+                                    />
+                                    <span>${scene.name}</span>
+                                  </label>
+                                `;
+                              })}
+                            </div>
+                            <p class="routine-hint">${this.t('home.roomScenesHint', { count: MAX_ROOM_SCENES })}</p>
+                          </div>
+                        </div>
+                      `;
+                    })}
+                  </div>
+                `}
+          </div>
 
           <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
             <span>${this.t('home.connection')}</span>
