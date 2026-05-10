@@ -676,6 +676,10 @@ export class HomeView extends LocalizedElement {
     return this._transitionRoomId ? 'none' : 'page-title';
   }
 
+  _headerTransitionName() {
+    return this._transitionRoomId ? 'home-header' : 'none';
+  }
+
   get _visibleRooms() {
     const hidden = new Set(this._hiddenRoomIds);
     return this._rooms.filter(room => !hidden.has(room.id));
@@ -694,7 +698,7 @@ export class HomeView extends LocalizedElement {
 
     return html`
       <style>${homeViewStyles.cssText}</style>
-      <header>
+      <header style=${`view-transition-name: ${this._headerTransitionName()};`}>
         <div class="header-inner">
           <div class="header-title ${activeRoom ? 'room-active' : ''}">
             <div class="header-nav-slot">

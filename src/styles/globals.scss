@@ -98,11 +98,16 @@
 }
 
 ::view-transition-group(app-page),
+::view-transition-group(home-header),
 ::view-transition-group(page-title),
 ::view-transition-group(home-stage),
 ::view-transition-group(active-room-card) {
   animation-duration: var(--motion-duration-base);
   animation-timing-function: var(--motion-ease-out);
+}
+
+::view-transition-group(home-header) {
+  z-index: 3;
 }
 
 ::view-transition-group(active-room-card) {
@@ -178,6 +183,7 @@ body {
   }
 
   ::view-transition-group(app-page),
+  ::view-transition-group(home-header),
   ::view-transition-group(page-title),
   ::view-transition-group(home-stage),
   ::view-transition-group(active-room-card) {
