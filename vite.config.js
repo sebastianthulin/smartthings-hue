@@ -42,8 +42,8 @@ export default defineConfig(({ command }) => ({
       includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
         id: './',
-        name: 'SmartThings Hue',
-        short_name: 'Hue Home',
+        name: 'SmartHue',
+        short_name: 'SmartHue',
         description: 'SmartThings but with the Philips Hue experience',
         theme_color: '#0d0d0d',
         background_color: '#0d0d0d',
