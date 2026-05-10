@@ -73,13 +73,20 @@ export class RoomCard extends LitElement {
     /* ── Main row ─────────────────────────────────────────── */
     .main {
       display: flex;
+      flex-direction: column;
+      padding: var(--space-5) var(--space-5) var(--space-4);
+      gap: var(--space-3);
+    }
+
+    .top-row,
+    .bottom-row {
+      display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      padding: var(--space-5) var(--space-5) var(--space-4);
       gap: var(--space-4);
     }
 
-    .left {
+    .room-summary {
       flex: 1;
       min-width: 0;
     }
@@ -119,9 +126,9 @@ export class RoomCard extends LitElement {
 
     .room-controls {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
+      align-items: center;
       gap: var(--space-2);
+      flex-shrink: 0;
     }
 
     .room-toggle-label {
@@ -129,6 +136,7 @@ export class RoomCard extends LitElement {
       color: var(--color-text-dim);
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      line-height: 1;
     }
 
     .room-toggle {
@@ -343,15 +351,10 @@ export class RoomCard extends LitElement {
         <div class="glow"></div>
 
         <div class="main">
-          <div class="left">
-            <div class="room-name">${room.name}</div>
-            <div class="light-status">${this._lightStatusText}</div>
-          </div>
-          <div class="right">
-            <presence-indicator ?occupied=${room.occupied}></presence-indicator>
-            ${room.climate
-              ? html`<climate-summary .climate=${room.climate}></climate-summary>`
-              : ''}
+          <div class="top-row">
+            <div class="room-summary">
+              <div class="room-name">${room.name}</div>
+            </div>
             <div class="room-controls">
               <div class="room-toggle-label">Lights</div>
               <button
@@ -366,6 +369,19 @@ export class RoomCard extends LitElement {
               </button>
             </div>
           </div>
+
+          <div class="bottom-row">
+            <div class="room-summary">
+              <div class="light-status">${this._lightStatusText}</div>
+            </div>
+            <div class="right">
+              <presence-indicator ?occupied=${room.occupied}></presence-indicator>
+              ${room.climate
+                ? html`<climate-summary .climate=${room.climate}></climate-summary>`
+                : ''}
+            </div>
+          </div>
+
         </div>
 
         ${lightsOn && avgBrightness != null ? html`
