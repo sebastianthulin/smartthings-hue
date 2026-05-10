@@ -12,10 +12,12 @@ export class TokenSetup extends LocalizedElement {
   static styles = css`
     :host {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100dvh;
       padding: var(--space-6);
+      gap: var(--space-4);
     }
 
     .card {
@@ -135,6 +137,18 @@ export class TokenSetup extends LocalizedElement {
       color: var(--color-accent);
       text-decoration: none;
     }
+
+    .preview-link {
+      color: var(--color-text-dim);
+      font-size: var(--font-size-xs);
+      text-decoration: none;
+      transition: color var(--transition-base);
+    }
+
+    .preview-link:hover,
+    .preview-link:focus-visible {
+      color: var(--color-text-secondary);
+    }
   `;
 
   constructor() {
@@ -200,6 +214,8 @@ export class TokenSetup extends LocalizedElement {
   }
 
   render() {
+    const previewHref = `${window.location.pathname}?mock=1`;
+
     return html`
       <div class="card">
         <div class="logo"></div>
@@ -237,6 +253,10 @@ export class TokenSetup extends LocalizedElement {
           ${this.t('tokenSetup.storageHint')}
         </p>
       </div>
+
+      <a class="preview-link" href=${previewHref}>
+        ${this.t('tokenSetup.preview')}
+      </a>
     `;
   }
 }

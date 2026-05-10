@@ -10,6 +10,7 @@ export const sv = {
     title: 'SmartThings Hue',
     description: 'Klistra in din personliga SmartThings-åtkomsttoken för att ansluta.',
     label: 'Personlig åtkomsttoken',
+    preview: 'Förhandsvisning',
     connect: 'Anslut',
     connecting: 'Ansluter…',
     tokenUrlLabel: 'account.smartthings.com/tokens',

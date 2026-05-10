@@ -10,6 +10,7 @@ export const en = {
     title: 'SmartThings Hue',
     description: 'Paste your SmartThings Personal Access Token to connect.',
     label: 'Personal Access Token',
+    preview: 'Preview',
     connect: 'Connect',
     connecting: 'Connecting…',
     tokenUrlLabel: 'account.smartthings.com/tokens',
