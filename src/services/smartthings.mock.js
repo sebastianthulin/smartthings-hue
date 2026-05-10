@@ -291,19 +291,22 @@ function setDeviceState(deviceId, nextState) {
 
   const main = status.components.main;
 
-  if (nextState.switch != null) {
+  if (nextState.switch !== undefined && nextState.switch !== null) {
     main.switch = { switch: { value: nextState.switch } };
   }
-  if (nextState.level != null) {
+  if (nextState.level !== undefined && nextState.level !== null) {
     main.switchLevel = { level: { value: nextState.level } };
   }
-  if (nextState.hue != null || nextState.saturation != null) {
+  if (
+    (nextState.hue !== undefined && nextState.hue !== null)
+    || (nextState.saturation !== undefined && nextState.saturation !== null)
+  ) {
     main.colorControl = {
       hue: { value: Number(nextState.hue ?? 0) },
       saturation: { value: Number(nextState.saturation ?? 0) },
     };
   }
-  if (nextState.colorTemperature != null) {
+  if (nextState.colorTemperature !== undefined && nextState.colorTemperature !== null) {
     main.colorTemperature = {
       colorTemperature: { value: Number(nextState.colorTemperature) },
     };

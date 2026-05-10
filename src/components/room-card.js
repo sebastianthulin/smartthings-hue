@@ -19,7 +19,7 @@ export class RoomCard extends LocalizedElement {
     room:         { type: Object },
     detailView:   { type: Boolean, attribute: 'detail-view' },
     sceneActions: { type: Array },
-    toggleHandler:{ attribute: false },
+    toggleHandler: { attribute: false },
     sceneHandler: { attribute: false },
     _pressing:    { state: true },
   };
