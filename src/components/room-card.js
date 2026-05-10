@@ -5,6 +5,10 @@ import './presence-indicator.js';
 import './climate-summary.js';
 import './light-group.js';
 
+const SWIPE_THRESHOLD = 8;
+const SWIPE_BRIGHTNESS_MULTIPLIER = 0.8;
+const DEFAULT_SWIPE_BRIGHTNESS = 50;
+
 /**
  * <room-card> — the primary UI element.
  *
@@ -293,16 +297,17 @@ export class RoomCard extends LocalizedElement {
     if (this._swipeStartX === null) return;
     const dx = e.clientX - this._swipeStartX;
 
-    if (Math.abs(dx) > 8) {
+    if (Math.abs(dx) > SWIPE_THRESHOLD) {
       this._swiping = true;
       this._pressing = false;
 
-      // Map swipe to brightness change (±60 px = ±60% brightness)
+      // Map swipe to brightness change (±75 px = ±60% brightness)
       const room = this.room;
       const anyHasBrightness = room.lights.some(l => l.brightness != null);
       if (anyHasBrightness) {
         const newBrightness = Math.max(0, Math.min(100,
-          (this._swipeStartBrightness ?? 50) + dx * 0.8
+          (this._swipeStartBrightness ?? DEFAULT_SWIPE_BRIGHTNESS)
+            + dx * SWIPE_BRIGHTNESS_MULTIPLIER
         ));
         this._swipeDx = newBrightness;
         store.setRoomBrightness(room.id, Math.round(newBrightness));
