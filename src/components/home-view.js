@@ -533,13 +533,18 @@ export class HomeView extends LitElement {
                 </div>
               `}
 
-          <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
+          <button
+            class="connection-btn"
+            @click=${this._toggleConnectionMenu}
+            aria-expanded=${String(this._connectionMenuOpen)}
+            aria-controls="connection-panel"
+          >
             <span>Connection</span>
             <span class="connection-chevron ${this._connectionMenuOpen ? 'open' : ''}">⌄</span>
           </button>
 
           ${this._connectionMenuOpen ? html`
-            <div class="connection-panel">
+            <div class="connection-panel" id="connection-panel">
               <p>Disconnecting removes the SmartThings token and clears the synced home data on this device.</p>
               <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>Disconnect SmartThings</button>
             </div>
@@ -555,7 +560,7 @@ export class HomeView extends LitElement {
 
   _renderDisconnectConfirm() {
     return html`
-      <div class="confirm-backdrop" @click=${this._closeDisconnectConfirm}>
+      <div class="confirm-backdrop" role="presentation" @click=${this._closeDisconnectConfirm}>
         <div
           class="confirm-dialog"
           role="alertdialog"
