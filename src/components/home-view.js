@@ -15,9 +15,39 @@ export class HomeView extends LocalizedElement {
     _rooms:                 { state: true },
     _settingsOpen:          { state: true },
     _syncing:               { state: true },
+    _transitionRoomId:      { state: true },
   };
 
   static styles = css`
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes rise-in {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes drift-glow {
+      0%, 100% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      50% {
+        transform: translate3d(0, -10px, 0) scale(1.04);
+      }
+    }
+
     :host {
       display: block;
       min-height: 100dvh;
@@ -62,6 +92,7 @@ export class HomeView extends LocalizedElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      view-transition-name: page-title;
     }
 
     .sync-dot {
@@ -97,8 +128,13 @@ export class HomeView extends LocalizedElement {
       border: 1px solid var(--color-border);
       border-radius: var(--radius-full);
       cursor: pointer;
-      transition: color var(--transition-base), border-color var(--transition-base);
+      transition: color var(--transition-base), border-color var(--transition-base), transform var(--transition-fast), background var(--transition-base);
       -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-1px);
+      background: var(--color-surface-elevated);
     }
 
     .icon-btn:active {
@@ -134,10 +170,12 @@ export class HomeView extends LocalizedElement {
       display: flex;
       flex-direction: column;
       gap: var(--space-3);
+      view-transition-name: home-stage;
     }
 
     .room-detail {
       padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+      view-transition-name: home-stage;
     }
 
     .empty {
@@ -171,6 +209,7 @@ export class HomeView extends LocalizedElement {
       opacity: 0.15;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
+      animation: drift-glow var(--motion-duration-slow) ease-in-out infinite;
     }
 
     .empty h2 {
@@ -200,6 +239,12 @@ export class HomeView extends LocalizedElement {
       color: var(--color-text-primary);
       font: inherit;
       cursor: pointer;
+      transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
+    }
+
+    .connection-btn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .connection-chevron {
@@ -219,6 +264,7 @@ export class HomeView extends LocalizedElement {
       border: 1px solid rgba(255, 107, 107, 0.18);
       border-radius: var(--radius-md);
       box-sizing: border-box;
+      animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
     }
 
     .connection-panel p {
@@ -237,7 +283,11 @@ export class HomeView extends LocalizedElement {
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-medium);
       cursor: pointer;
-      transition: background var(--transition-base);
+      transition: background var(--transition-base), transform var(--transition-fast);
+    }
+
+    .disconnect-btn:hover {
+      transform: translateY(-1px);
     }
 
     .disconnect-btn:active {
@@ -256,6 +306,7 @@ export class HomeView extends LocalizedElement {
       backdrop-filter: blur(2px);
       overflow-y: auto;
       z-index: 20;
+      animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
     }
 
     .settings-sheet {
@@ -267,6 +318,7 @@ export class HomeView extends LocalizedElement {
       padding: var(--space-6);
       box-sizing: border-box;
       overflow-y: auto;
+      animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
     }
 
     .settings-sheet h2 {
@@ -347,6 +399,7 @@ export class HomeView extends LocalizedElement {
       padding: var(--space-4);
       background: rgba(5, 6, 10, 0.82);
       z-index: 30;
+      animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
     }
 
     .confirm-dialog {
@@ -356,6 +409,7 @@ export class HomeView extends LocalizedElement {
       border-radius: var(--radius-xl);
       padding: var(--space-6);
       box-sizing: border-box;
+      animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
     }
 
     .confirm-dialog h3 {
@@ -390,6 +444,7 @@ export class HomeView extends LocalizedElement {
     this._rooms                 = store.rooms;
     this._settingsOpen          = false;
     this._syncing               = false;
+    this._transitionRoomId      = null;
   }
 
   connectedCallback() {
@@ -508,14 +563,50 @@ export class HomeView extends LocalizedElement {
     this._saveHiddenRooms([...hidden]);
   }
 
-  _openRoom(e) {
+  async _openRoom(e) {
     const roomId = e.detail?.roomId;
     if (!roomId) return;
-    this._activeRoomId = roomId;
+
+    await this._runRoomViewTransition(roomId, () => {
+      this._activeRoomId = roomId;
+    });
   }
 
-  _closeRoom() {
-    this._activeRoomId = null;
+  async _closeRoom() {
+    const roomId = this._activeRoomId;
+    if (!roomId) return;
+
+    await this._runRoomViewTransition(roomId, () => {
+      this._activeRoomId = null;
+    });
+  }
+
+  async _runRoomViewTransition(roomId, update) {
+    const startViewTransition = document.startViewTransition?.bind(document);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!startViewTransition || reducedMotion) {
+      update();
+      return;
+    }
+
+    this._transitionRoomId = roomId;
+    await this.updateComplete;
+
+    const transition = startViewTransition(async () => {
+      update();
+      await this.updateComplete;
+    });
+
+    try {
+      await transition.finished;
+    } finally {
+      this._transitionRoomId = null;
+    }
+  }
+
+  _roomTransitionName(roomId) {
+    return this._transitionRoomId === roomId ? 'active-room-card' : 'none';
   }
 
   get _visibleRooms() {
@@ -557,14 +648,24 @@ export class HomeView extends LocalizedElement {
       ${activeRoom
         ? html`
             <div class="room-detail">
-              <room-card .room=${activeRoom} detail-view></room-card>
+              <room-card
+                .room=${activeRoom}
+                detail-view
+                style=${`view-transition-name: ${this._roomTransitionName(activeRoom.id)};`}
+              ></room-card>
             </div>
           `
         : html`
             <div class="rooms">
               ${visibleRooms.length === 0
                 ? this._renderEmpty()
-                : visibleRooms.map(r => html`<room-card .room=${r} @open-room=${this._openRoom}></room-card>`)}
+                : visibleRooms.map(r => html`
+                    <room-card
+                      .room=${r}
+                      style=${`view-transition-name: ${this._roomTransitionName(r.id)};`}
+                      @open-room=${this._openRoom}
+                    ></room-card>
+                  `)}
             </div>
           `}
 

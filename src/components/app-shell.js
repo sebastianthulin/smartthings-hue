@@ -21,6 +21,11 @@ export class AppShell extends LitElement {
       font-family: var(--font-family);
       box-sizing: border-box;
     }
+
+    .page-shell {
+      min-height: 100dvh;
+      view-transition-name: app-page;
+    }
   `;
 
   constructor() {
@@ -32,12 +37,16 @@ export class AppShell extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    store.addEventListener('error', () => {
+    this._onStoreError = () => {
       if (store.authError) {
-        this._authError = true;
-        this._hasToken  = false;
+        this._runAppViewTransition(() => {
+          this._authError = true;
+          this._hasToken  = false;
+        });
       }
-    });
+    };
+
+    store.addEventListener('error', this._onStoreError);
 
     if (this._hasToken) {
       this._boot();
@@ -46,6 +55,7 @@ export class AppShell extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    store.removeEventListener('error', this._onStoreError);
     store.stopSync();
   }
 
@@ -54,24 +64,45 @@ export class AppShell extends LitElement {
     store.startSync();   // then sync in background
   }
 
-  _handleTokenSet(e) {
+  async _handleTokenSet(e) {
     const { token } = e.detail;
     smartthings.setToken(token);
-    this._hasToken  = true;
-    this._authError = false;
+    await this._runAppViewTransition(() => {
+      this._hasToken  = true;
+      this._authError = false;
+    });
     this._boot();
+  }
+
+  async _runAppViewTransition(update) {
+    const startViewTransition = document.startViewTransition?.bind(document);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!startViewTransition || reducedMotion) {
+      update();
+      return;
+    }
+
+    const transition = startViewTransition(async () => {
+      update();
+      await this.updateComplete;
+    });
+
+    await transition.finished;
   }
 
   render() {
     if (!this._hasToken) {
       return html`
-        <token-setup
-          ?auth-error=${this._authError}
-          @token-set=${this._handleTokenSet}
-        ></token-setup>
+        <div class="page-shell">
+          <token-setup
+            ?auth-error=${this._authError}
+            @token-set=${this._handleTokenSet}
+          ></token-setup>
+        </div>
       `;
     }
-    return html`<home-view></home-view>`;
+    return html`<div class="page-shell"><home-view></home-view></div>`;
   }
 }
 

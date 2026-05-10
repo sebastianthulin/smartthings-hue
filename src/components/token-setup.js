@@ -35,6 +35,7 @@ export class TokenSetup extends LocalizedElement {
       padding: var(--space-8);
       border: 1px solid var(--color-border);
       box-sizing: border-box;
+      view-transition-name: home-stage;
     }
 
     .field {
@@ -56,6 +57,7 @@ export class TokenSetup extends LocalizedElement {
       font-weight: var(--font-weight-semibold);
       color: var(--color-text-primary);
       letter-spacing: -0.5px;
+      view-transition-name: page-title;
     }
 
     p {
@@ -113,6 +115,10 @@ export class TokenSetup extends LocalizedElement {
       cursor: pointer;
       transition: opacity var(--transition-base), transform var(--transition-fast);
       -webkit-tap-highlight-color: transparent;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
     }
 
     button:active {
