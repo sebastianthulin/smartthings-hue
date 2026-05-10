@@ -1,12 +1,13 @@
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
 import { store } from '../services/store.js';
+import { LocalizedElement } from './localized-element.js';
 import './dimmer-slider.js';
 
 /**
  * <light-group> — expanded light controls inside a room card.
  * Shows individual lights with toggle and brightness control.
  */
-export class LightGroup extends LitElement {
+export class LightGroup extends LocalizedElement {
   static properties = {
     lights: { type: Array },
     roomId: { type: String },
@@ -110,7 +111,9 @@ export class LightGroup extends LitElement {
               <button
                 class="toggle ${light.on ? 'on' : ''}"
                 @click=${() => this._toggle(light.id)}
-                aria-label="${light.on ? 'Turn off' : 'Turn on'} ${light.name}"
+                aria-label=${light.on
+                  ? this.t('room.turnOffLight', { name: light.name })
+                  : this.t('room.turnOnLight', { name: light.name })}
               >
                 <span class="toggle-thumb"></span>
               </button>

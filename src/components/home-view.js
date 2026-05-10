@@ -1,11 +1,12 @@
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
 import { store } from '../services/store.js';
 import { smartthings } from '../services/smartthings.js';
+import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
 
-export class HomeView extends LitElement {
+export class HomeView extends LocalizedElement {
   static properties = {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
@@ -454,12 +455,14 @@ export class HomeView extends LitElement {
 
   render() {
     const visibleRooms = this._visibleRooms;
-    const settingsLabel = this._settingsOpen ? 'Close settings' : 'Open settings';
+    const settingsLabel = this._settingsOpen
+      ? this.t('home.closeSettings')
+      : this.t('home.openSettings');
 
     return html`
       <header>
         <div class="header-inner">
-          <h1>Home</h1>
+          <h1>${this.t('home.title')}</h1>
           <div class="header-actions">
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
             <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
@@ -489,10 +492,10 @@ export class HomeView extends LitElement {
         <svg class="empty-icon" viewBox="0 0 64 64" fill="none">
           <path d="M32 8L8 28V56h16V40h16v16h16V28L32 8z" stroke="white" stroke-width="3" stroke-linejoin="round"/>
         </svg>
-        <h2>${hasRooms ? 'All rooms are hidden' : 'Setting up your home…'}</h2>
+        <h2>${hasRooms ? this.t('home.allRoomsHidden') : this.t('home.setupTitle')}</h2>
         <p>${hasRooms
-          ? 'Open settings to choose which rooms should be shown on this device.'
-          : 'Fetching your rooms and lights from SmartThings.'}</p>
+          ? this.t('home.allRoomsHiddenDescription')
+          : this.t('home.setupDescription')}</p>
       </div>
     `;
   }
@@ -504,16 +507,16 @@ export class HomeView extends LitElement {
           class="settings-sheet"
           role="dialog"
           aria-modal="true"
-          aria-label="Settings"
+          aria-label=${this.t('home.settingsTitle')}
           tabindex="-1"
           @click=${e => e.stopPropagation()}
           @keydown=${this._onSettingsKeyDown}
         >
-          <h2>Settings</h2>
-          <p>Choose which rooms should be visible on this device.</p>
+          <h2>${this.t('home.settingsTitle')}</h2>
+          <p>${this.t('home.settingsDescription')}</p>
 
           ${this._rooms.length === 0
-            ? html`<div class="settings-empty">Rooms will appear here after your home finishes syncing.</div>`
+            ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
             : html`
                 <div class="settings-list">
                   ${this._rooms.map(room => {
@@ -534,19 +537,19 @@ export class HomeView extends LitElement {
               `}
 
           <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
-            <span>Connection</span>
+            <span>${this.t('home.connection')}</span>
             <span class="connection-chevron ${this._connectionMenuOpen ? 'open' : ''}">⌄</span>
           </button>
 
           ${this._connectionMenuOpen ? html`
             <div class="connection-panel">
-              <p>Disconnecting removes the SmartThings token and clears the synced home data on this device.</p>
-              <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>Disconnect SmartThings</button>
+              <p>${this.t('home.disconnectDescription')}</p>
+              <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>${this.t('home.disconnectAction')}</button>
             </div>
           ` : ''}
 
           <div class="settings-actions">
-            <button class="secondary-btn" @click=${this._toggleSettings}>Done</button>
+            <button class="secondary-btn" @click=${this._toggleSettings}>${this.t('common.done')}</button>
           </div>
         </div>
       </div>
@@ -560,16 +563,16 @@ export class HomeView extends LitElement {
           class="confirm-dialog"
           role="alertdialog"
           aria-modal="true"
-          aria-label="Confirm disconnect"
+          aria-label=${this.t('home.confirmDisconnectLabel')}
           tabindex="-1"
           @click=${e => e.stopPropagation()}
           @keydown=${this._onDisconnectConfirmKeyDown}
         >
-          <h3>Disconnect from SmartThings?</h3>
-          <p>Your token will be removed from this device and the cached home state will be cleared. Hidden room choices on this device will stay saved.</p>
+          <h3>${this.t('home.confirmDisconnectTitle')}</h3>
+          <p>${this.t('home.confirmDisconnectDescription')}</p>
           <div class="confirm-actions">
-            <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>Cancel</button>
-            <button class="disconnect-btn" @click=${this._confirmDisconnect}>Disconnect</button>
+            <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>${this.t('common.cancel')}</button>
+            <button class="disconnect-btn" @click=${this._confirmDisconnect}>${this.t('home.disconnect')}</button>
           </div>
         </div>
       </div>
