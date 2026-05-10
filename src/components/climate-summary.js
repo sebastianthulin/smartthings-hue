@@ -34,7 +34,7 @@ export class ClimateSummary extends LitElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-family: 'Material Symbols Outlined';
+      font-family: 'Material Symbols Outlined Variable';
       font-size: 15px;
       font-weight: normal;
       font-style: normal;

@@ -59,20 +59,50 @@ export default defineConfig(({ command }) => ({
             sizes: '512x512',
             type: 'image/png'
           }
+        ],
+        screenshots: [
+          {
+            src: './icons/splash.png',
+            sizes: '768x1376',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'SmartHue splash screen'
+          }
         ]
       },
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest,json}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,avif,jpg,jpeg,gif,woff,woff2,webmanifest,json}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         runtimeCaching: [
+          {
+            urlPattern: ({ request, sameOrigin }) => sameOrigin
+              && ['style', 'script', 'worker', 'font', 'image'].includes(request.destination),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'app-static',
+              cacheableResponse: {
+                statuses: [200]
+              },
+              expiration: {
+                maxEntries: 128,
+                maxAgeSeconds: 60 * 60 * 24 * 30
+              }
+            }
+          },
           {
             urlPattern: /^https:\/\/api\.smartthings\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'smartthings-api',
+              networkTimeoutSeconds: 10,
+              cacheableResponse: {
+                statuses: [200]
+              },
               expiration: {
+                maxEntries: 64,
                 maxAgeSeconds: 60 * 5
               }
             }

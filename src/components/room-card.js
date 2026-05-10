@@ -128,7 +128,7 @@ export class RoomCard extends LocalizedElement {
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      font-family: 'Material Symbols Outlined';
+      font-family: 'Material Symbols Outlined Variable';
       font-size: 18px;
       font-weight: normal;
       font-style: normal;

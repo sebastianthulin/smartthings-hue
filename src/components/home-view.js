@@ -170,7 +170,7 @@ const homeViewStyles = css`
   .icon-btn .material-symbols {
     width: 18px;
     height: 18px;
-    font-family: 'Material Symbols Outlined';
+    font-family: 'Material Symbols Outlined Variable';
     font-size: 18px;
     font-weight: normal;
     font-style: normal;
@@ -220,7 +220,7 @@ const homeViewStyles = css`
     justify-content: center;
     width: 64px;
     height: 64px;
-    font-family: 'Material Symbols Outlined';
+    font-family: 'Material Symbols Outlined Variable';
     font-size: 64px;
     font-weight: normal;
     font-style: normal;
