@@ -78,8 +78,46 @@ export class HomeView extends LocalizedElement {
       min-width: 0;
       display: flex;
       align-items: center;
-      gap: var(--space-3);
       flex: 1;
+    }
+
+    .header-nav-slot {
+      width: 0;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: width var(--transition-base), opacity var(--transition-base);
+    }
+
+    .header-title.room-active {
+      gap: var(--space-3);
+    }
+
+    .header-title.room-active .header-nav-slot {
+      width: 40px;
+      opacity: 1;
+    }
+
+    .header-title h1 {
+      transform: translateX(0);
+      transition: transform var(--transition-base);
+    }
+
+    .header-title.room-active h1 {
+      transform: translateX(var(--space-3));
+    }
+
+    .header-nav-slot .icon-btn {
+      opacity: 0;
+      transition: opacity var(--transition-base);
+    }
+
+    .header-title.room-active .header-nav-slot .icon-btn {
+      opacity: 1;
     }
 
     h1 {
@@ -445,6 +483,7 @@ export class HomeView extends LocalizedElement {
     this._settingsOpen          = false;
     this._syncing               = false;
     this._transitionRoomId      = null;
+    this._listScrollTop         = 0;
   }
 
   connectedCallback() {
@@ -567,26 +606,31 @@ export class HomeView extends LocalizedElement {
     const roomId = e.detail?.roomId;
     if (!roomId) return;
 
+    this._listScrollTop = window.scrollY;
+
     await this._runRoomViewTransition(roomId, () => {
       this._activeRoomId = roomId;
-    });
+    }, 0);
   }
 
   async _closeRoom() {
     const roomId = this._activeRoomId;
     if (!roomId) return;
 
+    const restoreScrollTop = this._listScrollTop;
+
     await this._runRoomViewTransition(roomId, () => {
       this._activeRoomId = null;
-    });
+    }, restoreScrollTop);
   }
 
-  async _runRoomViewTransition(roomId, update) {
+  async _runRoomViewTransition(roomId, update, scrollTop) {
     const startViewTransition = document.startViewTransition?.bind(document);
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (!startViewTransition || reducedMotion) {
       update();
+      this._setScrollTop(scrollTop);
       return;
     }
 
@@ -596,6 +640,7 @@ export class HomeView extends LocalizedElement {
     const transition = startViewTransition(async () => {
       update();
       await this.updateComplete;
+      this._setScrollTop(scrollTop);
     });
 
     try {
@@ -603,6 +648,10 @@ export class HomeView extends LocalizedElement {
     } finally {
       this._transitionRoomId = null;
     }
+  }
+
+  _setScrollTop(scrollTop) {
+    window.scrollTo(0, scrollTop);
   }
 
   _roomTransitionName(roomId) {
@@ -628,12 +677,14 @@ export class HomeView extends LocalizedElement {
     return html`
       <header>
         <div class="header-inner">
-          <div class="header-title">
-            ${activeRoom ? html`
-              <button class="icon-btn" @click=${this._closeRoom} aria-label=${this.t('home.backToRooms')}>
-                <span class="material-symbols" aria-hidden="true">arrow_back_ios_new</span>
-              </button>
-            ` : ''}
+          <div class="header-title ${activeRoom ? 'room-active' : ''}">
+            <div class="header-nav-slot">
+              ${activeRoom ? html`
+                <button class="icon-btn" @click=${this._closeRoom} aria-label=${this.t('home.backToRooms')}>
+                  <span class="material-symbols" aria-hidden="true">arrow_back_ios_new</span>
+                </button>
+              ` : ''}
+            </div>
             <h1>${activeRoom?.name ?? this.t('home.title')}</h1>
           </div>
           <div class="header-actions">

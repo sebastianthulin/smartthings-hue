@@ -17,7 +17,6 @@ export class RoomCard extends LocalizedElement {
   static properties = {
     room:       { type: Object },
     detailView: { type: Boolean, attribute: 'detail-view' },
-    _pressing:  { state: true },
   };
 
   static styles = css`
@@ -41,17 +40,11 @@ export class RoomCard extends LocalizedElement {
       -webkit-user-select: none;
       transition:
         background var(--transition-base),
-        box-shadow var(--transition-base),
-        transform var(--transition-fast);
-      will-change: transform;
+        box-shadow var(--transition-base);
     }
 
     .card.lights-on {
       background: var(--color-surface-elevated);
-    }
-
-    .card.pressing {
-      transform: scale(0.985);
     }
 
     .card.detail-view {
@@ -64,10 +57,6 @@ export class RoomCard extends LocalizedElement {
 
     .card.detail-view.lights-on {
       background: var(--color-surface-elevated);
-    }
-
-    .card.detail-view.pressing {
-      transform: none;
     }
 
     /* Warm glow overlay when lights are on */
@@ -219,7 +208,6 @@ export class RoomCard extends LocalizedElement {
     .expand-wrapper {
       overflow: hidden;
       max-height: 0;
-      transition: max-height var(--transition-slow);
     }
 
     .expand-wrapper.open {
@@ -245,22 +233,6 @@ export class RoomCard extends LocalizedElement {
   constructor() {
     super();
     this.detailView = false;
-    this._pressing  = false;
-  }
-
-  // ── Pointer / gesture handling ──────────────────────────────────────────────
-
-  _pointerDown(e) {
-    if (e.button !== 0 && e.pointerType !== 'touch') return;
-    this._pressing = true;
-  }
-
-  _pointerUp() {
-    this._pressing = false;
-  }
-
-  _pointerCancel() {
-    this._pressing = false;
   }
 
   _onCardClick() {
@@ -319,10 +291,7 @@ export class RoomCard extends LocalizedElement {
 
     return html`
       <div
-        class="card ${lightsOn ? 'lights-on' : ''} ${this._pressing ? 'pressing' : ''} ${this.detailView ? 'detail-view' : ''}"
-        @pointerdown=${this._pointerDown}
-        @pointerup=${this._pointerUp}
-        @pointercancel=${this._pointerCancel}
+        class="card ${lightsOn ? 'lights-on' : ''} ${this.detailView ? 'detail-view' : ''}"
         @click=${this._onCardClick}
       >
         <div class="glow"></div>
