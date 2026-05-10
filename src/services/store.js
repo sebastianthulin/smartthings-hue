@@ -14,6 +14,7 @@ import { normalizeHome } from './normalizer.js';
 
 const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms
+const BRIGHTNESS_DEBOUNCE_MS = 180;
 
 class HomeStore extends EventTarget {
   #rooms       = [];
@@ -22,6 +23,8 @@ class HomeStore extends EventTarget {
   #lastSync    = null;
   #locationId  = null;
   #authError   = false;
+  #lightLevelTimers = new Map();
+  #roomLevelTimers  = new Map();
 
   get rooms()     { return this.#snapshotRooms(); }
   get syncing()   { return this.#syncing; }
@@ -168,11 +171,20 @@ class HomeStore extends EventTarget {
     const light = this.#findLight(lightId);
     if (!light) return;
 
+    const room = this.#findRoomByLight(lightId);
+    if (room) {
+      this.#clearRoomLevelTimer(room.id);
+    }
+
     light.brightness = brightness;
     light.on = brightness > 0;
     this.#emit();
 
-    await Promise.allSettled([smartthings.setLevel(lightId, brightness)]);
+    this.#clearLightLevelTimer(lightId);
+    this.#lightLevelTimers.set(lightId, setTimeout(async () => {
+      this.#lightLevelTimers.delete(lightId);
+      await Promise.allSettled([smartthings.setLevel(lightId, brightness)]);
+    }, BRIGHTNESS_DEBOUNCE_MS));
   }
 
   /** Set brightness for all lights in a room. */
@@ -186,9 +198,14 @@ class HomeStore extends EventTarget {
     });
     this.#emit();
 
-    await Promise.allSettled(
-      room.lights.map(l => smartthings.setLevel(l.id, brightness))
-    );
+    room.lights.forEach(light => this.#clearLightLevelTimer(light.id));
+    this.#clearRoomLevelTimer(roomId);
+    this.#roomLevelTimers.set(roomId, setTimeout(async () => {
+      this.#roomLevelTimers.delete(roomId);
+      await Promise.allSettled(
+        room.lights.map(light => smartthings.setLevel(light.id, brightness))
+      );
+    }, BRIGHTNESS_DEBOUNCE_MS));
   }
 
   // ── Internal helpers ───────────────────────────────────────────────────────
@@ -203,6 +220,29 @@ class HomeStore extends EventTarget {
       if (light) return light;
     }
     return null;
+  }
+
+  #findRoomByLight(lightId) {
+    for (const room of this.#rooms) {
+      if (room.lights.some(light => light.id === lightId)) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  #clearLightLevelTimer(lightId) {
+    const timer = this.#lightLevelTimers.get(lightId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.#lightLevelTimers.delete(lightId);
+  }
+
+  #clearRoomLevelTimer(roomId) {
+    const timer = this.#roomLevelTimers.get(roomId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.#roomLevelTimers.delete(roomId);
   }
 
   #snapshotRooms() {
