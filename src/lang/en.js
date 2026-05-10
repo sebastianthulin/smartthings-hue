@@ -1,13 +1,13 @@
 export const en = {
   app: {
-    title: 'SmartThings Hue',
+    title: 'SmartHue',
   },
   common: {
     cancel: 'Cancel',
     done: 'Done',
   },
   tokenSetup: {
-    title: 'SmartThings Hue',
+    title: 'SmartHue',
     description: 'Paste your SmartThings Personal Access Token to connect.',
     label: 'Personal Access Token',
     preview: 'Preview',

@@ -21,37 +21,36 @@ export class TokenSetup extends LocalizedElement {
     }
 
     .card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
       width: 100%;
       max-width: 380px;
       background: var(--color-surface);
       border-radius: var(--radius-xl);
       padding: var(--space-8);
       border: 1px solid var(--color-border);
+      box-sizing: border-box;
     }
 
-    .logo {
-      width: 52px;
-      height: 52px;
-      background: radial-gradient(circle, var(--color-accent-bright) 0%, var(--color-accent) 70%);
-      border-radius: var(--radius-full);
-      margin: 0 auto var(--space-6);
-      box-shadow: 0 0 32px var(--color-on-glow);
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
     }
 
     h1 {
-      margin: 0 0 var(--space-2);
+      margin: 0;
       font-size: var(--font-size-xl);
       font-weight: var(--font-weight-semibold);
-      text-align: center;
       color: var(--color-text-primary);
       letter-spacing: -0.5px;
     }
 
     p {
-      margin: 0 0 var(--space-8);
+      margin: 0;
       font-size: var(--font-size-sm);
       color: var(--color-text-secondary);
-      text-align: center;
       line-height: 1.5;
     }
 
@@ -62,7 +61,7 @@ export class TokenSetup extends LocalizedElement {
       color: var(--color-text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: var(--space-2);
+      margin: 0;
     }
 
     input {
@@ -76,7 +75,8 @@ export class TokenSetup extends LocalizedElement {
       font-size: var(--font-size-base);
       outline: none;
       transition: border-color var(--transition-base);
-      margin-bottom: var(--space-4);
+      margin: 0;
+      box-sizing: border-box;
     }
 
     input:focus {
@@ -122,14 +122,13 @@ export class TokenSetup extends LocalizedElement {
       padding: var(--space-3) var(--space-4);
       font-size: var(--font-size-sm);
       color: #ff6b6b;
-      margin-bottom: var(--space-4);
+      margin: 0;
     }
 
     .hint {
-      margin-top: var(--space-5);
+      margin: 0;
       font-size: var(--font-size-xs);
       color: var(--color-text-dim);
-      text-align: center;
       line-height: 1.6;
     }
 
@@ -218,25 +217,26 @@ export class TokenSetup extends LocalizedElement {
 
     return html`
       <div class="card">
-        <div class="logo"></div>
         <h1>${this.t('tokenSetup.title')}</h1>
         <p>${this.t('tokenSetup.description')}</p>
 
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
 
-        <label for="token">${this.t('tokenSetup.label')}</label>
-        <input
-          id="token"
-          type="password"
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          .value=${this._token}
-          @input=${this._onInput}
-          @keydown=${this._onKeyDown}
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          spellcheck="false"
-        />
+        <div class="field">
+          <label for="token">${this.t('tokenSetup.label')}</label>
+          <input
+            id="token"
+            type="password"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            .value=${this._token}
+            @input=${this._onInput}
+            @keydown=${this._onKeyDown}
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
 
         <button
           @click=${this._connect}

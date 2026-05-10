@@ -1,13 +1,13 @@
 export const sv = {
   app: {
-    title: 'SmartThings Hue',
+    title: 'SmartHue',
   },
   common: {
     cancel: 'Avbryt',
     done: 'Klar',
   },
   tokenSetup: {
-    title: 'SmartThings Hue',
+    title: 'SmartHue',
     description: 'Klistra in din personliga SmartThings-åtkomsttoken för att ansluta.',
     label: 'Personlig åtkomsttoken',
     preview: 'Förhandsvisning',
