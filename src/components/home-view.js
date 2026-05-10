@@ -85,6 +85,8 @@ export class HomeView extends LocalizedElement {
     }
 
     .icon-btn {
+      appearance: none;
+      -webkit-appearance: none;
       width: 40px;
       height: 40px;
       display: inline-flex;
@@ -104,9 +106,22 @@ export class HomeView extends LocalizedElement {
       border-color: var(--color-text-dim);
     }
 
-    .icon-btn svg {
+    .icon-btn .material-symbols {
       width: 18px;
       height: 18px;
+      font-family: 'Material Symbols Outlined';
+      font-size: 18px;
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     @keyframes pulse {
@@ -137,9 +152,25 @@ export class HomeView extends LocalizedElement {
     }
 
     .empty-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 64px;
       height: 64px;
+      font-family: 'Material Symbols Outlined';
+      font-size: 64px;
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
       opacity: 0.15;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     .empty h2 {
@@ -509,9 +540,7 @@ export class HomeView extends LocalizedElement {
           <div class="header-title">
             ${activeRoom ? html`
               <button class="icon-btn" @click=${this._closeRoom} aria-label=${this.t('home.backToRooms')}>
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+                <span class="material-symbols" aria-hidden="true">arrow_back_ios_new</span>
               </button>
             ` : ''}
             <h1>${activeRoom?.name ?? this.t('home.title')}</h1>
@@ -519,9 +548,7 @@ export class HomeView extends LocalizedElement {
           <div class="header-actions">
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
             <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm8 3.5l-1.76-.57a6.86 6.86 0 00-.52-1.24l.86-1.65-1.41-1.41-1.65.86a6.86 6.86 0 00-1.24-.52L13 4h-2l-.57 1.76c-.43.11-.84.28-1.24.52l-1.65-.86-1.41 1.41.86 1.65c-.24.4-.41.81-.52 1.24L4 11v2l1.76.57c.11.43.28.84.52 1.24l-.86 1.65 1.41 1.41 1.65-.86c.4.24.81.41 1.24.52L11 20h2l.57-1.76c.43-.11.84-.28 1.24-.52l1.65.86 1.41-1.41-.86-1.65c.24-.4.41-.81.52-1.24L20 13v-2z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <span class="material-symbols" aria-hidden="true">settings</span>
             </button>
           </div>
         </div>
@@ -550,9 +577,7 @@ export class HomeView extends LocalizedElement {
     const hasRooms = this._rooms.length > 0;
     return html`
       <div class="empty">
-        <svg class="empty-icon" viewBox="0 0 64 64" fill="none">
-          <path d="M32 8L8 28V56h16V40h16v16h16V28L32 8z" stroke="white" stroke-width="3" stroke-linejoin="round"/>
-        </svg>
+        <span class="empty-icon" aria-hidden="true">home</span>
         <h2>${hasRooms ? this.t('home.allRoomsHidden') : this.t('home.setupTitle')}</h2>
         <p>${hasRooms
           ? this.t('home.allRoomsHiddenDescription')
