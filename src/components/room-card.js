@@ -19,6 +19,8 @@ export class RoomCard extends LocalizedElement {
     room:       { type: Object },
     detailView: { type: Boolean, attribute: 'detail-view' },
     _pressing:  { state: true },
+    _expanded: { state: true },
+    _pressing: { state: true },
   };
 
   static styles = css`
@@ -260,6 +262,14 @@ export class RoomCard extends LocalizedElement {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  _toggleExpanded() {
+    this._expanded = !this._expanded;
+  }
+
+  _onCardClick() {
+    this._toggleExpanded();
   }
 
   _toggleRoom(e) {
