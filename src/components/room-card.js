@@ -57,7 +57,7 @@ export class RoomCard extends LocalizedElement {
     .card.detail-view {
       background: var(--color-surface);
       border: 1px solid var(--color-border);
-      border-radius: var(--radius-xl);
+      border-radius: var(--radius-lg);
       box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
       overflow: hidden;
     }
