@@ -27,6 +27,11 @@ export default defineConfig(({ command }) => ({
   // Keep dev on the default root path while emitting relative production URLs
   // so the same bundle can be hosted at / or within a subdirectory.
   base: command === 'build' ? './' : '/',
+  server: {
+    host: '0.0.0.0',
+    port: 5174,
+    strictPort: true,
+  },
   plugins: [
     pagesArtifactsPlugin(),
     VitePWA({
