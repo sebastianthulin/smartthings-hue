@@ -315,15 +315,21 @@ export class RoomCard extends LocalizedElement {
     }
   }
 
-  _pointerUp() {
+  _pointerUp(e) {
     const wasSwiping = this._swiping;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
     this._pressing      = false;
     this._swiping       = false;
     this._swipeStartX   = null;
     this._suppressNextClick = wasSwiping;
   }
 
-  _pointerCancel() {
+  _pointerCancel(e) {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
     this._pressing    = false;
     this._swiping     = false;
     this._swipeStartX = null;
