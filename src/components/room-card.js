@@ -237,6 +237,12 @@ export class RoomCard extends LocalizedElement {
     this.transitionName = 'none';
   }
 
+  updated(changed) {
+    if (changed.has('transitionName')) {
+      this.style.setProperty('view-transition-name', this.transitionName || 'none');
+    }
+  }
+
   _onCardClick() {
     if (this.detailView || !this.room?.id) return;
 
@@ -294,7 +300,6 @@ export class RoomCard extends LocalizedElement {
     return html`
       <div
         class="card ${lightsOn ? 'lights-on' : ''} ${this.detailView ? 'detail-view' : ''}"
-        style=${`view-transition-name: ${this.transitionName || 'none'};`}
         @click=${this._onCardClick}
       >
         <div class="glow"></div>

@@ -5,6 +5,460 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const homeViewStyles = css`
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes drift-glow {
+    0%, 100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(0, -10px, 0) scale(1.04);
+    }
+  }
+
+  home-view {
+    display: block;
+    min-height: 100dvh;
+    background: var(--color-bg);
+  }
+
+  home-view *, home-view *::before, home-view *::after {
+    corner-shape: var(--corner-shape);
+  }
+
+  home-view header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: env(safe-area-inset-top, 0) var(--space-4) 0;
+    background: linear-gradient(to bottom, var(--color-bg) 70%, transparent);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-5) 0 var(--space-4);
+  }
+
+  .header-title {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex: 1;
+  }
+
+  .header-nav-slot {
+    width: 0;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: width var(--transition-base), opacity var(--transition-base);
+  }
+
+  .header-title.room-active {
+    gap: var(--space-3);
+  }
+
+  .header-title.room-active .header-nav-slot {
+    width: 40px;
+    opacity: 1;
+  }
+
+  .header-title h1 {
+    transform: translateX(0);
+    transition: transform var(--transition-base);
+  }
+
+  .header-title.room-active h1 {
+    transform: translateX(var(--space-3));
+  }
+
+  .header-nav-slot .icon-btn {
+    opacity: 0;
+    transition: opacity var(--transition-base);
+  }
+
+  .header-title.room-active .header-nav-slot .icon-btn {
+    opacity: 1;
+  }
+
+  home-view h1 {
+    margin: 0;
+    font-size: var(--font-size-2xl, 34px);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -1px;
+    color: var(--color-text-primary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    view-transition-name: page-title;
+  }
+
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+  }
+
+  .sync-dot.active {
+    opacity: 1;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .icon-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: color var(--transition-base), border-color var(--transition-base), transform var(--transition-fast), background var(--transition-base);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .icon-btn:hover {
+    transform: translateY(-1px);
+    background: var(--color-surface-elevated);
+  }
+
+  .icon-btn:active {
+    color: var(--color-text-primary);
+    border-color: var(--color-text-dim);
+  }
+
+  .icon-btn .material-symbols {
+    width: 18px;
+    height: 18px;
+    font-family: 'Material Symbols Outlined';
+    font-size: 18px;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50%       { opacity: 1;   transform: scale(1.3); }
+  }
+
+  .rooms {
+    padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    view-transition-name: home-stage;
+  }
+
+  .room-detail {
+    padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+    view-transition-name: home-stage;
+  }
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60dvh;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    text-align: center;
+  }
+
+  .empty-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    font-family: 'Material Symbols Outlined';
+    font-size: 64px;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+    opacity: 0.15;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    animation: drift-glow var(--motion-duration-slow) ease-in-out infinite;
+  }
+
+  .empty h2 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+  }
+
+  .empty p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-dim);
+    max-width: 240px;
+  }
+
+  .connection-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .connection-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .connection-chevron {
+    color: var(--color-text-dim);
+    transition: transform var(--transition-base);
+  }
+
+  .connection-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .connection-panel {
+    width: 100%;
+    margin-top: var(--space-3);
+    padding: var(--space-4);
+    background: rgba(255, 107, 107, 0.08);
+    border: 1px solid rgba(255, 107, 107, 0.18);
+    border-radius: var(--radius-md);
+    box-sizing: border-box;
+    animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
+  }
+
+  .connection-panel p {
+    margin: 0 0 var(--space-4);
+    color: var(--color-text-secondary);
+  }
+
+  .disconnect-btn {
+    width: 100%;
+    background: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.28);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    color: #ff8e8e;
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-base), transform var(--transition-fast);
+  }
+
+  .disconnect-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .disconnect-btn:active {
+    background: rgba(255, 107, 107, 0.18);
+  }
+
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: var(--space-4);
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
+    background: rgba(5, 6, 10, 0.72);
+    backdrop-filter: blur(2px);
+    overflow-y: auto;
+    z-index: 20;
+    animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
+  }
+
+  .settings-sheet {
+    width: min(100%, 420px);
+    max-height: calc(100dvh - (var(--space-4) * 2) - env(safe-area-inset-bottom, 0));
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-sizing: border-box;
+    overflow-y: auto;
+    animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
+  }
+
+  .settings-sheet h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+  }
+
+  .settings-sheet p {
+    margin: 0 0 var(--space-5);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+
+  .settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+  }
+
+  .settings-row span {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .settings-row input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--color-accent);
+  }
+
+  .settings-empty {
+    padding: var(--space-4);
+    margin-bottom: var(--space-5);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+    color: var(--color-text-dim);
+    font-size: var(--font-size-sm);
+  }
+
+  .settings-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+  }
+
+  .secondary-btn {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: none;
+    padding: var(--space-2) 0;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: rgba(5, 6, 10, 0.82);
+    z-index: 30;
+    animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
+  }
+
+  .confirm-dialog {
+    width: min(100%, 360px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-sizing: border-box;
+    animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
+  }
+
+  .confirm-dialog h3 {
+    margin: 0 0 var(--space-3);
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+  }
+
+  .confirm-dialog p {
+    margin: 0 0 var(--space-5);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+  }
+
+  .confirm-actions .secondary-btn {
+    padding: var(--space-3) 0;
+  }
+`;
 
 export class HomeView extends LocalizedElement {
   static properties = {
@@ -18,460 +472,11 @@ export class HomeView extends LocalizedElement {
     _transitionRoomId:      { state: true },
   };
 
-  static styles = css`
-    @keyframes fade-in {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
-    }
+  static styles = homeViewStyles;
 
-    @keyframes rise-in {
-      from {
-        opacity: 0;
-        transform: translateY(18px) scale(0.985);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    @keyframes drift-glow {
-      0%, 100% {
-        transform: translate3d(0, 0, 0) scale(1);
-      }
-      50% {
-        transform: translate3d(0, -10px, 0) scale(1.04);
-      }
-    }
-
-    :host {
-      display: block;
-      min-height: 100dvh;
-      background: var(--color-bg);
-    }
-
-    *, *::before, *::after {
-      corner-shape: var(--corner-shape);
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      padding: env(safe-area-inset-top, 0) var(--space-4) 0;
-      background: linear-gradient(to bottom, var(--color-bg) 70%, transparent);
-    }
-
-    .header-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-3);
-      padding: var(--space-5) 0 var(--space-4);
-    }
-
-    .header-title {
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      flex: 1;
-    }
-
-    .header-nav-slot {
-      width: 0;
-      height: 40px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      overflow: hidden;
-      opacity: 0;
-      transition: width var(--transition-base), opacity var(--transition-base);
-    }
-
-    .header-title.room-active {
-      gap: var(--space-3);
-    }
-
-    .header-title.room-active .header-nav-slot {
-      width: 40px;
-      opacity: 1;
-    }
-
-    .header-title h1 {
-      transform: translateX(0);
-      transition: transform var(--transition-base);
-    }
-
-    .header-title.room-active h1 {
-      transform: translateX(var(--space-3));
-    }
-
-    .header-nav-slot .icon-btn {
-      opacity: 0;
-      transition: opacity var(--transition-base);
-    }
-
-    .header-title.room-active .header-nav-slot .icon-btn {
-      opacity: 1;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: var(--font-size-2xl, 34px);
-      font-weight: var(--font-weight-bold);
-      letter-spacing: -1px;
-      color: var(--color-text-primary);
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      view-transition-name: page-title;
-    }
-
-    .sync-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--color-accent);
-      opacity: 0;
-      transition: opacity var(--transition-base);
-    }
-
-    .sync-dot.active {
-      opacity: 1;
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .icon-btn {
-      appearance: none;
-      -webkit-appearance: none;
-      width: 40px;
-      height: 40px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--color-surface);
-      color: var(--color-text-secondary);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-full);
-      cursor: pointer;
-      transition: color var(--transition-base), border-color var(--transition-base), transform var(--transition-fast), background var(--transition-base);
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .icon-btn:hover {
-      transform: translateY(-1px);
-      background: var(--color-surface-elevated);
-    }
-
-    .icon-btn:active {
-      color: var(--color-text-primary);
-      border-color: var(--color-text-dim);
-    }
-
-    .icon-btn .material-symbols {
-      width: 18px;
-      height: 18px;
-      font-family: 'Material Symbols Outlined';
-      font-size: 18px;
-      font-weight: normal;
-      font-style: normal;
-      line-height: 1;
-      letter-spacing: normal;
-      text-transform: none;
-      white-space: nowrap;
-      word-wrap: normal;
-      direction: ltr;
-      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.4; transform: scale(1); }
-      50%       { opacity: 1;   transform: scale(1.3); }
-    }
-
-    .rooms {
-      padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-3);
-      view-transition-name: home-stage;
-    }
-
-    .room-detail {
-      padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
-      view-transition-name: home-stage;
-    }
-
-    .empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 60dvh;
-      gap: var(--space-4);
-      padding: var(--space-6);
-      text-align: center;
-    }
-
-    .empty-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 64px;
-      height: 64px;
-      font-family: 'Material Symbols Outlined';
-      font-size: 64px;
-      font-weight: normal;
-      font-style: normal;
-      line-height: 1;
-      letter-spacing: normal;
-      text-transform: none;
-      white-space: nowrap;
-      word-wrap: normal;
-      direction: ltr;
-      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
-      opacity: 0.15;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-      animation: drift-glow var(--motion-duration-slow) ease-in-out infinite;
-    }
-
-    .empty h2 {
-      margin: 0;
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-medium);
-      color: var(--color-text-secondary);
-    }
-
-    .empty p {
-      margin: 0;
-      font-size: var(--font-size-sm);
-      color: var(--color-text-dim);
-      max-width: 240px;
-    }
-
-    .connection-btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-4);
-      padding: var(--space-4);
-      background: var(--color-surface-elevated);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      color: var(--color-text-primary);
-      font: inherit;
-      cursor: pointer;
-      transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
-    }
-
-    .connection-btn:hover {
-      transform: translateY(-1px);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .connection-chevron {
-      color: var(--color-text-dim);
-      transition: transform var(--transition-base);
-    }
-
-    .connection-chevron.open {
-      transform: rotate(180deg);
-    }
-
-    .connection-panel {
-      width: 100%;
-      margin-top: var(--space-3);
-      padding: var(--space-4);
-      background: rgba(255, 107, 107, 0.08);
-      border: 1px solid rgba(255, 107, 107, 0.18);
-      border-radius: var(--radius-md);
-      box-sizing: border-box;
-      animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
-    }
-
-    .connection-panel p {
-      margin: 0 0 var(--space-4);
-      color: var(--color-text-secondary);
-    }
-
-    .disconnect-btn {
-      width: 100%;
-      background: rgba(255, 107, 107, 0.12);
-      border: 1px solid rgba(255, 107, 107, 0.28);
-      border-radius: var(--radius-md);
-      padding: var(--space-4);
-      color: #ff8e8e;
-      font-family: var(--font-family);
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      cursor: pointer;
-      transition: background var(--transition-base), transform var(--transition-fast);
-    }
-
-    .disconnect-btn:hover {
-      transform: translateY(-1px);
-    }
-
-    .disconnect-btn:active {
-      background: rgba(255, 107, 107, 0.18);
-    }
-
-    .settings-backdrop {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding: var(--space-4);
-      padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
-      background: rgba(5, 6, 10, 0.72);
-      backdrop-filter: blur(2px);
-      overflow-y: auto;
-      z-index: 20;
-      animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
-    }
-
-    .settings-sheet {
-      width: min(100%, 420px);
-      max-height: calc(100dvh - (var(--space-4) * 2) - env(safe-area-inset-bottom, 0));
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-xl);
-      padding: var(--space-6);
-      box-sizing: border-box;
-      overflow-y: auto;
-      animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
-    }
-
-    .settings-sheet h2 {
-      margin: 0 0 var(--space-2);
-      font-size: var(--font-size-lg);
-      color: var(--color-text-primary);
-    }
-
-    .settings-sheet p {
-      margin: 0 0 var(--space-5);
-      font-size: var(--font-size-sm);
-      line-height: 1.5;
-      color: var(--color-text-secondary);
-    }
-
-    .settings-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-3);
-      margin-bottom: var(--space-5);
-    }
-
-    .settings-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-4);
-      padding: var(--space-4);
-      background: var(--color-surface-elevated);
-      border-radius: var(--radius-md);
-      color: var(--color-text-primary);
-    }
-
-    .settings-row span {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .settings-row input {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      accent-color: var(--color-accent);
-    }
-
-    .settings-empty {
-      padding: var(--space-4);
-      margin-bottom: var(--space-5);
-      background: var(--color-surface-elevated);
-      border-radius: var(--radius-md);
-      color: var(--color-text-dim);
-      font-size: var(--font-size-sm);
-    }
-
-    .settings-actions {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: var(--space-4);
-      margin-top: var(--space-4);
-    }
-
-    .secondary-btn {
-      background: transparent;
-      color: var(--color-text-secondary);
-      border: none;
-      padding: var(--space-2) 0;
-      font: inherit;
-      cursor: pointer;
-    }
-
-    .confirm-backdrop {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: var(--space-4);
-      background: rgba(5, 6, 10, 0.82);
-      z-index: 30;
-      animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
-    }
-
-    .confirm-dialog {
-      width: min(100%, 360px);
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-xl);
-      padding: var(--space-6);
-      box-sizing: border-box;
-      animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
-    }
-
-    .confirm-dialog h3 {
-      margin: 0 0 var(--space-3);
-      font-size: var(--font-size-lg);
-      color: var(--color-text-primary);
-    }
-
-    .confirm-dialog p {
-      margin: 0 0 var(--space-5);
-      color: var(--color-text-secondary);
-      line-height: 1.5;
-    }
-
-    .confirm-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: var(--space-3);
-    }
-
-    .confirm-actions .secondary-btn {
-      padding: var(--space-3) 0;
-    }
-  `;
+  createRenderRoot() {
+    return this;
+  }
 
   constructor() {
     super();
@@ -630,16 +635,20 @@ export class HomeView extends LocalizedElement {
 
     if (!startViewTransition || reducedMotion) {
       update();
+      await this.updateComplete;
+      await this._awaitRoomCardUpdates();
       this._setScrollTop(scrollTop);
       return;
     }
 
     this._transitionRoomId = roomId;
     await this.updateComplete;
+    await this._awaitRoomCardUpdates();
 
     const transition = startViewTransition(async () => {
       update();
       await this.updateComplete;
+      await this._awaitRoomCardUpdates();
       this._setScrollTop(scrollTop);
     });
 
@@ -652,6 +661,11 @@ export class HomeView extends LocalizedElement {
 
   _setScrollTop(scrollTop) {
     window.scrollTo(0, scrollTop);
+  }
+
+  async _awaitRoomCardUpdates() {
+    const roomCards = [...this.renderRoot.querySelectorAll('room-card')];
+    await Promise.all(roomCards.map(card => card.updateComplete ?? Promise.resolve()));
   }
 
   _roomTransitionName(roomId) {
@@ -675,6 +689,7 @@ export class HomeView extends LocalizedElement {
       : this.t('home.openSettings');
 
     return html`
+      <style>${homeViewStyles.cssText}</style>
       <header>
         <div class="header-inner">
           <div class="header-title ${activeRoom ? 'room-active' : ''}">

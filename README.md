@@ -1,5 +1,7 @@
-# smartthings-hue
-SmartThings but with the Philips HUE experience
+# SmartHue
+SmartThings but with the Philips HUE experience; this repository tries to replicate a smooth philips hue apperance, function and philosophy for lights i smartthings. 
+
+It has one focus; to be the most enjoyable "daily-driver" app for smartthings. 
 
 ## Run locally with mock SmartThings data
 
