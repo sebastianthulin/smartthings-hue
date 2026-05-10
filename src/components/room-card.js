@@ -378,7 +378,7 @@ export class RoomCard extends LocalizedElement {
                     class="routine-btn"
                     @click=${e => this._runRoutine(routine, e)}
                     aria-label=${this.t('room.runRoutine', {
-                      name: room.name,
+                      room: room.name,
                       routine: routine.name,
                     })}
                   >
