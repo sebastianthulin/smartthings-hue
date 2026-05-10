@@ -18,6 +18,10 @@ export class LightGroup extends LocalizedElement {
       display: block;
     }
 
+    *, *::before, *::after {
+      corner-shape: var(--corner-shape);
+    }
+
     .light-list {
       display: flex;
       flex-direction: column;

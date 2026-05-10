@@ -24,6 +24,10 @@ export class HomeView extends LocalizedElement {
       background: var(--color-bg);
     }
 
+    *, *::before, *::after {
+      corner-shape: var(--corner-shape);
+    }
+
     header {
       position: sticky;
       top: 0;

@@ -18,6 +18,10 @@ export class PresenceIndicator extends LitElement {
       height: 28px;
     }
 
+    *, *::before, *::after {
+      corner-shape: var(--corner-shape);
+    }
+
     .wrap {
       width: 28px;
       height: 28px;

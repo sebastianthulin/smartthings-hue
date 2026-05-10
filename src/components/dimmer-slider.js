@@ -17,6 +17,10 @@ export class DimmerSlider extends LitElement {
       display: block;
     }
 
+    *, *::before, *::after {
+      corner-shape: var(--corner-shape);
+    }
+
     .track-wrap {
       position: relative;
       height: 28px;

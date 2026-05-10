@@ -28,6 +28,10 @@ export class RoomCard extends LocalizedElement {
       display: block;
     }
 
+    *, *::before, *::after {
+      corner-shape: var(--corner-shape);
+    }
+
     /* ── Card ─────────────────────────────────────────────── */
     .card {
       position: relative;

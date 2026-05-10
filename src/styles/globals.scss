@@ -52,6 +52,7 @@
   --radius-lg:   #{$radius-lg};
   --radius-xl:   #{$radius-xl};
   --radius-full: #{$radius-full};
+  --corner-shape: squircle;
 
   // Transitions
   --transition-fast:   #{$transition-fast};
@@ -64,6 +65,7 @@
 *, *::before, *::after {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  corner-shape: var(--corner-shape);
 }
 
 html, body {

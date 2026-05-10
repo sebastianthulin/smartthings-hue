@@ -20,6 +20,10 @@ export class TokenSetup extends LocalizedElement {
       gap: var(--space-4);
     }
 
+    *, *::before, *::after {
+      corner-shape: var(--corner-shape);
+    }
+
     .card {
       display: flex;
       flex-direction: column;
