@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const CUSTOM_DOMAIN = 'smarthue.sebastianthulin.se';
+const PWA_SELF_DESTROY = process.env.PWA_SELF_DESTROY === '1';
 
 function pagesArtifactsPlugin() {
   return {
@@ -35,7 +36,9 @@ export default defineConfig(({ command }) => ({
   plugins: [
     pagesArtifactsPlugin(),
     VitePWA({
+      injectRegister: false,
       registerType: 'autoUpdate',
+      selfDestroying: PWA_SELF_DESTROY,
       includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
         id: './',
