@@ -239,7 +239,11 @@ export class RoomCard extends LocalizedElement {
 
   updated(changed) {
     if (changed.has('transitionName')) {
+      const hasSharedTransition = !!this.transitionName && this.transitionName !== 'none';
       this.style.setProperty('view-transition-name', this.transitionName || 'none');
+      this.style.setProperty('border-radius', hasSharedTransition ? 'var(--radius-lg)' : '');
+      this.style.setProperty('overflow', hasSharedTransition ? 'clip' : '');
+      this.style.setProperty('corner-shape', hasSharedTransition ? 'var(--corner-shape)' : '');
     }
   }
 

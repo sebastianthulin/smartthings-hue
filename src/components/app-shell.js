@@ -24,8 +24,9 @@ const appShellStyles = css`
 
 export class AppShell extends LitElement {
   static properties = {
-    _hasToken:  { state: true },
-    _authError: { state: true },
+    _hasToken:             { state: true },
+    _authError:            { state: true },
+    _pageTransitionActive: { state: true },
   };
 
   static styles = appShellStyles;
@@ -36,8 +37,9 @@ export class AppShell extends LitElement {
 
   constructor() {
     super();
-    this._hasToken  = smartthings.hasToken;
-    this._authError = false;
+    this._hasToken             = smartthings.hasToken;
+    this._authError            = false;
+    this._pageTransitionActive = false;
   }
 
   connectedCallback() {
@@ -89,19 +91,26 @@ export class AppShell extends LitElement {
       return;
     }
 
+    this._pageTransitionActive = true;
+    await this.updateComplete;
+
     const transition = startViewTransition(async () => {
       update();
       await this.updateComplete;
     });
 
-    await transition.finished;
+    try {
+      await transition.finished;
+    } finally {
+      this._pageTransitionActive = false;
+    }
   }
 
   render() {
     if (!this._hasToken) {
       return html`
         <style>${appShellStyles.cssText}</style>
-        <div class="page-shell">
+        <div class="page-shell" style=${`view-transition-name: ${this._pageTransitionActive ? 'app-page' : 'none'};`}>
           <token-setup
             ?auth-error=${this._authError}
             @token-set=${this._handleTokenSet}
@@ -111,7 +120,7 @@ export class AppShell extends LitElement {
     }
     return html`
       <style>${appShellStyles.cssText}</style>
-      <div class="page-shell"><home-view></home-view></div>
+      <div class="page-shell" style=${`view-transition-name: ${this._pageTransitionActive ? 'app-page' : 'none'};`}><home-view></home-view></div>
     `;
   }
 }

@@ -672,6 +672,10 @@ export class HomeView extends LocalizedElement {
     return this._transitionRoomId === roomId ? 'active-room-card' : 'none';
   }
 
+  _titleTransitionName() {
+    return this._transitionRoomId ? 'none' : 'page-title';
+  }
+
   get _visibleRooms() {
     const hidden = new Set(this._hiddenRoomIds);
     return this._rooms.filter(room => !hidden.has(room.id));
@@ -700,7 +704,7 @@ export class HomeView extends LocalizedElement {
                 </button>
               ` : ''}
             </div>
-            <h1>${activeRoom?.name ?? this.t('home.title')}</h1>
+            <h1 style=${`view-transition-name: ${this._titleTransitionName()};`}>${activeRoom?.name ?? this.t('home.title')}</h1>
           </div>
           <div class="header-actions">
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>

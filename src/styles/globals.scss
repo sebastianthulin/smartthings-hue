@@ -112,6 +112,7 @@
 ::view-transition-old(active-room-card),
 ::view-transition-new(active-room-card) {
   border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
   overflow: clip;
 }
 
