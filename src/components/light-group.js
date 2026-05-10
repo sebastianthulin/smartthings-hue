@@ -178,6 +178,21 @@ export class LightGroup extends LocalizedElement {
     return '';
   }
 
+  get _sortedLights() {
+    return [...(this.lights ?? [])].sort((left, right) => {
+      const leftHasDimmer = left.brightness != null;
+      const rightHasDimmer = right.brightness != null;
+      if (leftHasDimmer !== rightHasDimmer) {
+        return leftHasDimmer ? -1 : 1;
+      }
+
+      return (left.name ?? '').localeCompare(right.name ?? '', undefined, {
+        sensitivity: 'base',
+        numeric: true,
+      });
+    });
+  }
+
   render() {
     if (!this.lights?.length) return html``;
 
@@ -190,7 +205,7 @@ export class LightGroup extends LocalizedElement {
         @pointerup=${this._stopPropagation}
         @pointercancel=${this._stopPropagation}
       >
-        ${this.lights.map(light => html`
+        ${this._sortedLights.map(light => html`
           <div class="light-item">
             <div class="light-row">
               <span class="light-name ${light.on ? '' : 'off'}">

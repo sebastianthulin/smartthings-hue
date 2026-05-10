@@ -383,10 +383,39 @@ const homeViewStyles = css`
   }
 
   .settings-row input {
-    width: 18px;
-    height: 18px;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
     margin: 0;
-    accent-color: var(--color-accent);
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    background: #202020;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+  }
+
+  .settings-row input:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+    transform: translateY(-1px);
+  }
+
+  .settings-row input:checked {
+    background-color: var(--color-accent);
+    border-color: rgba(255, 179, 71, 0.9);
+    box-shadow: 0 0 0 4px rgba(255, 179, 71, 0.12);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%230d0d0d' d='M6.34 11.2 3.2 8.06l-1.06 1.06 4.2 4.2L13.86 5.8 12.8 4.74z'/%3E%3C/svg%3E");
+  }
+
+  .settings-row input:focus-visible {
+    outline: 2px solid rgba(255, 179, 71, 0.75);
+    outline-offset: 3px;
   }
 
   .settings-empty {
@@ -413,6 +442,31 @@ const homeViewStyles = css`
     padding: var(--space-2) 0;
     font: inherit;
     cursor: pointer;
+  }
+
+  .primary-btn {
+    min-width: 108px;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    background: linear-gradient(180deg, var(--color-accent-bright) 0%, var(--color-accent) 100%);
+    color: #0d0d0d;
+    font: inherit;
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(255, 179, 71, 0.22);
+    transition: transform var(--transition-fast), box-shadow var(--transition-base), filter var(--transition-base);
+  }
+
+  .primary-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(255, 179, 71, 0.28);
+    filter: saturate(1.03);
+  }
+
+  .primary-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 18px rgba(255, 179, 71, 0.2);
   }
 
   .confirm-backdrop {
@@ -810,7 +864,7 @@ export class HomeView extends LocalizedElement {
           ` : ''}
 
           <div class="settings-actions">
-            <button class="secondary-btn" @click=${this._toggleSettings}>${this.t('common.done')}</button>
+            <button class="primary-btn" @click=${this._toggleSettings}>${this.t('common.done')}</button>
           </div>
         </div>
       </div>
