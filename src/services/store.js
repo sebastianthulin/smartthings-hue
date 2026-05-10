@@ -23,7 +23,7 @@ class HomeStore extends EventTarget {
   #locationId  = null;
   #authError   = false;
 
-  get rooms()     { return this.#rooms; }
+  get rooms()     { return this.#snapshotRooms(); }
   get syncing()   { return this.#syncing; }
   get lastSync()  { return this.#lastSync; }
   get authError() { return this.#authError; }
@@ -205,8 +205,19 @@ class HomeStore extends EventTarget {
     return null;
   }
 
+  #snapshotRooms() {
+    return this.#rooms.map(room => ({
+      ...room,
+      climate: room.climate ? { ...room.climate } : null,
+      lights: room.lights.map(light => ({
+        ...light,
+        color: light.color ? { ...light.color } : undefined,
+      })),
+    }));
+  }
+
   #emit() {
-    this.dispatchEvent(new CustomEvent('update', { detail: { rooms: this.#rooms } }));
+    this.dispatchEvent(new CustomEvent('update', { detail: { rooms: this.#snapshotRooms() } }));
   }
 }
 

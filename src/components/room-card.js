@@ -182,9 +182,12 @@ export class RoomCard extends LocalizedElement {
     }
 
     .room-toggle {
+      appearance: none;
+      -webkit-appearance: none;
       position: relative;
       width: 44px;
       height: 26px;
+      padding: 0;
       border-radius: var(--radius-full);
       background: var(--color-surface-high);
       border: none;
