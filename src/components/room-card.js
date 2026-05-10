@@ -86,7 +86,8 @@ export class RoomCard extends LitElement {
       gap: var(--space-4);
     }
 
-    .room-summary {
+    .title-section,
+    .status-section {
       flex: 1;
       min-width: 0;
     }
@@ -126,6 +127,7 @@ export class RoomCard extends LitElement {
 
     .room-controls {
       display: flex;
+      flex-direction: row;
       align-items: center;
       gap: var(--space-2);
       flex-shrink: 0;
@@ -352,7 +354,7 @@ export class RoomCard extends LitElement {
 
         <div class="main">
           <div class="top-row">
-            <div class="room-summary">
+            <div class="title-section">
               <div class="room-name">${room.name}</div>
             </div>
             <div class="room-controls">
@@ -371,7 +373,7 @@ export class RoomCard extends LitElement {
           </div>
 
           <div class="bottom-row">
-            <div class="room-summary">
+            <div class="status-section">
               <div class="light-status">${this._lightStatusText}</div>
             </div>
             <div class="right">
