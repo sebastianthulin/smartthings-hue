@@ -10,13 +10,15 @@ import './light-group.js';
  * <room-card> — the primary UI element.
  *
  * Interactions:
- *   tap        → expand room detail with individual light controls
+ *   tap        → open the dedicated room detail view
  *   room toggle → turn all lights in the room on/off
  *   room dimmer → adjust brightness for all lights
  */
 export class RoomCard extends LocalizedElement {
   static properties = {
-    room:      { type: Object },
+    room:       { type: Object },
+    detailView: { type: Boolean, attribute: 'detail-view' },
+    _pressing:  { state: true },
     _expanded: { state: true },
     _pressing: { state: true },
   };
@@ -51,6 +53,19 @@ export class RoomCard extends LocalizedElement {
 
     .card.pressing {
       transform: scale(0.985);
+    }
+
+    .card.detail-view,
+    .card.detail-view.lights-on {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+    }
+
+    .card.detail-view.pressing {
+      transform: none;
     }
 
     /* Warm glow overlay when lights are on */
@@ -196,6 +211,21 @@ export class RoomCard extends LocalizedElement {
       padding: var(--space-4) var(--space-5) var(--space-5);
     }
 
+    .card.detail-view .main {
+      padding: 0 0 var(--space-4);
+    }
+
+    .card.detail-view .divider {
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .card.detail-view .expand-content {
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: 0;
+    }
+
     /* ── Dim track ─────────────────────────────────────────── */
     .dim-section {
       padding: 0 var(--space-5) var(--space-4);
@@ -205,7 +235,7 @@ export class RoomCard extends LocalizedElement {
 
   constructor() {
     super();
-    this._expanded  = false;
+    this.detailView = false;
     this._pressing  = false;
   }
 
@@ -217,11 +247,21 @@ export class RoomCard extends LocalizedElement {
   }
 
   _pointerUp() {
-    this._pressing      = false;
+    this._pressing = false;
   }
 
   _pointerCancel() {
     this._pressing = false;
+  }
+
+  _onCardClick() {
+    if (this.detailView || !this.room?.id) return;
+
+    this.dispatchEvent(new CustomEvent('open-room', {
+      detail: { roomId: this.room.id },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   _toggleExpanded() {
@@ -273,12 +313,12 @@ export class RoomCard extends LocalizedElement {
     const { room } = this;
     if (!room) return html``;
 
-    const lightsOn     = this._lightsOn;
+    const lightsOn      = this._lightsOn;
     const avgBrightness = this._avgBrightness;
 
     return html`
       <div
-        class="card ${lightsOn ? 'lights-on' : ''} ${this._pressing ? 'pressing' : ''}"
+        class="card ${lightsOn ? 'lights-on' : ''} ${this._pressing ? 'pressing' : ''} ${this.detailView ? 'detail-view' : ''}"
         @pointerdown=${this._pointerDown}
         @pointerup=${this._pointerUp}
         @pointercancel=${this._pointerCancel}
@@ -319,7 +359,6 @@ export class RoomCard extends LocalizedElement {
                 : ''}
             </div>
           </div>
-
         </div>
 
         ${lightsOn && avgBrightness != null ? html`
@@ -333,12 +372,14 @@ export class RoomCard extends LocalizedElement {
           </div>
         ` : ''}
 
-        <div class="expand-wrapper ${this._expanded ? 'open' : ''}">
-          <div class="divider"></div>
-          <div class="expand-content">
-            <light-group .lights=${room.lights} .roomId=${room.id}></light-group>
+        ${this.detailView ? html`
+          <div class="expand-wrapper open">
+            <div class="divider"></div>
+            <div class="expand-content">
+              <light-group .lights=${room.lights} .roomId=${room.id}></light-group>
+            </div>
           </div>
-        </div>
+        ` : ''}
       </div>
     `;
   }
