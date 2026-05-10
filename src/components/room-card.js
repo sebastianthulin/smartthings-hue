@@ -18,6 +18,8 @@ export class RoomCard extends LocalizedElement {
     room:       { type: Object },
     detailView: { type: Boolean, attribute: 'detail-view' },
     transitionName: { type: String, attribute: false },
+    _activeRoomBrightness: { state: true },
+    _roomValueVisible: { state: true },
   };
 
   static styles = css`
@@ -146,7 +148,26 @@ export class RoomCard extends LocalizedElement {
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-medium);
       color: var(--color-text-dim);
+      display: inline-flex;
+      align-items: baseline;
+      gap: var(--space-2);
       transition: color var(--transition-base);
+    }
+
+    .light-status-text {
+      min-width: 0;
+    }
+
+    .light-status-value {
+      flex-shrink: 0;
+      opacity: 0;
+      transform: translateY(2px);
+      transition: opacity var(--transition-base), transform var(--transition-base);
+    }
+
+    .light-status-value.visible {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .status-line {
@@ -235,6 +256,17 @@ export class RoomCard extends LocalizedElement {
     super();
     this.detailView = false;
     this.transitionName = 'none';
+    this._activeRoomBrightness = null;
+    this._roomValueVisible = false;
+    this._clearRoomValueTimer = null;
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._clearRoomValueTimer) {
+      clearTimeout(this._clearRoomValueTimer);
+      this._clearRoomValueTimer = null;
+    }
   }
 
   updated(changed) {
@@ -265,6 +297,25 @@ export class RoomCard extends LocalizedElement {
   _onBrightnessChange(e) {
     e.stopPropagation();
     store.setRoomBrightness(this.room.id, e.detail.value);
+  }
+
+  _onBrightnessInteraction(e) {
+    e.stopPropagation();
+    if (e.detail.active) {
+      if (this._clearRoomValueTimer) {
+        clearTimeout(this._clearRoomValueTimer);
+        this._clearRoomValueTimer = null;
+      }
+      this._activeRoomBrightness = e.detail.value;
+      this._roomValueVisible = true;
+      return;
+    }
+
+    this._roomValueVisible = false;
+    this._clearRoomValueTimer = setTimeout(() => {
+      this._activeRoomBrightness = null;
+      this._clearRoomValueTimer = null;
+    }, 220);
   }
 
   _stopPropagation(e) {
@@ -299,6 +350,13 @@ export class RoomCard extends LocalizedElement {
     const dimmableLights = this.room?.lights.filter(light => light.brightness != null) ?? [];
     if (!dimmableLights.length) return null;
     return Math.round(dimmableLights.reduce((total, light) => total + light.brightness, 0) / dimmableLights.length);
+  }
+
+  get _statusValueLabel() {
+    if (this._activeRoomBrightness != null) {
+      return `- ${this._activeRoomBrightness}%`;
+    }
+    return '';
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -344,7 +402,10 @@ export class RoomCard extends LocalizedElement {
           <div class="bottom-row">
             <div class="status-section">
               <div class="status-line">
-                <div class="light-status">${this._lightStatusText}</div>
+                <div class="light-status">
+                  <span class="light-status-text">${this._lightStatusText}</span>
+                  <span class="light-status-value ${this._activeRoomBrightness != null && this._roomValueVisible ? 'visible' : ''}">${this._statusValueLabel}</span>
+                </div>
                 ${room.climate
                   ? html`<climate-summary .climate=${room.climate}></climate-summary>`
                   : ''}
@@ -359,6 +420,7 @@ export class RoomCard extends LocalizedElement {
               .value=${roomBrightnessValue}
               ?disabled=${!lightsOn}
               @change=${this._onBrightnessChange}
+              @dimmer-interaction=${this._onBrightnessInteraction}
               @click=${this._stopPropagation}
               aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}
             ></dimmer-slider>

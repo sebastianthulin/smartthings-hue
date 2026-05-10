@@ -11,6 +11,9 @@ export class LightGroup extends LocalizedElement {
   static properties = {
     lights: { type: Array },
     roomId: { type: String },
+    _activeLightId: { state: true },
+    _activeLightBrightness: { state: true },
+    _lightValueVisible: { state: true },
   };
 
   static styles = css`
@@ -44,6 +47,9 @@ export class LightGroup extends LocalizedElement {
     .light-name {
       font-size: var(--font-size-base);
       color: var(--color-text-primary);
+      display: inline-flex;
+      align-items: baseline;
+      gap: var(--space-2);
       flex: 1;
       min-width: 0;
       white-space: nowrap;
@@ -54,6 +60,25 @@ export class LightGroup extends LocalizedElement {
 
     .light-name.off {
       color: var(--color-text-dim);
+    }
+
+    .light-name-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .light-value {
+      flex-shrink: 0;
+      opacity: 0;
+      transform: translateY(2px);
+      transition: opacity var(--transition-base), transform var(--transition-base);
+      pointer-events: none;
+    }
+
+    .light-value.visible {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     /* Toggle pill */
@@ -98,6 +123,22 @@ export class LightGroup extends LocalizedElement {
     }
   `;
 
+  constructor() {
+    super();
+    this._activeLightId = null;
+    this._activeLightBrightness = null;
+    this._lightValueVisible = false;
+    this._clearLightValueTimer = null;
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._clearLightValueTimer) {
+      clearTimeout(this._clearLightValueTimer);
+      this._clearLightValueTimer = null;
+    }
+  }
+
   _toggle(lightId) {
     store.toggleLight(lightId);
   }
@@ -106,8 +147,35 @@ export class LightGroup extends LocalizedElement {
     store.setLightBrightness(lightId, e.detail.value);
   }
 
+  _onDimmerInteraction(lightId, e) {
+    if (e.detail.active) {
+      if (this._clearLightValueTimer) {
+        clearTimeout(this._clearLightValueTimer);
+        this._clearLightValueTimer = null;
+      }
+      this._activeLightId = lightId;
+      this._activeLightBrightness = e.detail.value;
+      this._lightValueVisible = true;
+      return;
+    }
+
+    this._lightValueVisible = false;
+    this._clearLightValueTimer = setTimeout(() => {
+      this._activeLightId = null;
+      this._activeLightBrightness = null;
+      this._clearLightValueTimer = null;
+    }, 220);
+  }
+
   _stopPropagation(e) {
     e.stopPropagation();
+  }
+
+  _lightValueLabel(light) {
+    if (this._activeLightId === light.id && this._activeLightBrightness != null) {
+      return `- ${this._activeLightBrightness}%`;
+    }
+    return '';
   }
 
   render() {
@@ -125,7 +193,10 @@ export class LightGroup extends LocalizedElement {
         ${this.lights.map(light => html`
           <div class="light-item">
             <div class="light-row">
-              <span class="light-name ${light.on ? '' : 'off'}">${light.name}</span>
+              <span class="light-name ${light.on ? '' : 'off'}">
+                <span class="light-name-text">${light.name}</span>
+                <span class="light-value ${this._activeLightId === light.id && this._activeLightBrightness != null && this._lightValueVisible ? 'visible' : ''}">${this._lightValueLabel(light)}</span>
+              </span>
               <button
                 class="toggle ${light.on ? 'on' : ''}"
                 @click=${() => this._toggle(light.id)}
@@ -142,6 +213,7 @@ export class LightGroup extends LocalizedElement {
                 .value=${light.brightness}
                 ?disabled=${!light.on}
                 @change=${e => this._onBrightnessChange(light.id, e)}
+                @dimmer-interaction=${e => this._onDimmerInteraction(light.id, e)}
               ></dimmer-slider>
             ` : ''}
           </div>

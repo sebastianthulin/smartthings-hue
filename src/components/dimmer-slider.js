@@ -116,6 +116,16 @@ export class DimmerSlider extends LitElement {
     }));
   }
 
+  _emitInteraction(active, value = this.value ?? 0) {
+    this.dispatchEvent(new CustomEvent('dimmer-interaction', {
+      detail: {
+        active,
+        value: Math.round(value),
+      },
+      bubbles: false,
+    }));
+  }
+
   _onPointerDown(e) {
     if (this.disabled) return;
     e.stopPropagation();
@@ -124,6 +134,7 @@ export class DimmerSlider extends LitElement {
     const pct = this._getPercent(e);
     this.value = pct;
     this._emit(pct);
+    this._emitInteraction(true, pct);
   }
 
   _onPointerMove(e) {
@@ -132,9 +143,13 @@ export class DimmerSlider extends LitElement {
     const pct = this._getPercent(e);
     this.value = pct;
     this._emit(pct);
+    this._emitInteraction(true, pct);
   }
 
   _onPointerUp() {
+    if (this._dragging) {
+      this._emitInteraction(false);
+    }
     this._dragging = false;
   }
 
