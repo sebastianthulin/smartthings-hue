@@ -4,6 +4,14 @@ const MOCK_LOCATIONS = [
   { locationId: MOCK_LOCATION_ID, name: 'Demo Home' },
 ];
 
+const LIGHT_DEVICE_IDS = [
+  'sofa-lamp',
+  'ceiling-strip',
+  'island-pendant',
+  'bedside-left',
+  'bedside-right',
+];
+
 const MOCK_ROOMS = [
   { roomId: 'living-room', locationId: MOCK_LOCATION_ID, name: 'Living Room' },
   { roomId: 'kitchen', locationId: MOCK_LOCATION_ID, name: 'Kitchen' },
@@ -19,6 +27,15 @@ const MOCK_DEVICES = [
   makeDevice('bedside-left', 'Bedside Left', 'bedroom', ['switch', 'switchLevel', 'colorTemperature']),
   makeDevice('bedside-right', 'Bedside Right', 'bedroom', ['switch', 'switchLevel', 'colorTemperature']),
   makeDevice('bedroom-sensor', 'Bedroom Sensor', 'bedroom', ['temperatureMeasurement', 'relativeHumidityMeasurement']),
+];
+
+const MOCK_SCENES = [
+  { sceneId: 'whole-house-on-off', locationId: MOCK_LOCATION_ID, sceneName: 'Whole House On/Off' },
+  { sceneId: 'living-room-relax', locationId: MOCK_LOCATION_ID, sceneName: 'Living Room Relax' },
+  { sceneId: 'living-room-bright', locationId: MOCK_LOCATION_ID, sceneName: 'Living Room Bright' },
+  { sceneId: 'kitchen-cooking', locationId: MOCK_LOCATION_ID, sceneName: 'Kitchen Cooking' },
+  { sceneId: 'bedroom-night', locationId: MOCK_LOCATION_ID, sceneName: 'Bedroom Night' },
+  { sceneId: 'bedroom-reading', locationId: MOCK_LOCATION_ID, sceneName: 'Bedroom Reading' },
 ];
 
 const INITIAL_STATUSES = {
@@ -95,6 +112,10 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
     return { items: clone(devices) };
   }
 
+  if (method === 'GET' && pathname === '/scenes') {
+    return { items: clone(MOCK_SCENES) };
+  }
+
   if (method === 'GET' && pathname.startsWith('/devices/') && pathname.endsWith('/status')) {
     const deviceId = pathname.split('/')[2];
     return clone(mockState.statuses[deviceId] ?? makeStatus({}));
@@ -105,6 +126,12 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
     const body = JSON.parse(options.body ?? '{}');
     applyCommands(deviceId, body.commands ?? []);
     return { results: [{ id: `mock-${deviceId}`, status: 'ACCEPTED' }] };
+  }
+
+  if (method === 'POST' && pathname.startsWith('/scenes/') && pathname.endsWith('/execute')) {
+    const sceneId = pathname.split('/')[2];
+    applyScene(sceneId);
+    return { status: 'SUCCESS' };
   }
 
   throw new Error(`Unsupported mock SmartThings request: ${method} ${path}`);
@@ -219,6 +246,69 @@ function applyCommands(deviceId, commands) {
         colorTemperature: { value: Number(command.arguments?.[0] ?? 0) },
       };
     }
+  }
+}
+
+function applyScene(sceneId) {
+  if (sceneId === 'whole-house-on-off') {
+    const anyOn = LIGHT_DEVICE_IDS.some(deviceId =>
+      mockState.statuses[deviceId]?.components?.main?.switch?.switch?.value === 'on'
+    );
+    const target = anyOn ? 'off' : 'on';
+    for (const deviceId of LIGHT_DEVICE_IDS) {
+      const main = mockState.statuses[deviceId]?.components?.main;
+      if (!main) continue;
+      main.switch = { switch: { value: target } };
+      if (main.switchLevel?.level) {
+        main.switchLevel.level.value = target === 'on'
+          ? Math.max(1, Number(main.switchLevel.level.value ?? 0))
+          : 0;
+      }
+    }
+    return;
+  }
+
+  if (sceneId === 'living-room-relax') {
+    setLightState('sofa-lamp', { on: true, level: 38, colorTemperature: 2200 });
+    setLightState('ceiling-strip', { on: true, level: 20, colorTemperature: 2500 });
+    return;
+  }
+
+  if (sceneId === 'living-room-bright') {
+    setLightState('sofa-lamp', { on: true, level: 100, colorTemperature: 3000 });
+    setLightState('ceiling-strip', { on: true, level: 92, colorTemperature: 3200 });
+    return;
+  }
+
+  if (sceneId === 'kitchen-cooking') {
+    setLightState('island-pendant', { on: true, level: 100, colorTemperature: 4000 });
+    return;
+  }
+
+  if (sceneId === 'bedroom-night') {
+    setLightState('bedside-left', { on: true, level: 12, colorTemperature: 2200 });
+    setLightState('bedside-right', { on: false, level: 0, colorTemperature: 2200 });
+    return;
+  }
+
+  if (sceneId === 'bedroom-reading') {
+    setLightState('bedside-left', { on: true, level: 48, colorTemperature: 2600 });
+    setLightState('bedside-right', { on: true, level: 48, colorTemperature: 2600 });
+  }
+}
+
+function setLightState(deviceId, { on, level, colorTemperature }) {
+  const main = mockState.statuses[deviceId]?.components?.main;
+  if (!main) return;
+
+  main.switch = { switch: { value: on ? 'on' : 'off' } };
+
+  if (main.switchLevel) {
+    main.switchLevel.level.value = on ? Math.max(1, Number(level ?? 100)) : 0;
+  }
+
+  if (main.colorTemperature && colorTemperature != null) {
+    main.colorTemperature.colorTemperature.value = Number(colorTemperature);
   }
 }
 

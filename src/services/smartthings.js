@@ -95,6 +95,12 @@ class SmartThingsAPI {
     return data.items ?? [];
   }
 
+  /** Fetch manual routines / scenes available to this account. */
+  async fetchScenes() {
+    const data = await this.#request('/scenes');
+    return data.items ?? [];
+  }
+
   /** Fetch full status for one device. */
   async fetchDeviceStatus(deviceId) {
     return this.#request(`/devices/${deviceId}/status`);
@@ -107,6 +113,10 @@ class SmartThingsAPI {
    */
   async sendCommand(deviceId, commands) {
     return this.#post(`/devices/${deviceId}/commands`, { commands });
+  }
+
+  async executeScene(sceneId) {
+    return this.#post(`/scenes/${sceneId}/execute`, {});
   }
 
   // ── Convenience command helpers ────────────────────────────────────────────

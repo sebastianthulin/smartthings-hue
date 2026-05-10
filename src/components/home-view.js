@@ -5,13 +5,18 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const ROUTINE_SELECTIONS_KEY = 'st_routine_selections';
+const MAX_ROUTINES_PER_ROOM = 4;
 
 export class HomeView extends LocalizedElement {
   static properties = {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
+    _globalSceneId:         { state: true },
     _hiddenRoomIds:         { state: true },
     _rooms:                 { state: true },
+    _roomSceneIds:          { state: true },
+    _scenes:                { state: true },
     _settingsOpen:          { state: true },
     _syncing:               { state: true },
   };
@@ -65,6 +70,30 @@ export class HomeView extends LocalizedElement {
       display: flex;
       align-items: center;
       gap: var(--space-3);
+    }
+
+    .global-routines {
+      padding-bottom: var(--space-3);
+    }
+
+    .global-routine-btn {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid rgba(255, 180, 80, 0.28);
+      border-radius: var(--radius-full);
+      background: rgba(255, 180, 80, 0.1);
+      color: var(--color-text-primary);
+      font: inherit;
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .global-routine-btn:active {
+      background: rgba(255, 180, 80, 0.18);
     }
 
     .icon-btn {
@@ -265,6 +294,38 @@ export class HomeView extends LocalizedElement {
       font-size: var(--font-size-sm);
     }
 
+    .settings-section + .settings-section {
+      margin-top: var(--space-6);
+    }
+
+    .settings-section-title {
+      margin: 0 0 var(--space-2);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .settings-section-description {
+      margin: 0 0 var(--space-4);
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
+      color: var(--color-text-dim);
+    }
+
+    .settings-room-group + .settings-room-group {
+      margin-top: var(--space-4);
+    }
+
+    .settings-room-group-name {
+      display: block;
+      margin-bottom: var(--space-3);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+    }
+
     .settings-actions {
       display: flex;
       align-items: center;
@@ -329,15 +390,25 @@ export class HomeView extends LocalizedElement {
     super();
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
+    this._globalSceneId         = null;
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._rooms                 = store.rooms;
+    this._roomSceneIds          = {};
+    this._scenes                = store.scenes;
     this._settingsOpen          = false;
     this._syncing               = false;
+
+    const routineSelections = this._loadRoutineSelections();
+    this._globalSceneId = routineSelections.globalSceneId;
+    this._roomSceneIds  = routineSelections.roomSceneIds;
   }
 
   connectedCallback() {
     super.connectedCallback();
-    this._onUpdate   = e => { this._rooms   = [...e.detail.rooms]; };
+    this._onUpdate   = e => {
+      this._rooms = [...(e.detail.rooms ?? [])];
+      this._scenes = [...(e.detail.scenes ?? [])];
+    };
     this._onSyncing  = ()  => { this._syncing = true; };
     this._onSynced   = ()  => { this._syncing = false; };
 
@@ -347,6 +418,7 @@ export class HomeView extends LocalizedElement {
 
     // Sync current state in case store already has data
     this._rooms = [...store.rooms];
+    this._scenes = [...store.scenes];
   }
 
   disconnectedCallback() {
@@ -357,6 +429,10 @@ export class HomeView extends LocalizedElement {
   }
 
   updated(changed) {
+    if (changed.has('_rooms') || changed.has('_scenes')) {
+      this._pruneRoutineSelections();
+    }
+
     if (changed.has('_settingsOpen') && this._settingsOpen) {
       const settingsSheet = this.renderRoot.querySelector('.settings-sheet');
       if (settingsSheet) {
@@ -393,6 +469,68 @@ export class HomeView extends LocalizedElement {
     try {
       localStorage.setItem(HIDDEN_ROOMS_KEY, JSON.stringify(hiddenRoomIds));
     } catch { /* storage unavailable — ignore */ }
+  }
+
+  _loadRoutineSelections() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(ROUTINE_SELECTIONS_KEY) ?? '{}');
+      const roomSceneIds = Object.fromEntries(
+        Object.entries(parsed.roomSceneIds ?? {})
+          .filter(([, sceneIds]) => Array.isArray(sceneIds))
+          .map(([roomId, sceneIds]) => [roomId, [...new Set(sceneIds)].slice(0, MAX_ROUTINES_PER_ROOM)])
+      );
+
+      return {
+        globalSceneId: typeof parsed.globalSceneId === 'string' ? parsed.globalSceneId : null,
+        roomSceneIds,
+      };
+    } catch {
+      return {
+        globalSceneId: null,
+        roomSceneIds: {},
+      };
+    }
+  }
+
+  _saveRoutineSelections(globalSceneId, roomSceneIds) {
+    this._globalSceneId = globalSceneId;
+    this._roomSceneIds = roomSceneIds;
+
+    try {
+      localStorage.setItem(ROUTINE_SELECTIONS_KEY, JSON.stringify({
+        globalSceneId,
+        roomSceneIds,
+      }));
+    } catch { /* storage unavailable — ignore */ }
+  }
+
+  _pruneRoutineSelections() {
+    const validRoomIds = new Set(this._rooms.map(room => room.id));
+    const validSceneIds = new Set(this._scenes.map(scene => scene.id));
+    const nextRoomSceneIds = {};
+
+    for (const [roomId, sceneIds] of Object.entries(this._roomSceneIds)) {
+      if (!validRoomIds.has(roomId)) continue;
+
+      const nextSceneIds = [...new Set(sceneIds)]
+        .filter(sceneId => validSceneIds.has(sceneId))
+        .slice(0, MAX_ROUTINES_PER_ROOM);
+
+      if (nextSceneIds.length > 0) {
+        nextRoomSceneIds[roomId] = nextSceneIds;
+      }
+    }
+
+    const nextGlobalSceneId = validSceneIds.has(this._globalSceneId)
+      ? this._globalSceneId
+      : null;
+
+    if (
+      nextGlobalSceneId !== this._globalSceneId ||
+      JSON.stringify(nextRoomSceneIds) !== JSON.stringify(this._roomSceneIds)
+    ) {
+      this._saveRoutineSelections(nextGlobalSceneId, nextRoomSceneIds);
+    }
   }
 
   _toggleSettings() {
@@ -448,13 +586,65 @@ export class HomeView extends LocalizedElement {
     this._saveHiddenRooms([...hidden]);
   }
 
+  _selectGlobalScene(e) {
+    const { sceneId } = e.target.dataset;
+    const nextGlobalSceneId = sceneId || null;
+    this._saveRoutineSelections(nextGlobalSceneId, this._roomSceneIds);
+  }
+
+  _toggleRoomScene(e) {
+    const { roomId, sceneId } = e.target.dataset;
+    if (!roomId || !sceneId) return;
+
+    const nextSceneIds = [...(this._roomSceneIds[roomId] ?? [])];
+    if (e.target.checked) {
+      if (nextSceneIds.includes(sceneId) || nextSceneIds.length >= MAX_ROUTINES_PER_ROOM) {
+        e.target.checked = nextSceneIds.includes(sceneId);
+        return;
+      }
+      nextSceneIds.push(sceneId);
+    } else {
+      const index = nextSceneIds.indexOf(sceneId);
+      if (index >= 0) nextSceneIds.splice(index, 1);
+    }
+
+    const nextRoomSceneIds = { ...this._roomSceneIds };
+    if (nextSceneIds.length > 0) {
+      nextRoomSceneIds[roomId] = nextSceneIds;
+    } else {
+      delete nextRoomSceneIds[roomId];
+    }
+
+    this._saveRoutineSelections(this._globalSceneId, nextRoomSceneIds);
+  }
+
+  _executeScene(sceneId) {
+    store.executeScene(sceneId);
+  }
+
+  _handleExecuteRoutine(e) {
+    this._executeScene(e.detail.sceneId);
+  }
+
   get _visibleRooms() {
     const hidden = new Set(this._hiddenRoomIds);
     return this._rooms.filter(room => !hidden.has(room.id));
   }
 
+  get _globalScene() {
+    return this._scenes.find(scene => scene.id === this._globalSceneId) ?? null;
+  }
+
+  _getRoomScenes(roomId) {
+    const sceneMap = new Map(this._scenes.map(scene => [scene.id, scene]));
+    return (this._roomSceneIds[roomId] ?? [])
+      .map(sceneId => sceneMap.get(sceneId))
+      .filter(Boolean);
+  }
+
   render() {
     const visibleRooms = this._visibleRooms;
+    const globalScene = this._globalScene;
     const settingsLabel = this._settingsOpen
       ? this.t('home.closeSettings')
       : this.t('home.openSettings');
@@ -472,12 +662,30 @@ export class HomeView extends LocalizedElement {
             </button>
           </div>
         </div>
+
+        ${globalScene ? html`
+          <div class="global-routines">
+            <button
+              type="button"
+              class="global-routine-btn"
+              @click=${() => this._executeScene(globalScene.id)}
+            >
+              ${globalScene.name}
+            </button>
+          </div>
+        ` : ''}
       </header>
 
       <div class="rooms">
         ${visibleRooms.length === 0
           ? this._renderEmpty()
-          : visibleRooms.map(r => html`<room-card .room=${r}></room-card>`)}
+          : visibleRooms.map(r => html`
+              <room-card
+                .room=${r}
+                .routines=${this._getRoomScenes(r.id)}
+                @execute-routine=${this._handleExecuteRoutine}
+              ></room-card>
+            `)}
       </div>
 
       ${this._settingsOpen ? this._renderSettings() : ''}
@@ -515,26 +723,101 @@ export class HomeView extends LocalizedElement {
           <h2>${this.t('home.settingsTitle')}</h2>
           <p>${this.t('home.settingsDescription')}</p>
 
-          ${this._rooms.length === 0
-            ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
-            : html`
-                <div class="settings-list">
-                  ${this._rooms.map(room => {
-                    const visible = !this._hiddenRoomIds.includes(room.id);
-                    return html`
+          <div class="settings-section">
+            <h3 class="settings-section-title">${this.t('home.roomsSectionTitle')}</h3>
+            ${this._rooms.length === 0
+              ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
+              : html`
+                  <div class="settings-list">
+                    ${this._rooms.map(room => {
+                      const visible = !this._hiddenRoomIds.includes(room.id);
+                      return html`
+                        <label class="settings-row">
+                          <span>${room.name}</span>
+                          <input
+                            type="checkbox"
+                            .checked=${visible}
+                            data-room-id=${room.id}
+                            @change=${this._toggleRoomVisibility}
+                          />
+                        </label>
+                      `;
+                    })}
+                  </div>
+                `}
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">${this.t('home.globalRoutineTitle')}</h3>
+            <p class="settings-section-description">${this.t('home.globalRoutineDescription')}</p>
+
+            ${this._scenes.length === 0
+              ? html`<div class="settings-empty">${this.t('home.routinesEmpty')}</div>`
+              : html`
+                  <div class="settings-list">
+                    <label class="settings-row">
+                      <span>${this.t('home.doNotShow')}</span>
+                      <input
+                        type="radio"
+                        name="global-scene"
+                        .checked=${this._globalSceneId === null}
+                        data-scene-id=""
+                        @change=${this._selectGlobalScene}
+                      />
+                    </label>
+
+                    ${this._scenes.map(scene => html`
                       <label class="settings-row">
-                        <span>${room.name}</span>
+                        <span>${scene.name}</span>
                         <input
-                          type="checkbox"
-                          .checked=${visible}
-                          data-room-id=${room.id}
-                          @change=${this._toggleRoomVisibility}
+                          type="radio"
+                          name="global-scene"
+                          .checked=${this._globalSceneId === scene.id}
+                          data-scene-id=${scene.id}
+                          @change=${this._selectGlobalScene}
                         />
                       </label>
-                    `;
-                  })}
-                </div>
-              `}
+                    `)}
+                  </div>
+                `}
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">${this.t('home.roomRoutinesTitle')}</h3>
+            <p class="settings-section-description">${this.t('home.roomRoutinesDescription', {
+              max: MAX_ROUTINES_PER_ROOM,
+            })}</p>
+
+            ${this._rooms.length === 0 || this._scenes.length === 0
+              ? html`<div class="settings-empty">${this.t('home.routinesEmpty')}</div>`
+              : this._rooms.map(room => {
+                  const selectedSceneIds = new Set(this._roomSceneIds[room.id] ?? []);
+                  return html`
+                    <div class="settings-room-group">
+                      <span class="settings-room-group-name">${room.name}</span>
+                      <div class="settings-list">
+                        ${this._scenes.map(scene => {
+                          const checked = selectedSceneIds.has(scene.id);
+                          const disabled = !checked && selectedSceneIds.size >= MAX_ROUTINES_PER_ROOM;
+                          return html`
+                            <label class="settings-row">
+                              <span>${scene.name}</span>
+                              <input
+                                type="checkbox"
+                                .checked=${checked}
+                                .disabled=${disabled}
+                                data-room-id=${room.id}
+                                data-scene-id=${scene.id}
+                                @change=${this._toggleRoomScene}
+                              />
+                            </label>
+                          `;
+                        })}
+                      </div>
+                    </div>
+                  `;
+                })}
+          </div>
 
           <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
             <span>${this.t('home.connection')}</span>

@@ -17,6 +17,7 @@ const SYNC_INTERVAL = 30_000; // ms
 
 class HomeStore extends EventTarget {
   #rooms       = [];
+  #scenes      = [];
   #syncing     = false;
   #syncTimer   = null;
   #lastSync    = null;
@@ -24,6 +25,7 @@ class HomeStore extends EventTarget {
   #authError   = false;
 
   get rooms()     { return this.#rooms; }
+  get scenes()    { return this.#scenes; }
   get syncing()   { return this.#syncing; }
   get lastSync()  { return this.#lastSync; }
   get authError() { return this.#authError; }
@@ -35,8 +37,9 @@ class HomeStore extends EventTarget {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return false;
-      const { rooms, lastSync, locationId } = JSON.parse(raw);
+      const { rooms, scenes, lastSync, locationId } = JSON.parse(raw);
       this.#rooms      = rooms      ?? [];
+      this.#scenes     = scenes     ?? [];
       this.#lastSync   = lastSync   ?? null;
       this.#locationId = locationId ?? null;
       this.#emit();
@@ -50,6 +53,7 @@ class HomeStore extends EventTarget {
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify({
         rooms:      this.#rooms,
+        scenes:     this.#scenes,
         lastSync:   this.#lastSync,
         locationId: this.#locationId,
       }));
@@ -59,6 +63,7 @@ class HomeStore extends EventTarget {
   clearCache() {
     localStorage.removeItem(CACHE_KEY);
     this.#rooms = [];
+    this.#scenes = [];
     this.#locationId = null;
     this.#lastSync = null;
   }
@@ -92,9 +97,10 @@ class HomeStore extends EventTarget {
         this.#locationId = locations[0].locationId;
       }
 
-      const [rawRooms, rawDevices] = await Promise.all([
+      const [rawRooms, rawDevices, rawScenes] = await Promise.all([
         smartthings.fetchRooms(this.#locationId),
         smartthings.fetchDevices(this.#locationId),
+        smartthings.fetchScenes().catch(() => []),
       ]);
 
       // Fetch device statuses in parallel (best-effort)
@@ -113,6 +119,7 @@ class HomeStore extends EventTarget {
       }
 
       this.#rooms    = normalizeHome(rawDevices, rawRooms, statusMap);
+      this.#scenes   = normalizeScenes(rawScenes, this.#locationId);
       this.#lastSync = Date.now();
       this.#save();
       this.#emit();
@@ -191,6 +198,12 @@ class HomeStore extends EventTarget {
     );
   }
 
+  async executeScene(sceneId) {
+    if (!sceneId) return;
+    await smartthings.executeScene(sceneId);
+    await this.#syncOnce();
+  }
+
   // ── Internal helpers ───────────────────────────────────────────────────────
 
   #findRoom(roomId) {
@@ -206,9 +219,25 @@ class HomeStore extends EventTarget {
   }
 
   #emit() {
-    this.dispatchEvent(new CustomEvent('update', { detail: { rooms: this.#rooms } }));
+    this.dispatchEvent(new CustomEvent('update', {
+      detail: {
+        rooms: this.#rooms,
+        scenes: this.#scenes,
+      },
+    }));
   }
 }
 
 /** Singleton store — import and use everywhere. */
 export const store = new HomeStore();
+
+function normalizeScenes(rawScenes, locationId) {
+  return (rawScenes ?? [])
+    .filter(scene => !locationId || !scene.locationId || scene.locationId === locationId)
+    .map(scene => ({
+      id: scene.sceneId,
+      name: scene.sceneName || scene.name || 'Scene',
+    }))
+    .filter(scene => scene.id && scene.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}

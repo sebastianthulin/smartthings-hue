@@ -17,6 +17,7 @@ import './light-group.js';
 export class RoomCard extends LocalizedElement {
   static properties = {
     room:      { type: Object },
+    routines:  { type: Array },
     _expanded: { state: true },
     _pressing: { state: true },
   };
@@ -201,10 +202,48 @@ export class RoomCard extends LocalizedElement {
       padding: 0 var(--space-5) var(--space-4);
       margin-bottom: var(--space-4);
     }
+
+    .routine-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      padding: 0 var(--space-5) var(--space-4);
+    }
+
+    .routine-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1;
+    }
+
+    .routine-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+    }
+
+    .routine-btn {
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid rgba(255, 180, 80, 0.28);
+      border-radius: var(--radius-full);
+      background: rgba(255, 180, 80, 0.08);
+      color: var(--color-text-primary);
+      font: inherit;
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .routine-btn:active {
+      background: rgba(255, 180, 80, 0.16);
+    }
   `;
 
   constructor() {
     super();
+    this.routines    = [];
     this._expanded  = false;
     this._pressing  = false;
   }
@@ -246,6 +285,15 @@ export class RoomCard extends LocalizedElement {
     e.stopPropagation();
   }
 
+  _runRoutine(routine, e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('execute-routine', {
+      detail: { sceneId: routine.id },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   get _lightsOn() {
@@ -273,7 +321,7 @@ export class RoomCard extends LocalizedElement {
     const { room } = this;
     if (!room) return html``;
 
-    const lightsOn     = this._lightsOn;
+    const lightsOn      = this._lightsOn;
     const avgBrightness = this._avgBrightness;
 
     return html`
@@ -319,6 +367,27 @@ export class RoomCard extends LocalizedElement {
                 : ''}
             </div>
           </div>
+
+          ${this.routines.length > 0 ? html`
+            <div class="routine-section">
+              <div class="routine-label">${this.t('room.scenes')}</div>
+              <div class="routine-list">
+                ${this.routines.map(routine => html`
+                  <button
+                    type="button"
+                    class="routine-btn"
+                    @click=${e => this._runRoutine(routine, e)}
+                    aria-label=${this.t('room.runRoutine', {
+                      name: room.name,
+                      routine: routine.name,
+                    })}
+                  >
+                    ${routine.name}
+                  </button>
+                `)}
+              </div>
+            </div>
+          ` : ''}
 
         </div>
 
