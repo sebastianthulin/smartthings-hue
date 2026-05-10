@@ -292,6 +292,15 @@ export class RoomCard extends LocalizedElement {
     return Math.round(lights.reduce((a, l) => a + l.brightness, 0) / lights.length);
   }
 
+  get _roomBrightnessValue() {
+    const activeBrightness = this._avgBrightness;
+    if (activeBrightness != null) return activeBrightness;
+
+    const dimmableLights = this.room?.lights.filter(light => light.brightness != null) ?? [];
+    if (!dimmableLights.length) return null;
+    return Math.round(dimmableLights.reduce((total, light) => total + light.brightness, 0) / dimmableLights.length);
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   render() {
@@ -299,7 +308,7 @@ export class RoomCard extends LocalizedElement {
     if (!room) return html``;
 
     const lightsOn      = this._lightsOn;
-    const avgBrightness = this._avgBrightness;
+    const roomBrightnessValue = this._roomBrightnessValue;
 
     return html`
       <div
@@ -344,10 +353,11 @@ export class RoomCard extends LocalizedElement {
           </div>
         </div>
 
-        ${lightsOn && avgBrightness != null ? html`
+        ${roomBrightnessValue != null ? html`
           <div class="dim-section">
             <dimmer-slider
-              .value=${avgBrightness}
+              .value=${roomBrightnessValue}
+              ?disabled=${!lightsOn}
               @change=${this._onBrightnessChange}
               @click=${this._stopPropagation}
               aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}

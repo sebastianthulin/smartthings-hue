@@ -70,7 +70,7 @@ const homeViewStyles = css`
 
   .header-nav-slot {
     width: 0;
-    height: 40px;
+    height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;

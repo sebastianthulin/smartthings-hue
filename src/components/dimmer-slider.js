@@ -1,5 +1,7 @@
 import { LitElement, html, css } from 'lit';
 
+const THUMB_SIZE = 20;
+
 /**
  * <dimmer-slider> — a touch-friendly brightness slider.
  *
@@ -9,12 +11,14 @@ import { LitElement, html, css } from 'lit';
 export class DimmerSlider extends LitElement {
   static properties = {
     value: { type: Number },
+    disabled: { type: Boolean, reflect: true },
     _dragging: { state: true },
   };
 
   static styles = css`
     :host {
       display: block;
+      --thumb-size: 20px;
     }
 
     *, *::before, *::after {
@@ -30,6 +34,11 @@ export class DimmerSlider extends LitElement {
       touch-action: none;
     }
 
+    .track-wrap.disabled {
+      cursor: default;
+      touch-action: auto;
+    }
+
     .track {
       position: relative;
       width: 100%;
@@ -37,6 +46,10 @@ export class DimmerSlider extends LitElement {
       border-radius: var(--radius-full);
       background: var(--color-surface-high);
       overflow: visible;
+    }
+
+    .track-wrap.disabled .track {
+      background: #2f2f2f;
     }
 
     .fill {
@@ -55,12 +68,16 @@ export class DimmerSlider extends LitElement {
       transition: width 60ms ease;
     }
 
+    .track-wrap.disabled .fill {
+      background: #6e6e6e;
+    }
+
     .thumb {
       position: absolute;
       top: 50%;
-      transform: translate(-50%, -50%);
-      width: 20px;
-      height: 20px;
+      transform: translateY(-50%);
+      width: var(--thumb-size);
+      height: var(--thumb-size);
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
@@ -68,15 +85,21 @@ export class DimmerSlider extends LitElement {
       transition: left 60ms ease, transform 120ms ease;
     }
 
+    .track-wrap.disabled .thumb {
+      background: #565656;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+    }
+
     .track-wrap:active .thumb,
     .dragging .thumb {
-      transform: translate(-50%, -50%) scale(1.2);
+      transform: translateY(-50%) scale(1.2);
     }
   `;
 
   constructor() {
     super();
     this.value    = 50;
+    this.disabled = false;
     this._dragging = false;
   }
 
@@ -94,6 +117,7 @@ export class DimmerSlider extends LitElement {
   }
 
   _onPointerDown(e) {
+    if (this.disabled) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     this._dragging = true;
@@ -103,6 +127,7 @@ export class DimmerSlider extends LitElement {
   }
 
   _onPointerMove(e) {
+    if (this.disabled) return;
     if (!this._dragging) return;
     const pct = this._getPercent(e);
     this.value = pct;
@@ -113,20 +138,29 @@ export class DimmerSlider extends LitElement {
     this._dragging = false;
   }
 
+  _thumbLeft(pct) {
+    return `calc(${pct}% - ${(pct / 100) * THUMB_SIZE}px)`;
+  }
+
+  _fillWidth(pct) {
+    return `calc(${pct}% + ${(1 - pct / 100) * THUMB_SIZE}px)`;
+  }
+
   render() {
     const pct = Math.max(0, Math.min(100, this.value ?? 0));
 
     return html`
       <div
-        class="track-wrap ${this._dragging ? 'dragging' : ''}"
+        class="track-wrap ${this._dragging ? 'dragging' : ''} ${this.disabled ? 'disabled' : ''}"
         @pointerdown=${this._onPointerDown}
         @pointermove=${this._onPointerMove}
         @pointerup=${this._onPointerUp}
         @pointercancel=${this._onPointerUp}
+        aria-disabled=${this.disabled ? 'true' : 'false'}
       >
         <div class="track">
-          <div class="fill" style="width: ${pct}%"></div>
-          <div class="thumb" style="left: ${pct}%"></div>
+          <div class="fill" style=${`width: ${this._fillWidth(pct)};`}></div>
+          <div class="thumb" style=${`left: ${this._thumbLeft(pct)};`}></div>
         </div>
       </div>
     `;

@@ -137,9 +137,10 @@ export class LightGroup extends LocalizedElement {
               </button>
             </div>
 
-            ${light.on && light.brightness != null ? html`
+            ${light.brightness != null ? html`
               <dimmer-slider
                 .value=${light.brightness}
+                ?disabled=${!light.on}
                 @change=${e => this._onBrightnessChange(light.id, e)}
               ></dimmer-slider>
             ` : ''}
