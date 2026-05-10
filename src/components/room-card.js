@@ -285,8 +285,10 @@ export class RoomCard extends LocalizedElement {
 
     const room = this.room;
     const onLights = room.lights.filter(light => light.on);
-    const avgBrightness = onLights.some(light => light.brightness != null)
-      ? onLights.reduce((total, light) => total + (light.brightness ?? 100), 0) / onLights.length
+    const onLightsWithBrightness = onLights.filter(light => light.brightness != null);
+    const avgBrightness = onLightsWithBrightness.length > 0
+      ? onLightsWithBrightness.reduce((total, light) => total + light.brightness, 0)
+        / onLightsWithBrightness.length
       : (onLights.length > 0 ? 100 : 0);
     this._swipeStartBrightness = avgBrightness;
 
@@ -301,13 +303,13 @@ export class RoomCard extends LocalizedElement {
       this._swiping = true;
       this._pressing = false;
 
-      // Map swipe to brightness change (±75 px = ±60% brightness)
+      // Convert swipe distance into brightness percentage (dx * 0.8, so ±75 px = ±60%).
       const room = this.room;
       const anyHasBrightness = room.lights.some(l => l.brightness != null);
       if (anyHasBrightness) {
+        const startBrightness = this._swipeStartBrightness ?? DEFAULT_SWIPE_BRIGHTNESS;
         const newBrightness = Math.max(0, Math.min(100,
-          (this._swipeStartBrightness ?? DEFAULT_SWIPE_BRIGHTNESS)
-            + dx * SWIPE_BRIGHTNESS_MULTIPLIER
+          startBrightness + dx * SWIPE_BRIGHTNESS_MULTIPLIER
         ));
         this._swipeDx = newBrightness;
         store.setRoomBrightness(room.id, Math.round(newBrightness));
