@@ -702,7 +702,7 @@ export class HomeView extends LocalizedElement {
               <room-card
                 .room=${activeRoom}
                 detail-view
-                style=${`view-transition-name: ${this._roomTransitionName(activeRoom.id)};`}
+                .transitionName=${this._roomTransitionName(activeRoom.id)}
               ></room-card>
             </div>
           `
@@ -713,7 +713,7 @@ export class HomeView extends LocalizedElement {
                 : visibleRooms.map(r => html`
                     <room-card
                       .room=${r}
-                      style=${`view-transition-name: ${this._roomTransitionName(r.id)};`}
+                      .transitionName=${this._roomTransitionName(r.id)}
                       @open-room=${this._openRoom}
                     ></room-card>
                   `)}

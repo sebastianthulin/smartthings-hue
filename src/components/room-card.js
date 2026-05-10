@@ -17,6 +17,7 @@ export class RoomCard extends LocalizedElement {
   static properties = {
     room:       { type: Object },
     detailView: { type: Boolean, attribute: 'detail-view' },
+    transitionName: { type: String, attribute: false },
   };
 
   static styles = css`
@@ -233,6 +234,7 @@ export class RoomCard extends LocalizedElement {
   constructor() {
     super();
     this.detailView = false;
+    this.transitionName = 'none';
   }
 
   _onCardClick() {
@@ -292,6 +294,7 @@ export class RoomCard extends LocalizedElement {
     return html`
       <div
         class="card ${lightsOn ? 'lights-on' : ''} ${this.detailView ? 'detail-view' : ''}"
+        style=${`view-transition-name: ${this.transitionName || 'none'};`}
         @click=${this._onCardClick}
       >
         <div class="glow"></div>
