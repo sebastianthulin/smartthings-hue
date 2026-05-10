@@ -10,6 +10,7 @@ export class HomeView extends LocalizedElement {
   static properties = {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
+    _activeRoomId:          { state: true },
     _hiddenRoomIds:         { state: true },
     _rooms:                 { state: true },
     _settingsOpen:          { state: true },
@@ -39,12 +40,24 @@ export class HomeView extends LocalizedElement {
       padding: var(--space-5) 0 var(--space-4);
     }
 
+    .header-title {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex: 1;
+    }
+
     h1 {
       margin: 0;
       font-size: var(--font-size-2xl, 34px);
       font-weight: var(--font-weight-bold);
       letter-spacing: -1px;
       color: var(--color-text-primary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .sync-dot {
@@ -102,6 +115,10 @@ export class HomeView extends LocalizedElement {
       display: flex;
       flex-direction: column;
       gap: var(--space-3);
+    }
+
+    .room-detail {
+      padding: var(--space-2) var(--space-5) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
     }
 
     .empty {
@@ -329,6 +346,7 @@ export class HomeView extends LocalizedElement {
     super();
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
+    this._activeRoomId          = null;
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._rooms                 = store.rooms;
     this._settingsOpen          = false;
@@ -390,6 +408,9 @@ export class HomeView extends LocalizedElement {
 
   _saveHiddenRooms(hiddenRoomIds) {
     this._hiddenRoomIds = hiddenRoomIds;
+    if (this._activeRoomId && hiddenRoomIds.includes(this._activeRoomId)) {
+      this._activeRoomId = null;
+    }
     try {
       localStorage.setItem(HIDDEN_ROOMS_KEY, JSON.stringify(hiddenRoomIds));
     } catch { /* storage unavailable — ignore */ }
@@ -448,13 +469,28 @@ export class HomeView extends LocalizedElement {
     this._saveHiddenRooms([...hidden]);
   }
 
+  _openRoom(e) {
+    const roomId = e.detail?.roomId;
+    if (!roomId) return;
+    this._activeRoomId = roomId;
+  }
+
+  _closeRoom() {
+    this._activeRoomId = null;
+  }
+
   get _visibleRooms() {
     const hidden = new Set(this._hiddenRoomIds);
     return this._rooms.filter(room => !hidden.has(room.id));
   }
 
+  get _activeRoom() {
+    return this._visibleRooms.find(room => room.id === this._activeRoomId) ?? null;
+  }
+
   render() {
     const visibleRooms = this._visibleRooms;
+    const activeRoom = this._activeRoom;
     const settingsLabel = this._settingsOpen
       ? this.t('home.closeSettings')
       : this.t('home.openSettings');
@@ -462,7 +498,16 @@ export class HomeView extends LocalizedElement {
     return html`
       <header>
         <div class="header-inner">
-          <h1>${this.t('home.title')}</h1>
+          <div class="header-title">
+            ${activeRoom ? html`
+              <button class="icon-btn" @click=${this._closeRoom} aria-label=${this.t('home.backToRooms')}>
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            ` : ''}
+            <h1>${activeRoom?.name ?? this.t('home.title')}</h1>
+          </div>
           <div class="header-actions">
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
             <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
@@ -474,11 +519,19 @@ export class HomeView extends LocalizedElement {
         </div>
       </header>
 
-      <div class="rooms">
-        ${visibleRooms.length === 0
-          ? this._renderEmpty()
-          : visibleRooms.map(r => html`<room-card .room=${r}></room-card>`)}
-      </div>
+      ${activeRoom
+        ? html`
+            <div class="room-detail">
+              <room-card .room=${activeRoom} detail-view></room-card>
+            </div>
+          `
+        : html`
+            <div class="rooms">
+              ${visibleRooms.length === 0
+                ? this._renderEmpty()
+                : visibleRooms.map(r => html`<room-card .room=${r} @open-room=${this._openRoom}></room-card>`)}
+            </div>
+          `}
 
       ${this._settingsOpen ? this._renderSettings() : ''}
       ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}

@@ -25,6 +25,7 @@ export const en = {
   },
   home: {
     title: 'Home',
+    backToRooms: 'Back to rooms',
     openSettings: 'Open settings',
     closeSettings: 'Close settings',
     allRoomsHidden: 'All rooms are hidden',

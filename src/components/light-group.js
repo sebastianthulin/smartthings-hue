@@ -4,7 +4,7 @@ import { LocalizedElement } from './localized-element.js';
 import './dimmer-slider.js';
 
 /**
- * <light-group> — expanded light controls inside a room card.
+ * <light-group> — light controls inside the dedicated room detail view.
  * Shows individual lights with toggle and brightness control.
  */
 export class LightGroup extends LocalizedElement {
@@ -99,11 +99,22 @@ export class LightGroup extends LocalizedElement {
     store.setLightBrightness(lightId, e.detail.value);
   }
 
+  _stopPropagation(e) {
+    e.stopPropagation();
+  }
+
   render() {
     if (!this.lights?.length) return html``;
 
     return html`
-      <div class="light-list">
+      <div
+        class="light-list"
+        @click=${this._stopPropagation}
+        @pointerdown=${this._stopPropagation}
+        @pointermove=${this._stopPropagation}
+        @pointerup=${this._stopPropagation}
+        @pointercancel=${this._stopPropagation}
+      >
         ${this.lights.map(light => html`
           <div class="light-item">
             <div class="light-row">

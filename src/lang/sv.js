@@ -25,6 +25,7 @@ export const sv = {
   },
   home: {
     title: 'Hem',
+    backToRooms: 'Tillbaka till rum',
     openSettings: 'Öppna inställningar',
     closeSettings: 'Stäng inställningar',
     allRoomsHidden: 'Alla rum är dolda',
