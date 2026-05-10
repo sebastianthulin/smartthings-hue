@@ -49,6 +49,7 @@ export const sv = {
     turnOffLight: 'Släck {name}',
     turnOnRoomLights: 'Tänd lampor i {name}',
     turnOffRoomLights: 'Släck lampor i {name}',
+    adjustRoomBrightness: 'Justera ljusstyrkan i {name}',
     off: 'Av',
     allOff: 'Alla släckta',
     on: 'På',
