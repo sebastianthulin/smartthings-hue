@@ -43,6 +43,13 @@ export class TokenSetup extends LocalizedElement {
       gap: var(--space-2);
     }
 
+    .intro {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      margin-bottom: var(--space-4);
+    }
+
     h1 {
       margin: 0;
       font-size: var(--font-size-xl);
@@ -221,8 +228,10 @@ export class TokenSetup extends LocalizedElement {
 
     return html`
       <div class="card">
-        <h1>${this.t('tokenSetup.title')}</h1>
-        <p>${this.t('tokenSetup.description')}</p>
+        <div class="intro">
+          <h1>${this.t('tokenSetup.title')}</h1>
+          <p>${this.t('tokenSetup.description')}</p>
+        </div>
 
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
 
