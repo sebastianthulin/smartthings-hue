@@ -685,10 +685,10 @@ export class HomeView extends LocalizedElement {
       <div class="rooms">
         ${visibleRooms.length === 0
           ? this._renderEmpty()
-          : visibleRooms.map(r => html`
+          : visibleRooms.map(room => html`
               <room-card
-                .room=${r}
-                .routines=${this._getRoomScenes(r.id)}
+                .room=${room}
+                .routines=${this._getRoomScenes(room.id)}
                 @execute-routine=${this._handleExecuteRoutine}
               ></room-card>
             `)}

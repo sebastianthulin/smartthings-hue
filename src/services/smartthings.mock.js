@@ -4,7 +4,7 @@ const MOCK_LOCATIONS = [
   { locationId: MOCK_LOCATION_ID, name: 'Demo Home' },
 ];
 
-const LIGHT_DEVICE_IDS = [
+const SCENE_LIGHT_DEVICE_IDS = [
   'sofa-lamp',
   'ceiling-strip',
   'island-pendant',
@@ -251,11 +251,11 @@ function applyCommands(deviceId, commands) {
 
 function applyScene(sceneId) {
   if (sceneId === 'whole-house-on-off') {
-    const anyOn = LIGHT_DEVICE_IDS.some(deviceId =>
+    const anyOn = SCENE_LIGHT_DEVICE_IDS.some(deviceId =>
       mockState.statuses[deviceId]?.components?.main?.switch?.switch?.value === 'on'
     );
     const target = anyOn ? 'off' : 'on';
-    for (const deviceId of LIGHT_DEVICE_IDS) {
+    for (const deviceId of SCENE_LIGHT_DEVICE_IDS) {
       const main = mockState.statuses[deviceId]?.components?.main;
       if (!main) continue;
       main.switch = { switch: { value: target } };
