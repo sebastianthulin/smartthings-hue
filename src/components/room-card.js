@@ -49,8 +49,6 @@ export class RoomCard extends LocalizedElement {
 
     .card.lights-on {
       background: var(--color-surface-elevated);
-      box-shadow: 0 0 0 1px rgba(255, 180, 80, 0.12),
-                  0 8px 32px rgba(0, 0, 0, 0.4);
     }
 
     .card.pressing {
