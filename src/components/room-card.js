@@ -1,5 +1,6 @@
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
 import { store } from '../services/store.js';
+import { LocalizedElement } from './localized-element.js';
 import './presence-indicator.js';
 import './climate-summary.js';
 import './light-group.js';
@@ -12,7 +13,7 @@ import './light-group.js';
  *   room toggle → turn all lights in the room on/off
  *   swipe left/right → dim / brighten all lights
  */
-export class RoomCard extends LitElement {
+export class RoomCard extends LocalizedElement {
   static properties = {
     room:      { type: Object },
     _expanded: { state: true },
@@ -321,9 +322,9 @@ export class RoomCard extends LitElement {
     const { lights } = this.room ?? { lights: [] };
     const on = lights.filter(l => l.on).length;
     const total = lights.length;
-    if (on === 0) return total === 1 ? 'Off' : `All off`;
-    if (on === total) return total === 1 ? 'On' : `All on`;
-    return `${on} of ${total} on`;
+    if (on === 0) return total === 1 ? this.t('room.off') : this.t('room.allOff');
+    if (on === total) return total === 1 ? this.t('room.on') : this.t('room.allOn');
+    return this.t('room.lightsOnCount', { on, total });
   }
 
   get _avgBrightness() {
@@ -358,14 +359,16 @@ export class RoomCard extends LitElement {
               <div class="room-name">${room.name}</div>
             </div>
             <div class="room-controls">
-              <div class="room-toggle-label">Lights</div>
+              <div class="room-toggle-label">${this.t('room.lights')}</div>
               <button
                 type="button"
                 class="room-toggle ${lightsOn ? 'on' : ''}"
                 @pointerdown=${e => e.stopPropagation()}
                 @pointerup=${e => e.stopPropagation()}
                 @click=${this._toggleRoom}
-                aria-label="${lightsOn ? 'Turn off' : 'Turn on'} lights in ${room.name}"
+                aria-label=${lightsOn
+                  ? this.t('room.turnOffRoomLights', { name: room.name })
+                  : this.t('room.turnOnRoomLights', { name: room.name })}
               >
                 <span class="room-toggle-thumb"></span>
               </button>

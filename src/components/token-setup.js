@@ -1,6 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { html, css } from 'lit';
+import { LocalizedElement } from './localized-element.js';
 
-export class TokenSetup extends LitElement {
+export class TokenSetup extends LocalizedElement {
   static properties = {
     authError: { type: Boolean, attribute: 'auth-error' },
     _token:    { state: true },
@@ -145,7 +146,7 @@ export class TokenSetup extends LitElement {
 
   updated(changed) {
     if (changed.has('authError') && this.authError) {
-      this._error = 'Token is invalid or expired. Please generate a new one.';
+      this._error = this.t('tokenSetup.errors.expired');
     }
   }
 
@@ -161,7 +162,7 @@ export class TokenSetup extends LitElement {
   async _connect() {
     const token = this._token.trim();
     if (!token) {
-      this._error = 'Please paste your SmartThings Personal Access Token.';
+      this._error = this.t('tokenSetup.errors.missing');
       return;
     }
 
@@ -175,17 +176,17 @@ export class TokenSetup extends LitElement {
       });
 
       if (testFetch.status === 401) {
-        this._error   = 'Token is invalid. Check it and try again.';
+        this._error   = this.t('tokenSetup.errors.invalid');
         this._loading = false;
         return;
       }
       if (!testFetch.ok) {
-        this._error   = `Connection error (${testFetch.status}). Try again.`;
+        this._error   = this.t('tokenSetup.errors.connection', { status: testFetch.status });
         this._loading = false;
         return;
       }
     } catch {
-      this._error   = 'Could not reach SmartThings. Check your connection.';
+      this._error   = this.t('tokenSetup.errors.unreachable');
       this._loading = false;
       return;
     }
@@ -202,12 +203,12 @@ export class TokenSetup extends LitElement {
     return html`
       <div class="card">
         <div class="logo"></div>
-        <h1>SmartThings Hue</h1>
-        <p>Paste your SmartThings Personal Access Token to connect.</p>
+        <h1>${this.t('tokenSetup.title')}</h1>
+        <p>${this.t('tokenSetup.description')}</p>
 
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
 
-        <label for="token">Personal Access Token</label>
+        <label for="token">${this.t('tokenSetup.label')}</label>
         <input
           id="token"
           type="password"
@@ -225,15 +226,15 @@ export class TokenSetup extends LitElement {
           @click=${this._connect}
           ?disabled=${this._loading || !this._token.trim()}
         >
-          ${this._loading ? 'Connecting…' : 'Connect'}
+          ${this._loading ? this.t('tokenSetup.connecting') : this.t('tokenSetup.connect')}
         </button>
 
         <p class="hint">
-          Generate a token at
+          ${this.t('tokenSetup.hint')}
           <a href="https://account.smartthings.com/tokens" target="_blank" rel="noopener">
-            account.smartthings.com/tokens
+            ${this.t('tokenSetup.tokenUrlLabel')}
           </a>.<br/>
-          Your token is stored only on this device.
+          ${this.t('tokenSetup.storageHint')}
         </p>
       </div>
     `;
