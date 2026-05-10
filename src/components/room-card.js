@@ -19,8 +19,6 @@ export class RoomCard extends LocalizedElement {
     room:       { type: Object },
     detailView: { type: Boolean, attribute: 'detail-view' },
     _pressing:  { state: true },
-    _expanded: { state: true },
-    _pressing: { state: true },
   };
 
   static styles = css`
@@ -59,13 +57,18 @@ export class RoomCard extends LocalizedElement {
       transform: scale(0.985);
     }
 
-    .card.detail-view,
+    .card.detail-view {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+      overflow: hidden;
+    }
+
     .card.detail-view.lights-on {
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      box-shadow: none;
-      overflow: visible;
+      background: var(--color-surface-elevated);
+      box-shadow: 0 0 0 1px rgba(255, 180, 80, 0.12),
+                  0 18px 42px rgba(0, 0, 0, 0.28);
     }
 
     .card.detail-view.pressing {
@@ -215,21 +218,6 @@ export class RoomCard extends LocalizedElement {
       padding: var(--space-4) var(--space-5) var(--space-5);
     }
 
-    .card.detail-view .main {
-      padding: 0 0 var(--space-4);
-    }
-
-    .card.detail-view .divider {
-      margin-left: 0;
-      margin-right: 0;
-    }
-
-    .card.detail-view .expand-content {
-      padding-left: 0;
-      padding-right: 0;
-      padding-bottom: 0;
-    }
-
     /* ── Dim track ─────────────────────────────────────────── */
     .dim-section {
       padding: 0 var(--space-5) var(--space-4);
@@ -266,14 +254,6 @@ export class RoomCard extends LocalizedElement {
       bubbles: true,
       composed: true,
     }));
-  }
-
-  _toggleExpanded() {
-    this._expanded = !this._expanded;
-  }
-
-  _onCardClick() {
-    this._toggleExpanded();
   }
 
   _toggleRoom(e) {

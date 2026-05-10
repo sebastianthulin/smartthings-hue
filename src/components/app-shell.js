@@ -14,9 +14,12 @@ export class AppShell extends LitElement {
     :host {
       display: block;
       min-height: 100dvh;
+      width: min(100%, 980px);
+      margin: 0 auto;
       background: var(--color-bg);
       color: var(--color-text-primary);
       font-family: var(--font-family);
+      box-sizing: border-box;
     }
   `;
 

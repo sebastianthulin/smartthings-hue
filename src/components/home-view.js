@@ -32,7 +32,7 @@ export class HomeView extends LocalizedElement {
       position: sticky;
       top: 0;
       z-index: 10;
-      padding: env(safe-area-inset-top, 0) var(--space-6) 0;
+      padding: env(safe-area-inset-top, 0) var(--space-4) 0;
       background: linear-gradient(to bottom, var(--color-bg) 70%, transparent);
     }
 
@@ -122,7 +122,7 @@ export class HomeView extends LocalizedElement {
     }
 
     .room-detail {
-      padding: var(--space-2) var(--space-5) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+      padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
     }
 
     .empty {
@@ -222,16 +222,20 @@ export class HomeView extends LocalizedElement {
       padding: var(--space-4);
       padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
       background: rgba(5, 6, 10, 0.72);
+      backdrop-filter: blur(2px);
+      overflow-y: auto;
       z-index: 20;
     }
 
     .settings-sheet {
       width: min(100%, 420px);
+      max-height: calc(100dvh - (var(--space-4) * 2) - env(safe-area-inset-bottom, 0));
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-xl);
       padding: var(--space-6);
       box-sizing: border-box;
+      overflow-y: auto;
     }
 
     .settings-sheet h2 {
