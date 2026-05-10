@@ -3,10 +3,16 @@ import { store } from '../services/store.js';
 import { smartthings } from '../services/smartthings.js';
 import './room-card.js';
 
+const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+
 export class HomeView extends LitElement {
   static properties = {
-    _rooms:   { state: true },
-    _syncing: { state: true },
+    _connectionMenuOpen:    { state: true },
+    _disconnectConfirmOpen: { state: true },
+    _hiddenRoomIds:         { state: true },
+    _rooms:                 { state: true },
+    _settingsOpen:          { state: true },
+    _syncing:               { state: true },
   };
 
   static styles = css`
@@ -28,6 +34,7 @@ export class HomeView extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: var(--space-3);
       padding: var(--space-5) 0 var(--space-4);
     }
 
@@ -51,6 +58,37 @@ export class HomeView extends LitElement {
     .sync-dot.active {
       opacity: 1;
       animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-surface);
+      color: var(--color-text-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: color var(--transition-base), border-color var(--transition-base);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn:active {
+      color: var(--color-text-primary);
+      border-color: var(--color-text-dim);
+    }
+
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
     }
 
     @keyframes pulse {
@@ -96,30 +134,204 @@ export class HomeView extends LitElement {
       max-width: 240px;
     }
 
-    .disconnect-btn {
-      position: fixed;
-      bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0));
-      right: var(--space-6);
+    .connection-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4);
       background: var(--color-surface-elevated);
-      border: none;
-      border-radius: var(--radius-full);
-      padding: var(--space-3) var(--space-5);
-      color: var(--color-text-dim);
-      font-family: var(--font-family);
-      font-size: var(--font-size-xs);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      color: var(--color-text-primary);
+      font: inherit;
       cursor: pointer;
-      transition: color var(--transition-base);
+    }
+
+    .connection-chevron {
+      color: var(--color-text-dim);
+      transition: transform var(--transition-base);
+    }
+
+    .connection-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .connection-panel {
+      width: 100%;
+      margin-top: var(--space-3);
+      padding: var(--space-4);
+      background: rgba(255, 107, 107, 0.08);
+      border: 1px solid rgba(255, 107, 107, 0.18);
+      border-radius: var(--radius-md);
+      box-sizing: border-box;
+    }
+
+    .connection-panel p {
+      margin: 0 0 var(--space-4);
+      color: var(--color-text-secondary);
+    }
+
+    .disconnect-btn {
+      width: 100%;
+      background: rgba(255, 107, 107, 0.12);
+      border: 1px solid rgba(255, 107, 107, 0.28);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      color: #ff8e8e;
+      font-family: var(--font-family);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: background var(--transition-base);
     }
 
     .disconnect-btn:active {
+      background: rgba(255, 107, 107, 0.18);
+    }
+
+    .settings-backdrop {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: var(--space-4);
+      padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
+      background: rgba(5, 6, 10, 0.72);
+      z-index: 20;
+    }
+
+    .settings-sheet {
+      width: min(100%, 420px);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      box-sizing: border-box;
+    }
+
+    .settings-sheet h2 {
+      margin: 0 0 var(--space-2);
+      font-size: var(--font-size-lg);
+      color: var(--color-text-primary);
+    }
+
+    .settings-sheet p {
+      margin: 0 0 var(--space-5);
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
       color: var(--color-text-secondary);
+    }
+
+    .settings-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      margin-bottom: var(--space-5);
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      background: var(--color-surface-elevated);
+      border-radius: var(--radius-md);
+      color: var(--color-text-primary);
+    }
+
+    .settings-row span {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .settings-row input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--color-accent);
+    }
+
+    .settings-empty {
+      padding: var(--space-4);
+      margin-bottom: var(--space-5);
+      background: var(--color-surface-elevated);
+      border-radius: var(--radius-md);
+      color: var(--color-text-dim);
+      font-size: var(--font-size-sm);
+    }
+
+    .settings-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+    }
+
+    .secondary-btn {
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: none;
+      padding: var(--space-2) 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .confirm-backdrop {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      background: rgba(5, 6, 10, 0.82);
+      z-index: 30;
+    }
+
+    .confirm-dialog {
+      width: min(100%, 360px);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      box-sizing: border-box;
+    }
+
+    .confirm-dialog h3 {
+      margin: 0 0 var(--space-3);
+      font-size: var(--font-size-lg);
+      color: var(--color-text-primary);
+    }
+
+    .confirm-dialog p {
+      margin: 0 0 var(--space-5);
+      color: var(--color-text-secondary);
+      line-height: 1.5;
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+    }
+
+    .confirm-actions .secondary-btn {
+      padding: var(--space-3) 0;
     }
   `;
 
   constructor() {
     super();
-    this._rooms   = store.rooms;
-    this._syncing = false;
+    this._connectionMenuOpen    = false;
+    this._disconnectConfirmOpen = false;
+    this._hiddenRoomIds         = this._loadHiddenRooms();
+    this._rooms                 = store.rooms;
+    this._settingsOpen          = false;
+    this._syncing               = false;
   }
 
   connectedCallback() {
@@ -143,41 +355,223 @@ export class HomeView extends LitElement {
     store.removeEventListener('synced',  this._onSynced);
   }
 
+  updated(changed) {
+    if (changed.has('_settingsOpen') && this._settingsOpen) {
+      const settingsSheet = this.renderRoot.querySelector('.settings-sheet');
+      if (settingsSheet) {
+        settingsSheet.focus();
+      }
+    }
+
+    if (changed.has('_disconnectConfirmOpen') && this._disconnectConfirmOpen) {
+      const confirmDialog = this.renderRoot.querySelector('.confirm-dialog');
+      if (confirmDialog) {
+        confirmDialog.focus();
+      }
+    }
+  }
+
   _disconnect() {
-    if (!confirm('Disconnect from SmartThings and clear all local data?')) return;
     store.stopSync();
     store.clearCache();
     smartthings.clearToken();
     window.location.reload();
   }
 
+  _loadHiddenRooms() {
+    try {
+      const hiddenRoomIds = JSON.parse(localStorage.getItem(HIDDEN_ROOMS_KEY) ?? '[]');
+      return Array.isArray(hiddenRoomIds) ? hiddenRoomIds : [];
+    } catch {
+      return [];
+    }
+  }
+
+  _saveHiddenRooms(hiddenRoomIds) {
+    this._hiddenRoomIds = hiddenRoomIds;
+    try {
+      localStorage.setItem(HIDDEN_ROOMS_KEY, JSON.stringify(hiddenRoomIds));
+    } catch { /* storage unavailable — ignore */ }
+  }
+
+  _toggleSettings() {
+    this._settingsOpen = !this._settingsOpen;
+    if (!this._settingsOpen) {
+      this._connectionMenuOpen = false;
+      this._disconnectConfirmOpen = false;
+    }
+  }
+
+  _onSettingsKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._settingsOpen = false;
+      this._connectionMenuOpen = false;
+      this._disconnectConfirmOpen = false;
+    }
+  }
+
+  _onDisconnectConfirmKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._disconnectConfirmOpen = false;
+    }
+  }
+
+  _toggleConnectionMenu() {
+    this._connectionMenuOpen = !this._connectionMenuOpen;
+  }
+
+  _openDisconnectConfirm() {
+    this._disconnectConfirmOpen = true;
+  }
+
+  _closeDisconnectConfirm() {
+    this._disconnectConfirmOpen = false;
+  }
+
+  _confirmDisconnect() {
+    this._disconnectConfirmOpen = false;
+    this._disconnect();
+  }
+
+  _toggleRoomVisibility(e) {
+    const { roomId } = e.target.dataset;
+    if (!roomId) return;
+
+    const hidden = new Set(this._hiddenRoomIds);
+    if (e.target.checked) {
+      hidden.delete(roomId);
+    } else {
+      hidden.add(roomId);
+    }
+
+    this._saveHiddenRooms([...hidden]);
+  }
+
+  get _visibleRooms() {
+    const hidden = new Set(this._hiddenRoomIds);
+    return this._rooms.filter(room => !hidden.has(room.id));
+  }
+
   render() {
+    const visibleRooms = this._visibleRooms;
+    const settingsLabel = this._settingsOpen ? 'Close settings' : 'Open settings';
+
     return html`
       <header>
         <div class="header-inner">
           <h1>Home</h1>
-          <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
+          <div class="header-actions">
+            <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
+            <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm8 3.5l-1.76-.57a6.86 6.86 0 00-.52-1.24l.86-1.65-1.41-1.41-1.65.86a6.86 6.86 0 00-1.24-.52L13 4h-2l-.57 1.76c-.43.11-.84.28-1.24.52l-1.65-.86-1.41 1.41.86 1.65c-.24.4-.41.81-.52 1.24L4 11v2l1.76.57c.11.43.28.84.52 1.24l-.86 1.65 1.41 1.41 1.65-.86c.4.24.81.41 1.24.52L11 20h2l.57-1.76c.43-.11.84-.28 1.24-.52l1.65.86 1.41-1.41-.86-1.65c.24-.4.41-.81.52-1.24L20 13v-2z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
       <div class="rooms">
-        ${this._rooms.length === 0
+        ${visibleRooms.length === 0
           ? this._renderEmpty()
-          : this._rooms.map(r => html`<room-card .room=${r}></room-card>`)}
+          : visibleRooms.map(r => html`<room-card .room=${r}></room-card>`)}
       </div>
 
-      <button class="disconnect-btn" @click=${this._disconnect}>Disconnect</button>
+      ${this._settingsOpen ? this._renderSettings() : ''}
+      ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}
     `;
   }
 
   _renderEmpty() {
+    const hasRooms = this._rooms.length > 0;
     return html`
       <div class="empty">
         <svg class="empty-icon" viewBox="0 0 64 64" fill="none">
           <path d="M32 8L8 28V56h16V40h16v16h16V28L32 8z" stroke="white" stroke-width="3" stroke-linejoin="round"/>
         </svg>
-        <h2>Setting up your home…</h2>
-        <p>Fetching your rooms and lights from SmartThings.</p>
+        <h2>${hasRooms ? 'All rooms are hidden' : 'Setting up your home…'}</h2>
+        <p>${hasRooms
+          ? 'Open settings to choose which rooms should be shown on this device.'
+          : 'Fetching your rooms and lights from SmartThings.'}</p>
+      </div>
+    `;
+  }
+
+  _renderSettings() {
+    return html`
+      <div class="settings-backdrop" @click=${this._toggleSettings}>
+        <div
+          class="settings-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Settings"
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onSettingsKeyDown}
+        >
+          <h2>Settings</h2>
+          <p>Choose which rooms should be visible on this device.</p>
+
+          ${this._rooms.length === 0
+            ? html`<div class="settings-empty">Rooms will appear here after your home finishes syncing.</div>`
+            : html`
+                <div class="settings-list">
+                  ${this._rooms.map(room => {
+                    const visible = !this._hiddenRoomIds.includes(room.id);
+                    return html`
+                      <label class="settings-row">
+                        <span>${room.name}</span>
+                        <input
+                          type="checkbox"
+                          .checked=${visible}
+                          data-room-id=${room.id}
+                          @change=${this._toggleRoomVisibility}
+                        />
+                      </label>
+                    `;
+                  })}
+                </div>
+              `}
+
+          <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
+            <span>Connection</span>
+            <span class="connection-chevron ${this._connectionMenuOpen ? 'open' : ''}">⌄</span>
+          </button>
+
+          ${this._connectionMenuOpen ? html`
+            <div class="connection-panel">
+              <p>Disconnecting removes the SmartThings token and clears the synced home data on this device.</p>
+              <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>Disconnect SmartThings</button>
+            </div>
+          ` : ''}
+
+          <div class="settings-actions">
+            <button class="secondary-btn" @click=${this._toggleSettings}>Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderDisconnectConfirm() {
+    return html`
+      <div class="confirm-backdrop" @click=${this._closeDisconnectConfirm}>
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="Confirm disconnect"
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onDisconnectConfirmKeyDown}
+        >
+          <h3>Disconnect from SmartThings?</h3>
+          <p>Your token will be removed from this device and the cached home state will be cleared. Hidden room choices on this device will stay saved.</p>
+          <div class="confirm-actions">
+            <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>Cancel</button>
+            <button class="disconnect-btn" @click=${this._confirmDisconnect}>Disconnect</button>
+          </div>
+        </div>
       </div>
     `;
   }
