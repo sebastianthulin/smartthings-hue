@@ -284,10 +284,10 @@ export class RoomCard extends LocalizedElement {
     this._swipeDx      = 0;
 
     const room = this.room;
-    const avgBrightness = room.lights.filter(l => l.on && l.brightness != null).length > 0
-      ? room.lights.filter(l => l.on).reduce((a, l) => a + (l.brightness ?? 100), 0)
-        / room.lights.filter(l => l.on).length
-      : (room.lights.some(l => l.on) ? 100 : 0);
+    const onLights = room.lights.filter(light => light.on);
+    const avgBrightness = onLights.some(light => light.brightness != null)
+      ? onLights.reduce((total, light) => total + (light.brightness ?? 100), 0) / onLights.length
+      : (onLights.length > 0 ? 100 : 0);
     this._swipeStartBrightness = avgBrightness;
 
     e.currentTarget.setPointerCapture(e.pointerId);
