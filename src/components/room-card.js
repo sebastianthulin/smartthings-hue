@@ -8,8 +8,8 @@ import './light-group.js';
  * <room-card> — the primary UI element.
  *
  * Interactions:
- *   tap        → toggle all lights in the room
- *   long press → expand room detail with individual light controls
+ *   tap        → expand room detail with individual light controls
+ *   room toggle → turn all lights in the room on/off
  *   swipe left/right → dim / brighten all lights
  */
 export class RoomCard extends LitElement {
@@ -39,7 +39,6 @@ export class RoomCard extends LitElement {
         background var(--transition-base),
         box-shadow var(--transition-base),
         transform var(--transition-fast);
-      cursor: pointer;
       will-change: transform;
     }
 
@@ -74,13 +73,21 @@ export class RoomCard extends LitElement {
     /* ── Main row ─────────────────────────────────────────── */
     .main {
       display: flex;
+      flex-direction: column;
+      padding: var(--space-5) var(--space-5) var(--space-4);
+      gap: var(--space-3);
+    }
+
+    .top-row,
+    .bottom-row {
+      display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      padding: var(--space-5) var(--space-5) var(--space-4);
       gap: var(--space-4);
     }
 
-    .left {
+    .title-section,
+    .status-section {
       flex: 1;
       min-width: 0;
     }
@@ -116,6 +123,55 @@ export class RoomCard extends LitElement {
       align-items: flex-end;
       gap: var(--space-2);
       flex-shrink: 0;
+    }
+
+    .room-controls {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--space-2);
+      flex-shrink: 0;
+    }
+
+    .room-toggle-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1;
+    }
+
+    .room-toggle {
+      position: relative;
+      width: 44px;
+      height: 26px;
+      border-radius: var(--radius-full);
+      background: var(--color-surface-high);
+      border: none;
+      cursor: pointer;
+      transition: background var(--transition-base);
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .room-toggle.on {
+      background: var(--color-accent);
+    }
+
+    .room-toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      transition: transform var(--transition-base);
+    }
+
+    .room-toggle.on .room-toggle-thumb {
+      transform: translateX(18px);
     }
 
     /* ── Swipe track ──────────────────────────────────────── */
@@ -178,10 +234,10 @@ export class RoomCard extends LitElement {
     this._expanded  = false;
     this._pressing  = false;
     this._swipeDx   = 0;
-    this._pressTimer = null;
     this._swipeStartX = null;
     this._swipeStartBrightness = null;
     this._swiping = false;
+    this._suppressNextClick = false;
   }
 
   // ── Pointer / gesture handling ──────────────────────────────────────────────
@@ -200,14 +256,6 @@ export class RoomCard extends LitElement {
       : (room.lights.some(l => l.on) ? 100 : 0);
     this._swipeStartBrightness = avgBrightness;
 
-    this._pressTimer = setTimeout(() => {
-      if (!this._swiping) {
-        this._expanded = !this._expanded;
-        this._pressing = false;
-        navigator.vibrate?.(8);
-      }
-    }, 450);
-
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
@@ -217,7 +265,6 @@ export class RoomCard extends LitElement {
 
     if (Math.abs(dx) > 8) {
       this._swiping = true;
-      clearTimeout(this._pressTimer);
       this._pressing = false;
 
       // Map swipe to brightness change (±60 px = ±60% brightness)
@@ -234,23 +281,34 @@ export class RoomCard extends LitElement {
   }
 
   _pointerUp() {
-    clearTimeout(this._pressTimer);
     const wasSwiping = this._swiping;
     this._pressing      = false;
     this._swiping       = false;
     this._swipeStartX   = null;
-
-    if (!wasSwiping && !this._expandedThisPress) {
-      store.toggleRoom(this.room.id);
-    }
-    this._expandedThisPress = false;
+    this._suppressNextClick = wasSwiping;
   }
 
   _pointerCancel() {
-    clearTimeout(this._pressTimer);
     this._pressing    = false;
     this._swiping     = false;
     this._swipeStartX = null;
+  }
+
+  _toggleExpanded() {
+    this._expanded = !this._expanded;
+  }
+
+  _onCardClick() {
+    if (this._suppressNextClick) {
+      this._suppressNextClick = false;
+      return;
+    }
+    this._toggleExpanded();
+  }
+
+  _toggleRoom(e) {
+    e.stopPropagation();
+    store.toggleRoom(this.room.id);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -290,20 +348,42 @@ export class RoomCard extends LitElement {
         @pointermove=${this._pointerMove}
         @pointerup=${this._pointerUp}
         @pointercancel=${this._pointerCancel}
+        @click=${this._onCardClick}
       >
         <div class="glow"></div>
 
         <div class="main">
-          <div class="left">
-            <div class="room-name">${room.name}</div>
-            <div class="light-status">${this._lightStatusText}</div>
+          <div class="top-row">
+            <div class="title-section">
+              <div class="room-name">${room.name}</div>
+            </div>
+            <div class="room-controls">
+              <div class="room-toggle-label">Lights</div>
+              <button
+                type="button"
+                class="room-toggle ${lightsOn ? 'on' : ''}"
+                @pointerdown=${e => e.stopPropagation()}
+                @pointerup=${e => e.stopPropagation()}
+                @click=${this._toggleRoom}
+                aria-label="${lightsOn ? 'Turn off' : 'Turn on'} lights in ${room.name}"
+              >
+                <span class="room-toggle-thumb"></span>
+              </button>
+            </div>
           </div>
-          <div class="right">
-            <presence-indicator ?occupied=${room.occupied}></presence-indicator>
-            ${room.climate
-              ? html`<climate-summary .climate=${room.climate}></climate-summary>`
-              : ''}
+
+          <div class="bottom-row">
+            <div class="status-section">
+              <div class="light-status">${this._lightStatusText}</div>
+            </div>
+            <div class="right">
+              <presence-indicator ?occupied=${room.occupied}></presence-indicator>
+              ${room.climate
+                ? html`<climate-summary .climate=${room.climate}></climate-summary>`
+                : ''}
+            </div>
           </div>
+
         </div>
 
         ${lightsOn && avgBrightness != null ? html`
