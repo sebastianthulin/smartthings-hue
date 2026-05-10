@@ -7,10 +7,12 @@ const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
 
 export class HomeView extends LitElement {
   static properties = {
-    _hiddenRoomIds: { state: true },
-    _rooms:         { state: true },
-    _settingsOpen:  { state: true },
-    _syncing:       { state: true },
+    _connectionMenuOpen:    { state: true },
+    _disconnectConfirmOpen: { state: true },
+    _hiddenRoomIds:         { state: true },
+    _rooms:                 { state: true },
+    _settingsOpen:          { state: true },
+    _syncing:               { state: true },
   };
 
   static styles = css`
@@ -132,6 +134,45 @@ export class HomeView extends LitElement {
       max-width: 240px;
     }
 
+    .connection-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      background: var(--color-surface-elevated);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      color: var(--color-text-primary);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .connection-chevron {
+      color: var(--color-text-dim);
+      transition: transform var(--transition-base);
+    }
+
+    .connection-chevron.open {
+      transform: rotate(180deg);
+    }
+
+    .connection-panel {
+      width: 100%;
+      margin-top: var(--space-3);
+      padding: var(--space-4);
+      background: rgba(255, 107, 107, 0.08);
+      border: 1px solid rgba(255, 107, 107, 0.18);
+      border-radius: var(--radius-md);
+      box-sizing: border-box;
+    }
+
+    .connection-panel p {
+      margin: 0 0 var(--space-4);
+      color: var(--color-text-secondary);
+    }
+
     .disconnect-btn {
       width: 100%;
       background: rgba(255, 107, 107, 0.12);
@@ -225,7 +266,9 @@ export class HomeView extends LitElement {
 
     .settings-actions {
       display: flex;
+      align-items: center;
       justify-content: flex-end;
+      gap: var(--space-4);
       margin-top: var(--space-4);
     }
 
@@ -237,14 +280,58 @@ export class HomeView extends LitElement {
       font: inherit;
       cursor: pointer;
     }
+
+    .confirm-backdrop {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      background: rgba(5, 6, 10, 0.82);
+      z-index: 30;
+    }
+
+    .confirm-dialog {
+      width: min(100%, 360px);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      box-sizing: border-box;
+    }
+
+    .confirm-dialog h3 {
+      margin: 0 0 var(--space-3);
+      font-size: var(--font-size-lg);
+      color: var(--color-text-primary);
+    }
+
+    .confirm-dialog p {
+      margin: 0 0 var(--space-5);
+      color: var(--color-text-secondary);
+      line-height: 1.5;
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+    }
+
+    .confirm-actions .secondary-btn {
+      padding: var(--space-3) 0;
+    }
   `;
 
   constructor() {
     super();
-    this._hiddenRoomIds = this._loadHiddenRooms();
-    this._rooms         = store.rooms;
-    this._settingsOpen  = false;
-    this._syncing       = false;
+    this._connectionMenuOpen    = false;
+    this._disconnectConfirmOpen = false;
+    this._hiddenRoomIds         = this._loadHiddenRooms();
+    this._rooms                 = store.rooms;
+    this._settingsOpen          = false;
+    this._syncing               = false;
   }
 
   connectedCallback() {
@@ -275,10 +362,16 @@ export class HomeView extends LitElement {
         settingsSheet.focus();
       }
     }
+
+    if (changed.has('_disconnectConfirmOpen') && this._disconnectConfirmOpen) {
+      const confirmDialog = this.renderRoot.querySelector('.confirm-dialog');
+      if (confirmDialog) {
+        confirmDialog.focus();
+      }
+    }
   }
 
   _disconnect() {
-    if (!confirm('Disconnect from SmartThings and clear all local data?')) return;
     store.stopSync();
     store.clearCache();
     smartthings.clearToken();
@@ -303,12 +396,41 @@ export class HomeView extends LitElement {
 
   _toggleSettings() {
     this._settingsOpen = !this._settingsOpen;
+    if (!this._settingsOpen) {
+      this._connectionMenuOpen = false;
+      this._disconnectConfirmOpen = false;
+    }
   }
 
   _onSettingsKeyDown(e) {
     if (e.key === 'Escape') {
       this._settingsOpen = false;
+      this._connectionMenuOpen = false;
+      this._disconnectConfirmOpen = false;
     }
+  }
+
+  _onDisconnectConfirmKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._disconnectConfirmOpen = false;
+    }
+  }
+
+  _toggleConnectionMenu() {
+    this._connectionMenuOpen = !this._connectionMenuOpen;
+  }
+
+  _openDisconnectConfirm() {
+    this._disconnectConfirmOpen = true;
+  }
+
+  _closeDisconnectConfirm() {
+    this._disconnectConfirmOpen = false;
+  }
+
+  _confirmDisconnect() {
+    this._disconnectConfirmOpen = false;
+    this._disconnect();
   }
 
   _toggleRoomVisibility(e) {
@@ -356,6 +478,7 @@ export class HomeView extends LitElement {
       </div>
 
       ${this._settingsOpen ? this._renderSettings() : ''}
+      ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}
     `;
   }
 
@@ -410,10 +533,43 @@ export class HomeView extends LitElement {
                 </div>
               `}
 
-          <button class="disconnect-btn" @click=${this._disconnect}>Disconnect</button>
+          <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
+            <span>Connection</span>
+            <span class="connection-chevron ${this._connectionMenuOpen ? 'open' : ''}">⌄</span>
+          </button>
+
+          ${this._connectionMenuOpen ? html`
+            <div class="connection-panel">
+              <p>Disconnecting removes the SmartThings token and clears the synced home data on this device.</p>
+              <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>Disconnect SmartThings</button>
+            </div>
+          ` : ''}
 
           <div class="settings-actions">
             <button class="secondary-btn" @click=${this._toggleSettings}>Done</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderDisconnectConfirm() {
+    return html`
+      <div class="confirm-backdrop" @click=${this._closeDisconnectConfirm}>
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="Confirm disconnect"
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onDisconnectConfirmKeyDown}
+        >
+          <h3>Disconnect from SmartThings?</h3>
+          <p>Your token will be removed from this device and the cached home state will be cleared. Hidden room choices on this device will stay saved.</p>
+          <div class="confirm-actions">
+            <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>Cancel</button>
+            <button class="disconnect-btn" @click=${this._confirmDisconnect}>Disconnect</button>
           </div>
         </div>
       </div>
