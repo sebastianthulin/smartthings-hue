@@ -1,7 +1,6 @@
 import { html, css } from 'lit';
 import { store } from '../services/store.js';
 import { LocalizedElement } from './localized-element.js';
-import './presence-indicator.js';
 import './climate-summary.js';
 import './dimmer-slider.js';
 import './light-group.js';
@@ -96,7 +95,7 @@ export class RoomCard extends LocalizedElement {
       display: flex;
       flex-direction: column;
       padding: var(--space-5) var(--space-5) var(--space-4);
-      gap: var(--space-3);
+      gap: var(--space-1);
     }
 
     .top-row,
@@ -113,6 +112,12 @@ export class RoomCard extends LocalizedElement {
       min-width: 0;
     }
 
+    .title-section {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
     .room-name {
       font-size: var(--font-size-lg);
       font-weight: var(--font-weight-semibold);
@@ -121,29 +126,51 @@ export class RoomCard extends LocalizedElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-bottom: var(--space-1);
+      margin-bottom: 0;
     }
 
     .lights-on .room-name {
       color: #fff;
     }
 
+    .presence-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: 'Material Symbols Outlined';
+      font-size: 18px;
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      color: var(--color-accent);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
     .light-status {
       font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
       color: var(--color-text-dim);
       transition: color var(--transition-base);
     }
 
-    .lights-on .light-status {
-      color: var(--color-accent);
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: calc(var(--space-4) * 2);
+      min-width: 0;
+      flex-wrap: wrap;
     }
 
-    .right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: var(--space-2);
-      flex-shrink: 0;
+    .lights-on .light-status {
+      color: var(--color-accent);
     }
 
     .room-controls {
@@ -152,14 +179,6 @@ export class RoomCard extends LocalizedElement {
       align-items: center;
       gap: var(--space-2);
       flex-shrink: 0;
-    }
-
-    .room-toggle-label {
-      font-size: var(--font-size-xs);
-      color: var(--color-text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      line-height: 1;
     }
 
     .room-toggle {
@@ -219,7 +238,6 @@ export class RoomCard extends LocalizedElement {
     /* ── Dim track ─────────────────────────────────────────── */
     .dim-section {
       padding: 0 var(--space-5) var(--space-4);
-      margin-bottom: var(--space-4);
     }
   `;
 
@@ -312,9 +330,11 @@ export class RoomCard extends LocalizedElement {
           <div class="top-row">
             <div class="title-section">
               <div class="room-name">${room.name}</div>
+              ${room.occupied
+                ? html`<span class="presence-icon" aria-label=${this.t('room.occupied')}>directions_run</span>`
+                : ''}
             </div>
             <div class="room-controls">
-              <div class="room-toggle-label">${this.t('room.lights')}</div>
               <button
                 type="button"
                 class="room-toggle ${lightsOn ? 'on' : ''}"
@@ -332,13 +352,12 @@ export class RoomCard extends LocalizedElement {
 
           <div class="bottom-row">
             <div class="status-section">
-              <div class="light-status">${this._lightStatusText}</div>
-            </div>
-            <div class="right">
-              <presence-indicator ?occupied=${room.occupied}></presence-indicator>
-              ${room.climate
-                ? html`<climate-summary .climate=${room.climate}></climate-summary>`
-                : ''}
+              <div class="status-line">
+                <div class="light-status">${this._lightStatusText}</div>
+                ${room.climate
+                  ? html`<climate-summary .climate=${room.climate}></climate-summary>`
+                  : ''}
+              </div>
             </div>
           </div>
         </div>

@@ -12,28 +12,53 @@ export class ClimateSummary extends LitElement {
 
   static styles = css`
     :host {
-      display: block;
+      display: inline-flex;
+      min-width: 0;
     }
 
     .wrap {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 1px;
+      align-items: center;
+      gap: var(--space-4);
+      min-width: 0;
     }
 
-    .temp {
-      font-size: var(--font-size-base);
+    .metric {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Material Symbols Outlined';
+      font-size: 15px;
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .temp,
+    .humidity {
+      font-size: var(--font-size-sm);
       font-weight: var(--font-weight-medium);
       color: var(--color-text-secondary);
       line-height: 1.2;
-      letter-spacing: -0.3px;
     }
 
-    .humidity {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-dim);
-      line-height: 1.2;
+    .temp {
+      letter-spacing: -0.3px;
     }
   `;
 
@@ -44,10 +69,20 @@ export class ClimateSummary extends LitElement {
     return html`
       <div class="wrap">
         ${temperature != null
-          ? html`<span class="temp">${temperature}°</span>`
+          ? html`
+              <span class="temp metric">
+                <span class="icon" aria-hidden="true">thermostat</span>
+                <span>${temperature}°</span>
+              </span>
+            `
           : ''}
         ${humidity != null
-          ? html`<span class="humidity">${humidity}%</span>`
+          ? html`
+              <span class="humidity metric">
+                <span class="icon" aria-hidden="true">water_drop</span>
+                <span>${humidity}%</span>
+              </span>
+            `
           : ''}
       </div>
     `;

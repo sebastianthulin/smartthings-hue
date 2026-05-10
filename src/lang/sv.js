@@ -46,6 +46,7 @@ export const sv = {
   },
   room: {
     lights: 'Lampor',
+    occupied: 'Upptaget',
     turnOnLight: 'Tänd {name}',
     turnOffLight: 'Släck {name}',
     turnOnRoomLights: 'Tänd lampor i {name}',

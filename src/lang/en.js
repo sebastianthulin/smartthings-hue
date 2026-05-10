@@ -46,6 +46,7 @@ export const en = {
   },
   room: {
     lights: 'Lights',
+    occupied: 'Occupied',
     turnOnLight: 'Turn on {name}',
     turnOffLight: 'Turn off {name}',
     turnOnRoomLights: 'Turn on lights in {name}',
