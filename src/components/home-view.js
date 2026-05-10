@@ -598,10 +598,16 @@ export class HomeView extends LocalizedElement {
 
     const nextSceneIds = [...(this._roomSceneIds[roomId] ?? [])];
     if (e.target.checked) {
-      if (nextSceneIds.includes(sceneId) || nextSceneIds.length >= MAX_ROUTINES_PER_ROOM) {
-        e.target.checked = nextSceneIds.includes(sceneId);
+      if (nextSceneIds.includes(sceneId)) {
+        e.target.checked = true;
         return;
       }
+
+      if (nextSceneIds.length >= MAX_ROUTINES_PER_ROOM) {
+        e.target.checked = false;
+        return;
+      }
+
       nextSceneIds.push(sceneId);
     } else {
       const index = nextSceneIds.indexOf(sceneId);

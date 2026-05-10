@@ -100,7 +100,10 @@ class HomeStore extends EventTarget {
       const [rawRooms, rawDevices, rawScenes] = await Promise.all([
         smartthings.fetchRooms(this.#locationId),
         smartthings.fetchDevices(this.#locationId),
-        smartthings.fetchScenes().catch(() => []),
+        smartthings.fetchScenes().catch(err => {
+          console.warn('SmartThings scenes could not be synced.', err);
+          return [];
+        }),
       ]);
 
       // Fetch device statuses in parallel (best-effort)
