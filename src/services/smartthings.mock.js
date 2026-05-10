@@ -307,7 +307,7 @@ function setLightState(deviceId, { on, level, colorTemperature }) {
     main.switchLevel.level.value = on ? Math.max(1, Number(level ?? 100)) : 0;
   }
 
-  if (main.colorTemperature && colorTemperature != null) {
+  if (main.colorTemperature && colorTemperature !== null && colorTemperature !== undefined) {
     main.colorTemperature.colorTemperature.value = Number(colorTemperature);
   }
 }
