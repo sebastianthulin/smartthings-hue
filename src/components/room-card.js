@@ -3,6 +3,7 @@ import { store } from '../services/store.js';
 import { LocalizedElement } from './localized-element.js';
 import './presence-indicator.js';
 import './climate-summary.js';
+import './dimmer-slider.js';
 import './light-group.js';
 
 /**
@@ -11,14 +12,13 @@ import './light-group.js';
  * Interactions:
  *   tap        → expand room detail with individual light controls
  *   room toggle → turn all lights in the room on/off
- *   swipe left/right → dim / brighten all lights
+ *   room dimmer → adjust brightness for all lights
  */
 export class RoomCard extends LocalizedElement {
   static properties = {
     room:      { type: Object },
     _expanded: { state: true },
     _pressing: { state: true },
-    _swipeDx:  { state: true },
   };
 
   static styles = css`
@@ -175,26 +175,6 @@ export class RoomCard extends LocalizedElement {
       transform: translateX(18px);
     }
 
-    /* ── Swipe track ──────────────────────────────────────── */
-    .swipe-hint {
-      height: 2px;
-      background: var(--color-border);
-      border-radius: 1px;
-      margin: 0 var(--space-5);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .swipe-track {
-      position: absolute;
-      left: 0;
-      top: 0;
-      height: 100%;
-      background: var(--color-accent);
-      border-radius: 1px;
-      transition: width var(--transition-fast);
-    }
-
     /* ── Expand section ───────────────────────────────────── */
     .expand-wrapper {
       overflow: hidden;
@@ -218,15 +198,8 @@ export class RoomCard extends LocalizedElement {
 
     /* ── Dim track ─────────────────────────────────────────── */
     .dim-section {
+      padding: 0 var(--space-5) var(--space-4);
       margin-bottom: var(--space-4);
-    }
-
-    .dim-label {
-      font-size: var(--font-size-xs);
-      color: var(--color-text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: var(--space-2);
     }
   `;
 
@@ -234,65 +207,21 @@ export class RoomCard extends LocalizedElement {
     super();
     this._expanded  = false;
     this._pressing  = false;
-    this._swipeDx   = 0;
-    this._swipeStartX = null;
-    this._swipeStartBrightness = null;
-    this._swiping = false;
-    this._suppressNextClick = false;
   }
 
   // ── Pointer / gesture handling ──────────────────────────────────────────────
 
   _pointerDown(e) {
     if (e.button !== 0 && e.pointerType !== 'touch') return;
-    this._pressing     = true;
-    this._swipeStartX  = e.clientX;
-    this._swiping      = false;
-    this._swipeDx      = 0;
-
-    const room = this.room;
-    const avgBrightness = room.lights.filter(l => l.on && l.brightness != null).length > 0
-      ? room.lights.filter(l => l.on).reduce((a, l) => a + (l.brightness ?? 100), 0)
-        / room.lights.filter(l => l.on).length
-      : (room.lights.some(l => l.on) ? 100 : 0);
-    this._swipeStartBrightness = avgBrightness;
-
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  _pointerMove(e) {
-    if (this._swipeStartX === null) return;
-    const dx = e.clientX - this._swipeStartX;
-
-    if (Math.abs(dx) > 8) {
-      this._swiping = true;
-      this._pressing = false;
-
-      // Map swipe to brightness change (±60 px = ±60% brightness)
-      const room = this.room;
-      const anyHasBrightness = room.lights.some(l => l.brightness != null);
-      if (anyHasBrightness) {
-        const newBrightness = Math.max(0, Math.min(100,
-          (this._swipeStartBrightness ?? 50) + dx * 0.8
-        ));
-        this._swipeDx = newBrightness;
-        store.setRoomBrightness(room.id, Math.round(newBrightness));
-      }
-    }
+    this._pressing = true;
   }
 
   _pointerUp() {
-    const wasSwiping = this._swiping;
     this._pressing      = false;
-    this._swiping       = false;
-    this._swipeStartX   = null;
-    this._suppressNextClick = wasSwiping;
   }
 
   _pointerCancel() {
-    this._pressing    = false;
-    this._swiping     = false;
-    this._swipeStartX = null;
+    this._pressing = false;
   }
 
   _toggleExpanded() {
@@ -300,16 +229,21 @@ export class RoomCard extends LocalizedElement {
   }
 
   _onCardClick() {
-    if (this._suppressNextClick) {
-      this._suppressNextClick = false;
-      return;
-    }
     this._toggleExpanded();
   }
 
   _toggleRoom(e) {
     e.stopPropagation();
     store.toggleRoom(this.room.id);
+  }
+
+  _onBrightnessChange(e) {
+    e.stopPropagation();
+    store.setRoomBrightness(this.room.id, e.detail.value);
+  }
+
+  _stopPropagation(e) {
+    e.stopPropagation();
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -346,7 +280,6 @@ export class RoomCard extends LocalizedElement {
       <div
         class="card ${lightsOn ? 'lights-on' : ''} ${this._pressing ? 'pressing' : ''}"
         @pointerdown=${this._pointerDown}
-        @pointermove=${this._pointerMove}
         @pointerup=${this._pointerUp}
         @pointercancel=${this._pointerCancel}
         @click=${this._onCardClick}
@@ -390,8 +323,13 @@ export class RoomCard extends LocalizedElement {
         </div>
 
         ${lightsOn && avgBrightness != null ? html`
-          <div class="swipe-hint">
-            <div class="swipe-track" style="width: ${avgBrightness}%"></div>
+          <div class="dim-section">
+            <dimmer-slider
+              .value=${avgBrightness}
+              @change=${this._onBrightnessChange}
+              @click=${this._stopPropagation}
+              aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}
+            ></dimmer-slider>
           </div>
         ` : ''}
 

@@ -48,6 +48,7 @@ export const en = {
     turnOffLight: 'Turn off {name}',
     turnOnRoomLights: 'Turn on lights in {name}',
     turnOffRoomLights: 'Turn off lights in {name}',
+    adjustRoomBrightness: 'Adjust brightness in {name}',
     off: 'Off',
     allOff: 'All off',
     on: 'On',
