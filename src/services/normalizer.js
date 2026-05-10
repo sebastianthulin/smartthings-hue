@@ -70,10 +70,26 @@ export function normalizeHome(rawDevices, rawRooms, statusMap) {
   }
 
   // Return only rooms with something to show
-  return allRooms.filter(r => r.lights.length > 0 || hasClimate(r));
+  return sortHome(allRooms.filter(r => r.lights.length > 0 || hasClimate(r)));
+}
+
+export function sortHome(rooms) {
+  return [...rooms]
+    .map(room => ({
+      ...room,
+      lights: [...(room.lights ?? [])].sort(compareByName),
+    }))
+    .sort(compareByName);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+function compareByName(left, right) {
+  return (left.name ?? '').localeCompare(right.name ?? '', undefined, {
+    sensitivity: 'base',
+    numeric: true,
+  });
+}
 
 function makeRoom(id, name) {
   return {

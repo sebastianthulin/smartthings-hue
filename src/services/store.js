@@ -10,7 +10,7 @@
  */
 
 import { smartthings, AuthError } from './smartthings.js';
-import { normalizeHome } from './normalizer.js';
+import { normalizeHome, sortHome } from './normalizer.js';
 
 const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms
@@ -39,7 +39,7 @@ class HomeStore extends EventTarget {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return false;
       const { rooms, lastSync, locationId } = JSON.parse(raw);
-      this.#rooms      = rooms      ?? [];
+      this.#rooms      = sortHome(rooms ?? []);
       this.#lastSync   = lastSync   ?? null;
       this.#locationId = locationId ?? null;
       this.#emit();
@@ -192,18 +192,21 @@ class HomeStore extends EventTarget {
     const room = this.#findRoom(roomId);
     if (!room) return;
 
-    room.lights.forEach(l => {
-      l.brightness = brightness;
-      l.on = brightness > 0;
+    const activeLights = room.lights.filter(light => light.on);
+    if (!activeLights.length) return;
+
+    activeLights.forEach(light => {
+      light.brightness = brightness;
+      light.on = brightness > 0;
     });
     this.#emit();
 
-    room.lights.forEach(light => this.#clearLightLevelTimer(light.id));
+    activeLights.forEach(light => this.#clearLightLevelTimer(light.id));
     this.#clearRoomLevelTimer(roomId);
     this.#roomLevelTimers.set(roomId, setTimeout(async () => {
       this.#roomLevelTimers.delete(roomId);
       await Promise.allSettled(
-        room.lights.map(light => smartthings.setLevel(light.id, brightness))
+        activeLights.map(light => smartthings.setLevel(light.id, brightness))
       );
     }, BRIGHTNESS_DEBOUNCE_MS));
   }
