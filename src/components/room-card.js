@@ -242,6 +242,10 @@ export class RoomCard extends LocalizedElement {
     store.setRoomBrightness(this.room.id, e.detail.value);
   }
 
+  _stopPropagation(e) {
+    e.stopPropagation();
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   get _lightsOn() {
@@ -323,7 +327,7 @@ export class RoomCard extends LocalizedElement {
             <dimmer-slider
               .value=${avgBrightness}
               @change=${this._onBrightnessChange}
-              @click=${e => e.stopPropagation()}
+              @click=${this._stopPropagation}
             ></dimmer-slider>
           </div>
         ` : ''}
