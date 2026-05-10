@@ -294,6 +294,7 @@ function applyScene(sceneId) {
   if (sceneId === 'bedroom-reading') {
     setLightState('bedside-left', { on: true, level: 48, colorTemperature: 2600 });
     setLightState('bedside-right', { on: true, level: 48, colorTemperature: 2600 });
+    return;
   }
 }
 
