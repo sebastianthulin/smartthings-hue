@@ -3,10 +3,12 @@ import { LocalizedElement } from './localized-element.js';
 
 export class TokenSetup extends LocalizedElement {
   static properties = {
-    authError: { type: Boolean, attribute: 'auth-error' },
-    _token:    { state: true },
-    _loading:  { state: true },
-    _error:    { state: true },
+    authMode:     { type: String, attribute: 'auth-mode' },
+    authError:    { type: Boolean, attribute: 'auth-error' },
+    processing:   { type: Boolean },
+    errorMessage: { state: true },
+    _token:       { state: true },
+    _error:       { state: true },
   };
 
   static styles = css`
@@ -38,12 +40,6 @@ export class TokenSetup extends LocalizedElement {
       view-transition-name: home-stage;
     }
 
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-    }
-
     .intro {
       display: flex;
       flex-direction: column;
@@ -58,6 +54,12 @@ export class TokenSetup extends LocalizedElement {
       color: var(--color-text-primary);
       letter-spacing: -0.5px;
       view-transition-name: page-title;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
     }
 
     p {
@@ -169,13 +171,20 @@ export class TokenSetup extends LocalizedElement {
 
   constructor() {
     super();
-    this._token   = '';
-    this._loading = false;
-    this._error   = '';
+    this.authMode = 'oauth';
+    this.processing = false;
+    this.errorMessage = '';
+    this._token = '';
+    this._error = '';
   }
 
   updated(changed) {
-    if (changed.has('authError') && this.authError) {
+    if (changed.has('errorMessage')) {
+      this._error = this.errorMessage || (this.authError ? this.t('tokenSetup.errors.expired') : '');
+      return;
+    }
+
+    if (changed.has('authError') && this.authError && !this.errorMessage) {
       this._error = this.t('tokenSetup.errors.expired');
     }
   }
@@ -186,47 +195,67 @@ export class TokenSetup extends LocalizedElement {
   }
 
   _onKeyDown(e) {
-    if (e.key === 'Enter') this._connect();
+    if (e.key === 'Enter') {
+      this._connect();
+    }
   }
 
-  async _connect() {
-    const token = this._token.trim();
-    if (!token) {
-      this._error = this.t('tokenSetup.errors.missing');
+  _connect() {
+    this._error = '';
+
+    if (this.authMode === 'token') {
+      const token = this._token.trim();
+
+      if (!token) {
+        this._error = this.t('tokenSetup.errors.missing');
+        return;
+      }
+
+      this.dispatchEvent(new CustomEvent('token-set', {
+        detail: { token },
+        bubbles: true,
+        composed: true,
+      }));
       return;
     }
 
-    this._loading = true;
-    this._error   = '';
-
-    // Validate token with a quick locations call
-    try {
-      const testFetch = await fetch('https://api.smartthings.com/v1/locations', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (testFetch.status === 401) {
-        this._error   = this.t('tokenSetup.errors.invalid');
-        this._loading = false;
-        return;
-      }
-      if (!testFetch.ok) {
-        this._error   = this.t('tokenSetup.errors.connection', { status: testFetch.status });
-        this._loading = false;
-        return;
-      }
-    } catch {
-      this._error   = this.t('tokenSetup.errors.unreachable');
-      this._loading = false;
-      return;
-    }
-
-    this._loading = false;
-    this.dispatchEvent(new CustomEvent('token-set', {
-      detail:  { token },
+    this.dispatchEvent(new CustomEvent('oauth-login-start', {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  _description() {
+    return this.authMode === 'token'
+      ? this.t('tokenSetup.tokenDescription')
+      : this.t('tokenSetup.oauthDescription');
+  }
+
+  _buttonLabel() {
+    if (this.processing) {
+      return this.t('tokenSetup.connecting');
+    }
+
+    return this.authMode === 'token'
+      ? this.t('tokenSetup.connect')
+      : this.t('tokenSetup.oauthConnect');
+  }
+
+  _hintTemplate() {
+    if (this.authMode === 'token') {
+      return html`
+        ${this.t('tokenSetup.tokenHint')}
+        <a href="https://account.smartthings.com/tokens" target="_blank" rel="noopener">
+          ${this.t('tokenSetup.tokenUrlLabel')}
+        </a>.<br/>
+        ${this.t('tokenSetup.storageHint')}
+      `;
+    }
+
+    return html`
+      ${this.t('tokenSetup.oauthHint')}<br/>
+      ${this.t('tokenSetup.storageHint')}
+    `;
   }
 
   render() {
@@ -236,40 +265,38 @@ export class TokenSetup extends LocalizedElement {
       <div class="card">
         <div class="intro">
           <h1>${this.t('tokenSetup.title')}</h1>
-          <p>${this.t('tokenSetup.description')}</p>
+          <p>${this._description()}</p>
         </div>
 
         ${this._error ? html`<div class="error">${this._error}</div>` : ''}
 
-        <div class="field">
-          <label for="token">${this.t('tokenSetup.label')}</label>
-          <input
-            id="token"
-            type="password"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            .value=${this._token}
-            @input=${this._onInput}
-            @keydown=${this._onKeyDown}
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-          />
-        </div>
+        ${this.authMode === 'token' ? html`
+          <div class="field">
+            <label for="token">${this.t('tokenSetup.label')}</label>
+            <input
+              id="token"
+              type="password"
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              .value=${this._token}
+              @input=${this._onInput}
+              @keydown=${this._onKeyDown}
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+          </div>
+        ` : ''}
 
         <button
           @click=${this._connect}
-          ?disabled=${this._loading || !this._token.trim()}
+          ?disabled=${this.processing || (this.authMode === 'token' && !this._token.trim())}
         >
-          ${this._loading ? this.t('tokenSetup.connecting') : this.t('tokenSetup.connect')}
+          ${this._buttonLabel()}
         </button>
 
         <p class="hint">
-          ${this.t('tokenSetup.hint')}
-          <a href="https://account.smartthings.com/tokens" target="_blank" rel="noopener">
-            ${this.t('tokenSetup.tokenUrlLabel')}
-          </a>.<br/>
-          ${this.t('tokenSetup.storageHint')}
+          ${this._hintTemplate()}
         </p>
       </div>
 

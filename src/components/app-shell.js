@@ -25,7 +25,10 @@ const appShellStyles = css`
 export class AppShell extends LitElement {
   static properties = {
     _hasToken:             { state: true },
+    _authMode:             { state: true },
     _authError:            { state: true },
+    _authMessage:          { state: true },
+    _authPending:          { state: true },
     _pageTransitionActive: { state: true },
   };
 
@@ -38,7 +41,10 @@ export class AppShell extends LitElement {
   constructor() {
     super();
     this._hasToken             = smartthings.hasToken;
+    this._authMode             = smartthings.authMode;
     this._authError            = false;
+    this._authMessage          = '';
+    this._authPending          = true;
     this._pageTransitionActive = false;
   }
 
@@ -49,16 +55,14 @@ export class AppShell extends LitElement {
       if (store.authError) {
         this._runAppViewTransition(() => {
           this._authError = true;
+          this._authMessage = '';
           this._hasToken  = false;
         });
       }
     };
 
     store.addEventListener('error', this._onStoreError);
-
-    if (this._hasToken) {
-      this._boot();
-    }
+    this._initializeAuth();
   }
 
   disconnectedCallback() {
@@ -72,14 +76,61 @@ export class AppShell extends LitElement {
     store.startSync();   // then sync in background
   }
 
+  async _initializeAuth() {
+    this._authPending = true;
+    this._authMode = smartthings.authMode;
+
+    try {
+      if (this._authMode === 'oauth') {
+        await smartthings.maybeCompleteLoginFromRedirect();
+      }
+
+      this._hasToken = smartthings.hasToken;
+
+      if (this._hasToken) {
+        this._authError = false;
+        this._authMessage = '';
+        await this._boot();
+      } else if (this._authMode === 'oauth') {
+        this._authMessage = smartthings.authConfigError;
+      }
+    } catch (error) {
+      smartthings.clearToken();
+      this._hasToken = false;
+      this._authError = true;
+      this._authMessage = error?.message ?? 'SmartThings sign-in failed.';
+    } finally {
+      this._authPending = false;
+    }
+  }
+
   async _handleTokenSet(e) {
     const { token } = e.detail;
     smartthings.setToken(token);
     await this._runAppViewTransition(() => {
-      this._hasToken  = true;
+      this._hasToken = true;
       this._authError = false;
+      this._authMessage = '';
     });
     this._boot();
+  }
+
+  _handleLoginStart() {
+    this._authError = false;
+    this._authMessage = smartthings.authConfigError;
+
+    if (this._authMessage) {
+      return;
+    }
+
+    this._authPending = true;
+
+    try {
+      smartthings.startLogin();
+    } catch (error) {
+      this._authPending = false;
+      this._authMessage = error?.message ?? 'SmartThings sign-in failed.';
+    }
   }
 
   async _runAppViewTransition(update) {
@@ -112,7 +163,11 @@ export class AppShell extends LitElement {
         <style>${appShellStyles.cssText}</style>
         <div class="page-shell" style=${`view-transition-name: ${this._pageTransitionActive ? 'app-page' : 'none'};`}>
           <token-setup
+            .authMode=${this._authMode}
             ?auth-error=${this._authError}
+            ?processing=${this._authPending}
+            .errorMessage=${this._authMessage}
+            @oauth-login-start=${this._handleLoginStart}
             @token-set=${this._handleTokenSet}
           ></token-setup>
         </div>

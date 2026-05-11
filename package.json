@@ -4,6 +4,7 @@
   "description": "SmartThings but with the Philips Hue experience",
   "type": "module",
   "scripts": {
+    "auth:broker": "node server/smartthings-oauth-broker.js",
     "dev": "vite",
     "build": "vite build && npm run deploy:check",
     "build:pwa-reset": "PWA_SELF_DESTROY=1 vite build && npm run deploy:check:reset",
