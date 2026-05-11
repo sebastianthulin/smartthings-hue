@@ -15,6 +15,19 @@ import { normalizeHome, sortHome } from './normalizer.js';
 const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
+const MOCK_LOCATION_ID = 'mock-location';
+
+function getCurrentCacheMode() {
+  return smartthings.authMode === 'mock' ? 'mock' : 'live';
+}
+
+function inferCachedMode({ mode, locationId }) {
+  if (mode === 'mock' || mode === 'live') {
+    return mode;
+  }
+
+  return locationId === MOCK_LOCATION_ID ? 'mock' : 'live';
+}
 
 class HomeStore extends EventTarget {
   #rooms       = [];
@@ -38,7 +51,12 @@ class HomeStore extends EventTarget {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return false;
-      const { rooms, lastSync, locationId } = JSON.parse(raw);
+      const { rooms, lastSync, locationId, mode } = JSON.parse(raw);
+      if (inferCachedMode({ mode, locationId }) !== getCurrentCacheMode()) {
+        this.clearCache();
+        return false;
+      }
+
       this.#rooms      = sortHome(rooms ?? []);
       this.#lastSync   = lastSync   ?? null;
       this.#locationId = locationId ?? null;
@@ -55,6 +73,7 @@ class HomeStore extends EventTarget {
         rooms:      this.#rooms,
         lastSync:   this.#lastSync,
         locationId: this.#locationId,
+        mode:       getCurrentCacheMode(),
       }));
     } catch { /* storage full — silently ignore */ }
   }
@@ -88,6 +107,10 @@ class HomeStore extends EventTarget {
     this.dispatchEvent(new CustomEvent('syncing'));
 
     try {
+      if (getCurrentCacheMode() === 'live' && this.#locationId === MOCK_LOCATION_ID) {
+        this.#locationId = null;
+      }
+
       // Discover location on first sync
       if (!this.#locationId) {
         const locations = await smartthings.fetchLocations();
