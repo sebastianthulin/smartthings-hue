@@ -31,6 +31,9 @@ export const SUPPORTED_CAPABILITIES = new Set([
   'relativeHumidityMeasurement',
   'occupancySensor',
   'motionSensor',
+  'presenceSensor',
+  'movementSensor',
+  'multipleZonePresence',
 ]);
 
 function readStorage(key, storage = localStorage) {

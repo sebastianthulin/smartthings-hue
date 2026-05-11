@@ -52,12 +52,7 @@ export function normalizeHome(rawDevices, rawRooms, statusMap, healthMap = {}) {
     }
 
     if (!room.occupied) {
-      if (caps.has('occupancySensor')) {
-        room.occupied = readAttr(status, 'occupancySensor', 'occupancy') === 'occupied';
-      }
-      if (!room.occupied && caps.has('motionSensor')) {
-        room.occupied = readAttr(status, 'motionSensor', 'motion') === 'active';
-      }
+      room.occupied = readOccupancy(status, caps);
     }
   }
 
@@ -152,6 +147,51 @@ function isLightDevice(caps) {
 
 function isDeviceOffline(health) {
   return health?.state === 'OFFLINE';
+}
+
+function readOccupancy(status, caps) {
+  if (caps.has('occupancySensor') && readAttr(status, 'occupancySensor', 'occupancy') === 'occupied') {
+    return true;
+  }
+
+  if (caps.has('presenceSensor') && readAttr(status, 'presenceSensor', 'presence') === 'present') {
+    return true;
+  }
+
+  if (caps.has('motionSensor') && readAttr(status, 'motionSensor', 'motion') === 'active') {
+    return true;
+  }
+
+  if (caps.has('movementSensor') && isActiveMovement(readAttr(status, 'movementSensor', 'movement'))) {
+    return true;
+  }
+
+  if (caps.has('multipleZonePresence') && hasPresentZone(readAttr(status, 'multipleZonePresence', 'zoneState'))) {
+    return true;
+  }
+
+  return false;
+}
+
+function isActiveMovement(value) {
+  return typeof value === 'string' && value !== 'inactive';
+}
+
+function hasPresentZone(value) {
+  const zones = parseZoneState(value);
+  return zones.some(zone => zone?.state === 'present' || zone?.state === 'occupied');
+}
+
+function parseZoneState(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function normalizeLight(device, caps, status) {
