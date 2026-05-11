@@ -288,6 +288,11 @@ class SmartThingsAPI {
     return this.#request(`/devices/${deviceId}/status`);
   }
 
+  /** Fetch connectivity health for one device. */
+  async fetchDeviceHealth(deviceId) {
+    return this.#request(`/devices/${deviceId}/health`);
+  }
+
   /**
    * Send commands to a device.
    * @param {string} deviceId

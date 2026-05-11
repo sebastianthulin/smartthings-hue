@@ -66,6 +66,7 @@ const INITIAL_STATUSES = {
 };
 
 const mockState = {
+  health: Object.fromEntries(MOCK_DEVICES.map(device => [device.deviceId, { state: 'ONLINE' }])),
   statuses: clone(INITIAL_STATUSES),
 };
 
@@ -98,6 +99,11 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
   if (method === 'GET' && pathname.startsWith('/devices/') && pathname.endsWith('/status')) {
     const deviceId = pathname.split('/')[2];
     return clone(mockState.statuses[deviceId] ?? makeStatus({}));
+  }
+
+  if (method === 'GET' && pathname.startsWith('/devices/') && pathname.endsWith('/health')) {
+    const deviceId = pathname.split('/')[2];
+    return clone(mockState.health[deviceId] ?? { state: 'ONLINE' });
   }
 
   if (method === 'POST' && pathname.startsWith('/devices/') && pathname.endsWith('/commands')) {

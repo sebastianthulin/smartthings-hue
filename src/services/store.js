@@ -123,22 +123,37 @@ class HomeStore extends EventTarget {
         smartthings.fetchDevices(this.#locationId),
       ]);
 
-      // Fetch device statuses in parallel (best-effort)
-      const settled = await Promise.allSettled(
-        rawDevices.map(d =>
-          smartthings.fetchDeviceStatus(d.deviceId).then(s => [d.deviceId, s])
-        )
-      );
+      // Fetch device statuses and health in parallel (best-effort)
+      const [statusSettled, healthSettled] = await Promise.all([
+        Promise.allSettled(
+          rawDevices.map(d =>
+            smartthings.fetchDeviceStatus(d.deviceId).then(s => [d.deviceId, s])
+          )
+        ),
+        Promise.allSettled(
+          rawDevices.map(d =>
+            smartthings.fetchDeviceHealth(d.deviceId).then(h => [d.deviceId, h])
+          )
+        ),
+      ]);
 
       const statusMap = {};
-      for (const r of settled) {
+      for (const r of statusSettled) {
         if (r.status === 'fulfilled') {
           const [id, status] = r.value;
           statusMap[id] = status;
         }
       }
 
-      this.#rooms    = normalizeHome(rawDevices, rawRooms, statusMap);
+      const healthMap = {};
+      for (const r of healthSettled) {
+        if (r.status === 'fulfilled') {
+          const [id, health] = r.value;
+          healthMap[id] = health;
+        }
+      }
+
+      this.#rooms    = normalizeHome(rawDevices, rawRooms, statusMap, healthMap);
       this.#lastSync = Date.now();
       this.#save();
       this.#emit();

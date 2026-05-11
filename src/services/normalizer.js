@@ -16,9 +16,10 @@ import { SUPPORTED_CAPABILITIES } from './smartthings.js';
  * @param {Array}  rawDevices  - /devices response items
  * @param {Array}  rawRooms    - /locations/{id}/rooms response items
  * @param {Object} statusMap   - { [deviceId]: deviceStatusResponse }
+ * @param {Object} healthMap   - { [deviceId]: deviceHealthResponse }
  * @returns {Room[]}
  */
-export function normalizeHome(rawDevices, rawRooms, statusMap) {
+export function normalizeHome(rawDevices, rawRooms, statusMap, healthMap = {}) {
   // Build room stubs keyed by roomId
   const roomMap = new Map();
   for (const r of rawRooms) {
@@ -31,6 +32,7 @@ export function normalizeHome(rawDevices, rawRooms, statusMap) {
   for (const device of rawDevices) {
     const caps = getDeviceCaps(device);
     if (caps.size === 0) continue; // no supported capabilities → ignore
+    if (isDeviceOffline(healthMap[device.deviceId])) continue;
 
     const status = statusMap[device.deviceId] ?? null;
     const room = (device.roomId && roomMap.get(device.roomId)) ?? unassigned;
@@ -146,6 +148,10 @@ function getDeviceCaps(device) {
 /** A device is a "light" if it can be switched on/off. */
 function isLightDevice(caps) {
   return caps.has('switch');
+}
+
+function isDeviceOffline(health) {
+  return health?.state === 'OFFLINE';
 }
 
 function normalizeLight(device, caps, status) {
