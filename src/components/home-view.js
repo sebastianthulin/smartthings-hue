@@ -534,6 +534,7 @@ export class HomeView extends LocalizedElement {
 
   constructor() {
     super();
+    this._authMode              = smartthings.authMode;
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
     this._activeRoomId          = null;
@@ -743,6 +744,12 @@ export class HomeView extends LocalizedElement {
     return this._visibleRooms.find(room => room.id === this._activeRoomId) ?? null;
   }
 
+  _connectionCopyKey(baseKey) {
+    return this._authMode === 'oauth'
+      ? `home.oauth${baseKey}`
+      : `home.${baseKey.charAt(0).toLowerCase()}${baseKey.slice(1)}`;
+  }
+
   render() {
     const visibleRooms = this._visibleRooms;
     const activeRoom = this._activeRoom;
@@ -858,8 +865,8 @@ export class HomeView extends LocalizedElement {
 
           ${this._connectionMenuOpen ? html`
             <div class="connection-panel">
-              <p>${this.t('home.disconnectDescription')}</p>
-              <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>${this.t('home.disconnectAction')}</button>
+              <p>${this.t(this._connectionCopyKey('DisconnectDescription'))}</p>
+              <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>${this.t(this._connectionCopyKey('DisconnectAction'))}</button>
             </div>
           ` : ''}
 
@@ -878,16 +885,16 @@ export class HomeView extends LocalizedElement {
           class="confirm-dialog"
           role="alertdialog"
           aria-modal="true"
-          aria-label=${this.t('home.confirmDisconnectLabel')}
+          aria-label=${this.t(this._connectionCopyKey('ConfirmDisconnectLabel'))}
           tabindex="-1"
           @click=${e => e.stopPropagation()}
           @keydown=${this._onDisconnectConfirmKeyDown}
         >
-          <h3>${this.t('home.confirmDisconnectTitle')}</h3>
-          <p>${this.t('home.confirmDisconnectDescription')}</p>
+          <h3>${this.t(this._connectionCopyKey('ConfirmDisconnectTitle'))}</h3>
+          <p>${this.t(this._connectionCopyKey('ConfirmDisconnectDescription'))}</p>
           <div class="confirm-actions">
             <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>${this.t('common.cancel')}</button>
-            <button class="disconnect-btn" @click=${this._confirmDisconnect}>${this.t('home.disconnect')}</button>
+            <button class="disconnect-btn" @click=${this._confirmDisconnect}>${this.t(this._connectionCopyKey('Disconnect'))}</button>
           </div>
         </div>
       </div>

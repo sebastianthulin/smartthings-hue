@@ -46,6 +46,12 @@ export const en = {
     confirmDisconnectTitle: 'Disconnect from SmartThings?',
     confirmDisconnectDescription: 'Your SmartThings session will be removed from this device and the cached home state will be cleared. Hidden room choices on this device will stay saved.',
     disconnect: 'Disconnect',
+    oauthDisconnectDescription: 'Logging out removes your SmartThings session and clears the synced home data on this device.',
+    oauthDisconnectAction: 'Log out of SmartThings',
+    oauthConfirmDisconnectLabel: 'Confirm logout',
+    oauthConfirmDisconnectTitle: 'Log out of SmartThings?',
+    oauthConfirmDisconnectDescription: 'Your SmartThings session will be removed from this device and the cached home state will be cleared. Hidden room choices on this device will stay saved.',
+    oauthDisconnect: 'Log out',
   },
   room: {
     lights: 'Lights',

@@ -46,6 +46,12 @@ export const sv = {
     confirmDisconnectTitle: 'Koppla från SmartThings?',
     confirmDisconnectDescription: 'Din SmartThings-session tas bort från den här enheten och den cachade hemstatusen rensas. Val av dolda rum på den här enheten sparas.',
     disconnect: 'Koppla från',
+    oauthDisconnectDescription: 'Om du loggar ut tas din SmartThings-session bort och synkade hemdata rensas på den här enheten.',
+    oauthDisconnectAction: 'Logga ut från SmartThings',
+    oauthConfirmDisconnectLabel: 'Bekräfta utloggning',
+    oauthConfirmDisconnectTitle: 'Logga ut från SmartThings?',
+    oauthConfirmDisconnectDescription: 'Din SmartThings-session tas bort från den här enheten och den cachade hemstatusen rensas. Val av dolda rum på den här enheten sparas.',
+    oauthDisconnect: 'Logga ut',
   },
   room: {
     lights: 'Lampor',
