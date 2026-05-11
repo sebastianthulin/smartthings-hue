@@ -27,13 +27,40 @@ Create a local `.env` file from `.env.example` and set these values:
 
 ```bash
 VITE_SMARTTHINGS_CLIENT_ID=your-smartthings-client-id
-VITE_SMARTTHINGS_BROKER_URL=http://localhost:8787
+VITE_SMARTTHINGS_BROKER_URL=https://your-broker.vercel.app/api
 VITE_SMARTTHINGS_SCOPES=r:locations:* r:rooms:* r:devices:* x:devices:*
 ```
+
+For a GitHub Pages frontend with a separate Vercel broker, point `VITE_SMARTTHINGS_BROKER_URL` at the Vercel project origin plus `/api`. Use `/api` only if the broker runs in the same deployment as the frontend. For local development, override it to `http://localhost:8787` and run the standalone broker with `npm run auth:broker`.
 
 ### 3. Configure and run the OAuth broker
 
 The broker exchanges the authorization code and refresh token with SmartThings while keeping the `client_secret` out of the browser.
+
+For Vercel, the broker can run in a dedicated project using the API routes in `api/`.
+
+Set these environment variables in Vercel:
+
+```bash
+SMARTTHINGS_CLIENT_ID=your-smartthings-client-id
+SMARTTHINGS_CLIENT_SECRET=your-smartthings-client-secret
+SMARTTHINGS_ALLOWED_ORIGINS=https://your-github-pages-domain.com
+SMARTTHINGS_TOKEN_URL=https://api.smartthings.com/oauth/token
+```
+
+The app will then use:
+
+- `https://your-broker.vercel.app/api/smartthings/exchange`
+- `https://your-broker.vercel.app/api/smartthings/refresh`
+- `https://your-broker.vercel.app/api/health`
+
+If you connect Vercel directly to this repo only to host the broker, that is fine. The important part is that the SmartThings redirect URI must still point back to your GitHub Pages app, because the login flow returns to the frontend, not to the broker.
+
+For SmartThings OAuth, register your GitHub Pages URL as the redirect URI, for example:
+
+```bash
+https://your-user.github.io/your-repo/
+```
 
 ```bash
 SMARTTHINGS_CLIENT_ID=your-smartthings-client-id \
@@ -42,7 +69,7 @@ SMARTTHINGS_ALLOWED_ORIGINS=http://localhost:5174 \
 npm run auth:broker
 ```
 
-For production, deploy the broker behind HTTPS and point `VITE_SMARTTHINGS_BROKER_URL` at that public origin. The current static app can stay static, but GitHub Pages alone is no longer enough for live OAuth because the broker must run somewhere secure.
+For your production setup, GitHub Pages can host the frontend and Vercel can host only the broker functions. GitHub Pages alone is still not enough for live OAuth because the broker must run somewhere secure.
 
 ## Run locally with mock SmartThings data
 

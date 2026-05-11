@@ -1,0 +1,154 @@
+const TOKEN_URL = process.env.SMARTTHINGS_TOKEN_URL ?? 'https://api.smartthings.com/oauth/token';
+const CLIENT_ID = process.env.SMARTTHINGS_CLIENT_ID ?? '';
+const CLIENT_SECRET = process.env.SMARTTHINGS_CLIENT_SECRET ?? '';
+const ALLOWED_ORIGINS = (process.env.SMARTTHINGS_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+export function getCorsOrigin(origin) {
+  if (!origin) {
+    return ALLOWED_ORIGINS.length === 0 ? '*' : null;
+  }
+
+  if (ALLOWED_ORIGINS.length === 0) {
+    return '*';
+  }
+
+  return ALLOWED_ORIGINS.includes(origin) ? origin : null;
+}
+
+export function writeCorsHeaders(res, origin) {
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  if (ALLOWED_ORIGINS.length > 0) {
+    res.setHeader('Vary', 'Origin');
+  }
+
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+}
+
+export function sendJson(res, status, payload, origin) {
+  writeCorsHeaders(res, origin);
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(JSON.stringify(payload));
+}
+
+export async function readJson(req) {
+  if (req.body && typeof req.body === 'object') {
+    return req.body;
+  }
+
+  if (typeof req.body === 'string') {
+    return req.body ? JSON.parse(req.body) : {};
+  }
+
+  return new Promise((resolve, reject) => {
+    let body = '';
+
+    req.on('data', (chunk) => {
+      body += chunk;
+
+      if (body.length > 64_000) {
+        reject(new Error('Request body is too large.'));
+        req.destroy();
+      }
+    });
+
+    req.on('end', () => {
+      if (!body) {
+        resolve({});
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        reject(new Error('Request body must be valid JSON.'));
+      }
+    });
+
+    req.on('error', reject);
+  });
+}
+
+export function verifyCors(req, res) {
+  const origin = getCorsOrigin(req.headers.origin);
+
+  if (req.method === 'OPTIONS') {
+    if (ALLOWED_ORIGINS.length > 0 && !origin) {
+      res.statusCode = 403;
+      res.end();
+      return { handled: true, origin: null };
+    }
+
+    writeCorsHeaders(res, origin);
+    res.statusCode = 204;
+    res.end();
+    return { handled: true, origin };
+  }
+
+  if (ALLOWED_ORIGINS.length > 0 && req.headers.origin && !origin) {
+    sendJson(res, 403, { error: 'Origin is not allowed.' }, null);
+    return { handled: true, origin: null };
+  }
+
+  return { handled: false, origin };
+}
+
+export function isBrokerConfigured() {
+  return Boolean(CLIENT_ID && CLIENT_SECRET);
+}
+
+export function sendMissingConfig(res, origin) {
+  sendJson(res, 500, {
+    error: 'Broker is not configured. Set SMARTTHINGS_CLIENT_ID and SMARTTHINGS_CLIENT_SECRET.',
+  }, origin);
+}
+
+export async function requestToken(params) {
+  const body = new URLSearchParams({
+    ...params,
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+  });
+
+  const response = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+  });
+
+  const text = await response.text();
+  let payload;
+
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { error: text || `SmartThings OAuth returned HTTP ${response.status}.` };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status >= 400 && response.status < 500 ? 400 : 502,
+      payload: {
+        error: payload.error_description ?? payload.error ?? `SmartThings OAuth returned HTTP ${response.status}.`,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    payload,
+  };
+}
