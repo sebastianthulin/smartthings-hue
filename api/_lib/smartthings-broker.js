@@ -172,11 +172,19 @@ export async function requestToken(params) {
   }
 
   if (!response.ok) {
+    const upstreamError = payload.error ?? '';
+    const upstreamDescription = payload.error_description ?? '';
+    const fallbackMessage = `SmartThings OAuth returned HTTP ${response.status}.`;
+    const message = [upstreamError, upstreamDescription].filter(Boolean).join(': ') || fallbackMessage;
+
     return {
       ok: false,
       status: response.status >= 400 && response.status < 500 ? 400 : 502,
       payload: {
-        error: payload.error_description ?? payload.error ?? `SmartThings OAuth returned HTTP ${response.status}.`,
+        error: message,
+        upstreamStatus: response.status,
+        upstreamError: upstreamError || null,
+        upstreamErrorDescription: upstreamDescription || null,
       },
     };
   }
