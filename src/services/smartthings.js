@@ -177,7 +177,7 @@ class SmartThingsAPI {
     this.#session = null;
     writeStorage(SESSION_KEY, null);
     writeStorage(LEGACY_TOKEN_KEY, null);
-    writeStorage(STATE_KEY, null, sessionStorage);
+    writeStorage(STATE_KEY, null);
   }
 
   async maybeCompleteLoginFromRedirect() {
@@ -203,8 +203,8 @@ class SmartThingsAPI {
       });
     }
 
-    const expectedState = readStorage(STATE_KEY, sessionStorage);
-    writeStorage(STATE_KEY, null, sessionStorage);
+    const expectedState = readStorage(STATE_KEY);
+    writeStorage(STATE_KEY, null);
 
     if (!code || !state || state !== expectedState) {
       throw new AuthError('SmartThings sign-in could not be verified. Please try again.', {
@@ -234,7 +234,9 @@ class SmartThingsAPI {
     }
 
     const state = createStateToken();
-    writeStorage(STATE_KEY, state, sessionStorage);
+    // OAuth can return in a different browser context than the one that started it,
+    // especially from installed PWAs on mobile. Persist state across that handoff.
+    writeStorage(STATE_KEY, state);
 
     const url = new URL(AUTHORIZE_URL);
     url.searchParams.set('response_type', 'code');
