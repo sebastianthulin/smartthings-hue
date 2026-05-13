@@ -175,12 +175,12 @@ export class TokenSetup extends LocalizedElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 1.9rem;
-      height: 1.9rem;
+      width: 1.5rem;
+      height: 1.5rem;
       border: 0;
       border-radius: 999px;
-      background: color-mix(in srgb, #ff6b6b 18%, transparent);
-      color: #ffb4b4;
+      background: transparent;
+      color: var(--color-text-secondary);
       cursor: pointer;
       padding: 0;
       transition: background var(--transition-base), transform var(--transition-fast);
@@ -189,7 +189,8 @@ export class TokenSetup extends LocalizedElement {
 
     .error-toggle:hover,
     .error-toggle:focus-visible {
-      background: color-mix(in srgb, #ff6b6b 26%, transparent);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--color-text-primary);
     }
 
     .error-toggle:active {
@@ -198,8 +199,8 @@ export class TokenSetup extends LocalizedElement {
 
     .error-toggle-icon {
       font-family: 'Material Symbols Outlined Variable';
-      font-size: 1.05rem;
-      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      font-size: var(--font-size-sm);
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20;
       line-height: 1;
     }
 
@@ -418,7 +419,7 @@ export class TokenSetup extends LocalizedElement {
                   ? this.t('tokenSetup.hideErrorDetails')
                   : this.t('tokenSetup.showErrorDetails')}
               >
-                <span class="error-toggle-icon" aria-hidden="true">${this._showErrorDetail ? 'info' : 'info'}</span>
+                <span class="error-toggle-icon" aria-hidden="true">${this._showErrorDetail ? 'code_off' : 'code'}</span>
               </button>
             ` : ''}
             ${this._errorDetail && this._showErrorDetail ? html`
