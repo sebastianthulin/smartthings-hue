@@ -31,7 +31,7 @@ You will need:
 
 - a `client_id`
 - a `client_secret`
-- scopes that cover this app's reads and commands, for example `r:locations:* r:rooms:* r:devices:* x:devices:*`
+- scopes that cover this app's reads and commands, and prepare scene access for later, for example `r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*`
 
 ### 2. Configure the frontend
 
@@ -40,7 +40,7 @@ Create a local `.env` file from `.env.example` and set these values:
 ```bash
 VITE_SMARTTHINGS_CLIENT_ID=your-smartthings-client-id
 VITE_SMARTTHINGS_BROKER_URL=https://your-broker.vercel.app
-VITE_SMARTTHINGS_SCOPES=r:locations:* r:rooms:* r:devices:* x:devices:*
+VITE_SMARTTHINGS_SCOPES=r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*
 ```
 
 For a GitHub Pages frontend with a separate Vercel broker, point `VITE_SMARTTHINGS_BROKER_URL` at the Vercel project origin. For local development, override it to `http://localhost:8787` and run the standalone broker with `npm run auth:broker`.

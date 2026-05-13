@@ -14,7 +14,7 @@ const AUTHORIZE_URL = import.meta.env.VITE_SMARTTHINGS_AUTHORIZE_URL ?? 'https:/
 const BROKER_BASE_URL = (import.meta.env.VITE_SMARTTHINGS_BROKER_URL ?? '').replace(/\/$/, '');
 const OAUTH_CLIENT_ID = import.meta.env.VITE_SMARTTHINGS_CLIENT_ID ?? '';
 const OAUTH_SCOPE = import.meta.env.VITE_SMARTTHINGS_SCOPES
-  ?? 'r:locations:* r:rooms:* r:devices:* x:devices:*';
+  ?? 'r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*';
 const LEGACY_TOKEN_KEY = 'st_token';
 const SESSION_KEY = 'st_oauth_session';
 const STATE_KEY = 'st_oauth_state';
