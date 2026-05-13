@@ -1,6 +1,6 @@
 import {
-  consumeAuthSession,
   getAuthRelayConfigError,
+  getAuthSession,
   isAuthRelayConfigured,
   isValidAuthSessionId,
 } from '../../_lib/auth-relay-store.js';
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const session = await consumeAuthSession(sessionId);
+  const session = await getAuthSession(sessionId);
 
   if (!session) {
     sendJson(res, 200, { status: 'expired' }, origin);
