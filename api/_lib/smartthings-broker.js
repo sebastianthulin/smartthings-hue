@@ -147,16 +147,14 @@ export function sendMissingConfig(res, origin) {
 
 export async function requestToken(params) {
   const tokenUrl = getValidatedTokenUrl();
-  const body = new URLSearchParams({
-    ...params,
-    client_id: CLIENT_ID,
-    client_secret: CLIENT_SECRET,
-  });
+  const body = new URLSearchParams(params);
+  const basicAuth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
 
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
+      Authorization: `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body,
