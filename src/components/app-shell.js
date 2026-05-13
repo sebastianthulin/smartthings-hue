@@ -48,14 +48,26 @@ export class AppShell extends LitElement {
     this._pageTransitionActive = false;
   }
 
+  _describeError(error, fallbackKey = 'tokenSetup.errors.invalid') {
+    if (error?.messageDescriptor) {
+      return error.messageDescriptor;
+    }
+
+    if (typeof error?.message === 'string' && error.message.trim()) {
+      return error.message;
+    }
+
+    return { key: fallbackKey };
+  }
+
   connectedCallback() {
     super.connectedCallback();
 
-    this._onStoreError = () => {
+    this._onStoreError = (event) => {
       if (store.authError) {
         this._runAppViewTransition(() => {
           this._authError = true;
-          this._authMessage = '';
+          this._authMessage = this._describeError(event.detail, 'tokenSetup.errors.expired');
           this._hasToken  = false;
         });
       }
@@ -98,7 +110,7 @@ export class AppShell extends LitElement {
       smartthings.clearToken();
       this._hasToken = false;
       this._authError = true;
-      this._authMessage = error?.message ?? 'SmartThings sign-in failed.';
+      this._authMessage = this._describeError(error);
     } finally {
       this._authPending = false;
     }
@@ -129,7 +141,7 @@ export class AppShell extends LitElement {
       smartthings.startLogin();
     } catch (error) {
       this._authPending = false;
-      this._authMessage = error?.message ?? 'SmartThings sign-in failed.';
+      this._authMessage = this._describeError(error);
     }
   }
 

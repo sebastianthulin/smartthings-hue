@@ -135,13 +135,38 @@ export class TokenSetup extends LocalizedElement {
     }
 
     .error {
-      background: rgba(255, 107, 107, 0.12);
-      border: 1px solid rgba(255, 107, 107, 0.3);
-      border-radius: var(--radius-sm);
-      padding: var(--space-3) var(--space-4);
-      font-size: var(--font-size-sm);
-      color: #ff6b6b;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-3);
+      align-items: start;
+      background: color-mix(in srgb, #ff6b6b 14%, var(--color-surface));
+      border: 1px solid color-mix(in srgb, #ff6b6b 35%, transparent);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      color: var(--color-text-primary);
       margin: 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .error-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, #ff6b6b 22%, transparent);
+      color: #ff8e8e;
+      font-family: 'Material Symbols Outlined Variable';
+      font-size: 1.15rem;
+      font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .error-text {
+      font-size: var(--font-size-sm);
+      line-height: 1.5;
     }
 
     .hint {
@@ -178,9 +203,29 @@ export class TokenSetup extends LocalizedElement {
     this._error = '';
   }
 
+  _resolveErrorMessage(error) {
+    if (!error) {
+      return this.authError ? this.t('tokenSetup.errors.expired') : '';
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    if (error?.key) {
+      return this.t(error.key, error.values);
+    }
+
+    if (typeof error?.message === 'string') {
+      return error.message;
+    }
+
+    return this.t('tokenSetup.errors.invalid');
+  }
+
   updated(changed) {
     if (changed.has('errorMessage')) {
-      this._error = this.errorMessage || (this.authError ? this.t('tokenSetup.errors.expired') : '');
+      this._error = this._resolveErrorMessage(this.errorMessage);
       return;
     }
 
@@ -268,7 +313,12 @@ export class TokenSetup extends LocalizedElement {
           <p>${this._description()}</p>
         </div>
 
-        ${this._error ? html`<div class="error">${this._error}</div>` : ''}
+        ${this._error ? html`
+          <div class="error" role="alert" aria-live="polite">
+            <span class="error-icon" aria-hidden="true">error</span>
+            <span class="error-text">${this._error}</span>
+          </div>
+        ` : ''}
 
         ${this.authMode === 'token' ? html`
           <div class="field">

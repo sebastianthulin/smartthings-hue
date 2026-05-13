@@ -22,6 +22,46 @@ const REFRESH_LEEWAY_MS = 60_000;
 
 const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!BROKER_BASE_URL;
 
+function createMessageDescriptor(key, values) {
+  return { key, values };
+}
+
+function isUrlParseError(error) {
+  return error instanceof TypeError && /failed to parse url/i.test(error.message);
+}
+
+function describeOAuthRedirectError(error, description) {
+  if (error === 'access_denied') {
+    return createMessageDescriptor('tokenSetup.errors.oauthCanceled');
+  }
+
+  if (/redirect_uri/i.test(description ?? '')) {
+    return createMessageDescriptor('tokenSetup.errors.oauthRedirectMismatch');
+  }
+
+  if (/scope|permission/i.test(description ?? '')) {
+    return createMessageDescriptor('tokenSetup.errors.oauthPermissions');
+  }
+
+  return createMessageDescriptor('tokenSetup.errors.invalid');
+}
+
+function describeBrokerError(status, message) {
+  if (/scope|permission/i.test(message ?? '')) {
+    return createMessageDescriptor('tokenSetup.errors.oauthPermissions');
+  }
+
+  if (/redirect_uri/i.test(message ?? '')) {
+    return createMessageDescriptor('tokenSetup.errors.oauthRedirectMismatch');
+  }
+
+  if (status === 503 || /broker_not_configured|not configured/i.test(message ?? '')) {
+    return createMessageDescriptor('tokenSetup.errors.oauthBrokerConfig');
+  }
+
+  return createMessageDescriptor('tokenSetup.errors.invalid');
+}
+
 export const SUPPORTED_CAPABILITIES = new Set([
   'switch',
   'switchLevel',
@@ -106,11 +146,11 @@ class SmartThingsAPI {
     }
 
     if (!OAUTH_CLIENT_ID) {
-      return 'SmartThings OAuth is missing VITE_SMARTTHINGS_CLIENT_ID.';
+      return createMessageDescriptor('tokenSetup.errors.oauthMissingClientId');
     }
 
     if (!BROKER_BASE_URL) {
-      return 'SmartThings OAuth is missing VITE_SMARTTHINGS_BROKER_URL.';
+      return createMessageDescriptor('tokenSetup.errors.oauthMissingBrokerUrl');
     }
 
     return '';
@@ -158,14 +198,18 @@ class SmartThingsAPI {
     this.#cleanupAuthParams(url);
 
     if (error) {
-      throw new AuthError(errorDescription ?? error);
+      throw new AuthError(errorDescription ?? error, {
+        descriptor: describeOAuthRedirectError(error, errorDescription),
+      });
     }
 
     const expectedState = readStorage(STATE_KEY, sessionStorage);
     writeStorage(STATE_KEY, null, sessionStorage);
 
     if (!code || !state || state !== expectedState) {
-      throw new AuthError('SmartThings sign-in could not be verified. Please try again.');
+      throw new AuthError('SmartThings sign-in could not be verified. Please try again.', {
+        descriptor: createMessageDescriptor('tokenSetup.errors.oauthVerify'),
+      });
     }
 
     const response = await this.#brokerRequest('/smartthings/exchange', {
@@ -183,7 +227,10 @@ class SmartThingsAPI {
     }
 
     if (!this.isConfigured) {
-      throw new ConfigError(this.authConfigError);
+      const descriptor = this.authConfigError || createMessageDescriptor('tokenSetup.errors.oauthBrokerConfig');
+      throw new ConfigError('SmartThings OAuth is not configured.', {
+        descriptor,
+      });
     }
 
     const state = createStateToken();
@@ -208,7 +255,9 @@ class SmartThingsAPI {
 
   async refreshSession() {
     if (!this.#session?.refreshToken) {
-      throw new AuthError('SmartThings session has expired. Please sign in again.');
+      throw new AuthError('SmartThings session has expired. Please sign in again.', {
+        descriptor: createMessageDescriptor('tokenSetup.errors.expired'),
+      });
     }
 
     const response = await this.#brokerRequest('/smartthings/refresh', {
@@ -244,14 +293,18 @@ class SmartThingsAPI {
           await this.refreshSession();
         } catch {
           this.clearToken();
-          throw new AuthError('SmartThings session is invalid or expired.');
+          throw new AuthError('SmartThings session is invalid or expired.', {
+            descriptor: createMessageDescriptor('tokenSetup.errors.expired'),
+          });
         }
 
         return this.#request(path, options, false);
       }
 
       this.clearToken();
-      throw new AuthError('SmartThings session is invalid or expired.');
+      throw new AuthError('SmartThings session is invalid or expired.', {
+        descriptor: createMessageDescriptor('tokenSetup.errors.expired'),
+      });
     }
     if (!res.ok) {
       throw new Error(`SmartThings API error ${res.status}: ${res.statusText}`);
@@ -411,7 +464,9 @@ class SmartThingsAPI {
 
     if (!this.#session.refreshToken) {
       this.clearToken();
-      throw new AuthError('SmartThings session has expired. Please sign in again.');
+      throw new AuthError('SmartThings session has expired. Please sign in again.', {
+        descriptor: createMessageDescriptor('tokenSetup.errors.expired'),
+      });
     }
 
     return this.refreshSession();
@@ -419,16 +474,33 @@ class SmartThingsAPI {
 
   async #brokerRequest(path, payload) {
     if (!BROKER_BASE_URL) {
-      throw new ConfigError('SmartThings OAuth broker URL is not configured.');
+      throw new ConfigError('SmartThings OAuth broker URL is not configured.', {
+        descriptor: createMessageDescriptor('tokenSetup.errors.oauthMissingBrokerUrl'),
+      });
     }
 
-    const res = await fetch(`${BROKER_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    const requestUrl = `${BROKER_BASE_URL}${path}`;
+    let res;
+
+    try {
+      res = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      if (isUrlParseError(error)) {
+        throw new ConfigError('SmartThings OAuth broker URL is invalid.', {
+          descriptor: createMessageDescriptor('tokenSetup.errors.oauthBrokerConfig'),
+        });
+      }
+
+      throw new AuthError('Could not reach the SmartThings OAuth broker.', {
+        descriptor: createMessageDescriptor('tokenSetup.errors.oauthBrokerUnavailable'),
+      });
+    }
 
     const contentType = res.headers.get('content-type') ?? '';
     const body = contentType.includes('application/json')
@@ -436,7 +508,11 @@ class SmartThingsAPI {
       : { error: await res.text() };
 
     if (!res.ok) {
-      throw new Error(body.error_description ?? body.error ?? `SmartThings OAuth broker error ${res.status}.`);
+      const message = body.error_description ?? body.error ?? `SmartThings OAuth broker error ${res.status}.`;
+
+      throw new AuthError(message, {
+        descriptor: describeBrokerError(res.status, message),
+      });
     }
 
     return body;
@@ -455,16 +531,18 @@ class SmartThingsAPI {
 }
 
 export class AuthError extends Error {
-  constructor(msg) {
+  constructor(msg, { descriptor } = {}) {
     super(msg);
     this.name = 'AuthError';
+    this.messageDescriptor = descriptor ?? null;
   }
 }
 
 export class ConfigError extends Error {
-  constructor(msg) {
+  constructor(msg, { descriptor } = {}) {
     super(msg);
     this.name = 'ConfigError';
+    this.messageDescriptor = descriptor ?? null;
   }
 }
 
