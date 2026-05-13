@@ -24,6 +24,7 @@ const TOKEN_URL = normalizeEnvValue(
   process.env.SMARTTHINGS_TOKEN_URL,
   'https://api.smartthings.com/oauth/token',
 );
+const TOKEN_REQUEST_TIMEOUT_MS = 15_000;
 const CLIENT_ID = normalizeEnvValue(process.env.SMARTTHINGS_CLIENT_ID);
 const CLIENT_SECRET = normalizeEnvValue(process.env.SMARTTHINGS_CLIENT_SECRET);
 const BROKER_STATUS_HEADER = 'X-SmartThings-Broker-Status';
@@ -180,16 +181,31 @@ export async function requestToken(params) {
   const tokenUrl = getValidatedTokenUrl();
   const body = new URLSearchParams(params);
   const basicAuth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TOKEN_REQUEST_TIMEOUT_MS);
 
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Basic ${basicAuth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
+  let response;
+
+  try {
+    response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`SmartThings token request timed out after ${TOKEN_REQUEST_TIMEOUT_MS}ms.`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const text = await response.text();
   let payload;
