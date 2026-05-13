@@ -1,7 +1,19 @@
-# SmartHue
+# SmartHue 0.1
 SmartThings but with the Philips HUE experience; this repository tries to replicate a smooth philips hue apperance, function and philosophy for lights i smartthings. 
 
 It has one focus; to be the most enjoyable "daily-driver" app for smartthings. 
+
+# Supported features
+- List rooms
+- List lights 
+- Room Precense
+- Room humidity and temperature (aggregated value, if multiple)
+- Dim lights 
+- Turn on / off lights
+- Hide rooms locally on device
+
+# Good to know
+- Devices that are "offline" wont show up in smarthue.
 
 ## SmartThings OAuth login
 
