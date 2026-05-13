@@ -9,6 +9,8 @@ export class TokenSetup extends LocalizedElement {
     errorMessage: { state: true },
     _token:       { state: true },
     _error:       { state: true },
+    _errorDetail: { state: true },
+    _showErrorDetail: { state: true },
   };
 
   static styles = css`
@@ -136,7 +138,7 @@ export class TokenSetup extends LocalizedElement {
 
     .error {
       display: grid;
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto 1fr auto;
       gap: var(--space-3);
       align-items: start;
       background: color-mix(in srgb, #ff6b6b 14%, var(--color-surface));
@@ -167,6 +169,66 @@ export class TokenSetup extends LocalizedElement {
     .error-text {
       font-size: var(--font-size-sm);
       line-height: 1.5;
+    }
+
+    .error-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.9rem;
+      height: 1.9rem;
+      border: 0;
+      border-radius: 999px;
+      background: color-mix(in srgb, #ff6b6b 18%, transparent);
+      color: #ffb4b4;
+      cursor: pointer;
+      padding: 0;
+      transition: background var(--transition-base), transform var(--transition-fast);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .error-toggle:hover,
+    .error-toggle:focus-visible {
+      background: color-mix(in srgb, #ff6b6b 26%, transparent);
+    }
+
+    .error-toggle:active {
+      transform: scale(0.96);
+    }
+
+    .error-toggle-icon {
+      font-family: 'Material Symbols Outlined Variable';
+      font-size: 1.05rem;
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      line-height: 1;
+    }
+
+    .error-detail {
+      grid-column: 2 / -1;
+      margin-top: var(--space-1);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      background: rgba(0, 0, 0, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .error-detail-label {
+      display: block;
+      margin-bottom: var(--space-2);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .error-detail-code {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: #ffd7d7;
     }
 
     .hint {
@@ -201,36 +263,58 @@ export class TokenSetup extends LocalizedElement {
     this.errorMessage = '';
     this._token = '';
     this._error = '';
+    this._errorDetail = '';
+    this._showErrorDetail = false;
   }
 
-  _resolveErrorMessage(error) {
+  _resolveErrorNotice(error) {
     if (!error) {
-      return this.authError ? this.t('tokenSetup.errors.expired') : '';
+      return {
+        message: this.authError ? this.t('tokenSetup.errors.expired') : '',
+        detail: '',
+      };
     }
 
     if (typeof error === 'string') {
-      return error;
+      return {
+        message: error,
+        detail: '',
+      };
     }
 
     if (error?.key) {
-      return this.t(error.key, error.values);
+      return {
+        message: this.t(error.key, error.values),
+        detail: error.detail ?? '',
+      };
     }
 
     if (typeof error?.message === 'string') {
-      return error.message;
+      return {
+        message: error.message,
+        detail: '',
+      };
     }
 
-    return this.t('tokenSetup.errors.invalid');
+    return {
+      message: this.t('tokenSetup.errors.invalid'),
+      detail: '',
+    };
   }
 
   updated(changed) {
     if (changed.has('errorMessage')) {
-      this._error = this._resolveErrorMessage(this.errorMessage);
+      const notice = this._resolveErrorNotice(this.errorMessage);
+      this._error = notice.message;
+      this._errorDetail = notice.detail;
+      this._showErrorDetail = false;
       return;
     }
 
     if (changed.has('authError') && this.authError && !this.errorMessage) {
       this._error = this.t('tokenSetup.errors.expired');
+      this._errorDetail = '';
+      this._showErrorDetail = false;
     }
   }
 
@@ -243,6 +327,10 @@ export class TokenSetup extends LocalizedElement {
     if (e.key === 'Enter') {
       this._connect();
     }
+  }
+
+  _toggleErrorDetail() {
+    this._showErrorDetail = !this._showErrorDetail;
   }
 
   _connect() {
@@ -317,6 +405,28 @@ export class TokenSetup extends LocalizedElement {
           <div class="error" role="alert" aria-live="polite">
             <span class="error-icon" aria-hidden="true">error</span>
             <span class="error-text">${this._error}</span>
+            ${this._errorDetail ? html`
+              <button
+                class="error-toggle"
+                type="button"
+                @click=${this._toggleErrorDetail}
+                aria-expanded=${this._showErrorDetail ? 'true' : 'false'}
+                aria-label=${this._showErrorDetail
+                  ? this.t('tokenSetup.hideErrorDetails')
+                  : this.t('tokenSetup.showErrorDetails')}
+                title=${this._showErrorDetail
+                  ? this.t('tokenSetup.hideErrorDetails')
+                  : this.t('tokenSetup.showErrorDetails')}
+              >
+                <span class="error-toggle-icon" aria-hidden="true">${this._showErrorDetail ? 'info' : 'info'}</span>
+              </button>
+            ` : ''}
+            ${this._errorDetail && this._showErrorDetail ? html`
+              <div class="error-detail">
+                <span class="error-detail-label">${this.t('tokenSetup.errorDetailsLabel')}</span>
+                <pre class="error-detail-code">${this._errorDetail}</pre>
+              </div>
+            ` : ''}
           </div>
         ` : ''}
 

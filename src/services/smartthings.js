@@ -22,8 +22,8 @@ const REFRESH_LEEWAY_MS = 60_000;
 
 const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!BROKER_BASE_URL;
 
-function createMessageDescriptor(key, values) {
-  return { key, values };
+function createMessageDescriptor(key, values, detail = '') {
+  return { key, values, detail };
 }
 
 function isUrlParseError(error) {
@@ -32,34 +32,50 @@ function isUrlParseError(error) {
 
 function describeOAuthRedirectError(error, description) {
   if (error === 'access_denied') {
-    return createMessageDescriptor('tokenSetup.errors.oauthCanceled');
+    return createMessageDescriptor(
+      'tokenSetup.errors.oauthCanceled',
+      undefined,
+      `error=${error}${description ? `, description=${description}` : ''}`,
+    );
   }
 
   if (/redirect_uri/i.test(description ?? '')) {
-    return createMessageDescriptor('tokenSetup.errors.oauthRedirectMismatch');
+    return createMessageDescriptor(
+      'tokenSetup.errors.oauthRedirectMismatch',
+      undefined,
+      `error=${error}${description ? `, description=${description}` : ''}`,
+    );
   }
 
   if (/scope|permission/i.test(description ?? '')) {
-    return createMessageDescriptor('tokenSetup.errors.oauthPermissions');
+    return createMessageDescriptor(
+      'tokenSetup.errors.oauthPermissions',
+      undefined,
+      `error=${error}${description ? `, description=${description}` : ''}`,
+    );
   }
 
-  return createMessageDescriptor('tokenSetup.errors.invalid');
+  return createMessageDescriptor(
+    'tokenSetup.errors.invalid',
+    undefined,
+    `error=${error}${description ? `, description=${description}` : ''}`,
+  );
 }
 
 function describeBrokerError(status, message) {
   if (/scope|permission/i.test(message ?? '')) {
-    return createMessageDescriptor('tokenSetup.errors.oauthPermissions');
+    return createMessageDescriptor('tokenSetup.errors.oauthPermissions', undefined, `status=${status}, message=${message}`);
   }
 
   if (/redirect_uri/i.test(message ?? '')) {
-    return createMessageDescriptor('tokenSetup.errors.oauthRedirectMismatch');
+    return createMessageDescriptor('tokenSetup.errors.oauthRedirectMismatch', undefined, `status=${status}, message=${message}`);
   }
 
   if (status === 503 || /broker_not_configured|not configured/i.test(message ?? '')) {
-    return createMessageDescriptor('tokenSetup.errors.oauthBrokerConfig');
+    return createMessageDescriptor('tokenSetup.errors.oauthBrokerConfig', undefined, `status=${status}, message=${message}`);
   }
 
-  return createMessageDescriptor('tokenSetup.errors.invalid');
+  return createMessageDescriptor('tokenSetup.errors.invalid', undefined, `status=${status}, message=${message}`);
 }
 
 export const SUPPORTED_CAPABILITIES = new Set([

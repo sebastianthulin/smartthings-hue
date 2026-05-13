@@ -50,11 +50,17 @@ export class AppShell extends LitElement {
 
   _describeError(error, fallbackKey = 'tokenSetup.errors.invalid') {
     if (error?.messageDescriptor) {
-      return error.messageDescriptor;
+      return {
+        ...error.messageDescriptor,
+        detail: error.messageDescriptor.detail || error.message || '',
+      };
     }
 
     if (typeof error?.message === 'string' && error.message.trim()) {
-      return error.message;
+      return {
+        key: fallbackKey,
+        detail: error.message,
+      };
     }
 
     return { key: fallbackKey };

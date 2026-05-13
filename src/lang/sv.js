@@ -19,6 +19,9 @@ export const sv = {
     tokenHint: 'Skapa en token på',
     oauthHint: 'SmartHue använder SmartThings OAuth och förnyar anslutningen automatiskt.',
     storageHint: 'Din SmartThings-token eller session lagras bara på den här enheten.',
+    showErrorDetails: 'Visa tekniska detaljer',
+    hideErrorDetails: 'Dölj tekniska detaljer',
+    errorDetailsLabel: 'Tekniska detaljer',
     errors: {
       expired: 'Din SmartThings-session har gått ut. Logga in igen.',
       missing: 'Klistra in din personliga SmartThings-åtkomsttoken.',

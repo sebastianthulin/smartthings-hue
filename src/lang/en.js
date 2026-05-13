@@ -19,6 +19,9 @@ export const en = {
     tokenHint: 'Generate a token at',
     oauthHint: 'SmartHue uses SmartThings OAuth and refreshes the connection automatically.',
     storageHint: 'Your SmartThings token or session is stored only on this device.',
+    showErrorDetails: 'Show technical details',
+    hideErrorDetails: 'Hide technical details',
+    errorDetailsLabel: 'Technical details',
     errors: {
       expired: 'Your SmartThings session expired. Sign in again.',
       missing: 'Please paste your SmartThings Personal Access Token.',
