@@ -16,6 +16,10 @@ function normalizeEnvValue(value, fallback = '') {
   return normalized;
 }
 
+const AUTHORIZE_URL = normalizeEnvValue(
+  process.env.SMARTTHINGS_AUTHORIZE_URL,
+  'https://api.smartthings.com/oauth/authorize',
+);
 const TOKEN_URL = normalizeEnvValue(
   process.env.SMARTTHINGS_TOKEN_URL,
   'https://api.smartthings.com/oauth/token',
@@ -59,6 +63,25 @@ export function sendJson(res, status, payload, origin) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify(payload));
+}
+
+export function sendHtml(res, status, html, origin) {
+  writeCorsHeaders(res, origin);
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(html);
+}
+
+export function getRequestBaseUrl(req) {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const protocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto)?.split(',')[0]?.trim()
+    || 'https';
+  const host = (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost)?.split(',')[0]?.trim()
+    || req.headers.host;
+
+  return `${protocol}://${host}`;
 }
 
 export async function readJson(req) {
@@ -125,6 +148,14 @@ export function verifyCors(req, res) {
 
 export function isBrokerConfigured() {
   return Boolean(CLIENT_ID && CLIENT_SECRET);
+}
+
+export function getBrokerClientId() {
+  return CLIENT_ID;
+}
+
+export function getAuthorizeUrl() {
+  return AUTHORIZE_URL;
 }
 
 function getValidatedTokenUrl() {

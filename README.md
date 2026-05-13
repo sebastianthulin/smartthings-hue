@@ -21,6 +21,13 @@ The app now uses SmartThings OAuth instead of Personal Access Tokens. SmartThing
 
 Because SmartThings requires a `client_secret`, the browser app cannot complete the OAuth code exchange on its own. A small broker is included in this repo for the code exchange and refresh steps.
 
+The login flow now uses a relay session that is safe for installed PWAs on mobile:
+
+- the app calls `/auth/start` on the broker and gets back a SmartThings authorization URL
+- SmartThings redirects back to the broker callback at `/auth/callback`
+- the broker exchanges the code server-side and stores the result in a short-lived pending session
+- the app resumes by polling `/auth/status/:sessionId` until the session completes or fails
+
 If no OAuth frontend env is configured, the app falls back to the legacy Personal Access Token screen.
 
 ### 1. Create a SmartThings OAuth app
@@ -38,7 +45,6 @@ You will need:
 Create a local `.env` file from `.env.example` and set these values:
 
 ```bash
-VITE_SMARTTHINGS_CLIENT_ID=your-smartthings-client-id
 VITE_SMARTTHINGS_BROKER_URL=https://your-broker.vercel.app
 VITE_SMARTTHINGS_SCOPES=r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*
 ```
@@ -60,20 +66,27 @@ SMARTTHINGS_CLIENT_ID=your-smartthings-client-id
 SMARTTHINGS_CLIENT_SECRET=your-smartthings-client-secret
 SMARTTHINGS_ALLOWED_ORIGINS=https://your-github-pages-domain.com
 SMARTTHINGS_TOKEN_URL=https://api.smartthings.com/oauth/token
+KV_REST_API_URL=https://your-upstash-rest-url
+KV_REST_API_TOKEN=your-upstash-rest-token
 ```
+
+You can also use `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` instead of the `KV_*` names. Local development falls back to in-memory relay storage automatically, but production needs durable storage so callback and poll requests can land on different serverless instances.
 
 The app will then use:
 
+- `https://your-broker.vercel.app/auth/start`
+- `https://your-broker.vercel.app/auth/callback`
+- `https://your-broker.vercel.app/auth/status/:sessionId`
 - `https://your-broker.vercel.app/smartthings/exchange`
 - `https://your-broker.vercel.app/smartthings/refresh`
 - `https://your-broker.vercel.app/health`
 
-If you connect Vercel directly to this repo only to host the broker, that is fine. The important part is that the SmartThings redirect URI must still point back to your GitHub Pages app, because the login flow returns to the frontend, not to the broker.
+If you connect Vercel directly to this repo only to host the broker, that is fine.
 
-For SmartThings OAuth, register your GitHub Pages URL as the redirect URI, for example:
+For SmartThings OAuth, register the broker callback URL as the redirect URI, for example:
 
 ```bash
-https://your-user.github.io/your-repo/
+https://your-broker.vercel.app/auth/callback
 ```
 
 ```bash

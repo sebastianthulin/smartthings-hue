@@ -32,6 +32,7 @@ export const sv = {
       oauthVerify: 'Det gick inte att verifiera svaret från SmartThings-inloggningen. Försök igen.',
       oauthPermissions: 'SmartThings godkände inloggningen, men appen saknar nödvändiga behörigheter. Uppdatera valda scopes och försök igen.',
       oauthRedirectMismatch: 'SmartThings-inloggningen är konfigurerad med fel redirect-URL. Uppdatera redirect URI och försök igen.',
+      oauthTimeout: 'SmartThings-inloggningen tog för lång tid. Börja om igen.',
       oauthBrokerConfig: 'SmartThings-inloggningen är inte korrekt konfigurerad ännu. Kontrollera OAuth-brokerns inställningar och försök igen.',
       oauthBrokerUnavailable: 'Det gick inte att nå SmartThings inloggningstjänst. Försök igen om en liten stund.',
       oauthMissingClientId: 'SmartThings-inloggningen saknar konfiguration för client ID.',

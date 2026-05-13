@@ -9,6 +9,18 @@
       "destination": "/api/health"
     },
     {
+      "source": "/auth/start",
+      "destination": "/api/auth/start"
+    },
+    {
+      "source": "/auth/callback",
+      "destination": "/api/auth/callback"
+    },
+    {
+      "source": "/auth/status/:sessionId",
+      "destination": "/api/auth/status/:sessionId"
+    },
+    {
       "source": "/smartthings/exchange",
       "destination": "/api/smartthings/exchange"
     },

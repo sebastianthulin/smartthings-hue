@@ -10,7 +10,6 @@ import {
 } from './smartthings.mock.js';
 
 const API_BASE = 'https://api.smartthings.com/v1';
-const AUTHORIZE_URL = import.meta.env.VITE_SMARTTHINGS_AUTHORIZE_URL ?? 'https://api.smartthings.com/oauth/authorize';
 const BROKER_BASE_URL = (import.meta.env.VITE_SMARTTHINGS_BROKER_URL ?? '').replace(/\/$/, '');
 const OAUTH_CLIENT_ID = import.meta.env.VITE_SMARTTHINGS_CLIENT_ID ?? '';
 const OAUTH_SCOPE = import.meta.env.VITE_SMARTTHINGS_SCOPES
@@ -18,7 +17,10 @@ const OAUTH_SCOPE = import.meta.env.VITE_SMARTTHINGS_SCOPES
 const LEGACY_TOKEN_KEY = 'st_token';
 const SESSION_KEY = 'st_oauth_session';
 const STATE_KEY = 'st_oauth_state';
+const PENDING_AUTH_KEY = 'st_oauth_pending';
 const REFRESH_LEEWAY_MS = 60_000;
+const AUTH_RELAY_TTL_MS = 5 * 60 * 1000;
+const AUTH_RELAY_POLL_INTERVAL_MS = 2_000;
 
 const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!BROKER_BASE_URL;
 
@@ -78,6 +80,30 @@ function describeBrokerError(status, message) {
   return createMessageDescriptor('tokenSetup.errors.invalid', undefined, `status=${status}, message=${message}`);
 }
 
+function describeRelayError(payload) {
+  if (payload?.error === 'access_denied') {
+    return {
+      ...describeOAuthRedirectError(payload.error, payload.errorDescription),
+      detail: formatDebugDetail(payload),
+    };
+  }
+
+  if (payload?.upstreamStatus || payload?.upstreamError || payload?.upstreamErrorDescription) {
+    return {
+      ...describeBrokerError(
+        payload.upstreamStatus ?? 400,
+        payload.upstreamErrorDescription ?? payload.upstreamError ?? payload.error ?? 'SmartThings OAuth failed.',
+      ),
+      detail: formatDebugDetail(payload),
+    };
+  }
+
+  return {
+    ...createMessageDescriptor('tokenSetup.errors.invalid'),
+    detail: formatDebugDetail(payload),
+  };
+}
+
 function formatDebugDetail(value) {
   if (!value) {
     return '';
@@ -134,8 +160,15 @@ function createStateToken() {
     ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 class SmartThingsAPI {
   #session = null;
+  #pendingLoginPromise = null;
 
   constructor() {
     this.#session = this.#readSession();
@@ -157,7 +190,7 @@ class SmartThingsAPI {
   }
 
   get isConfigured() {
-    return isMockSmartThingsEnabled() || (!!OAUTH_CLIENT_ID && !!BROKER_BASE_URL);
+    return isMockSmartThingsEnabled() || !!BROKER_BASE_URL;
   }
 
   get authMode() {
@@ -175,10 +208,6 @@ class SmartThingsAPI {
 
     if (!hasOAuthConfig()) {
       return '';
-    }
-
-    if (!OAUTH_CLIENT_ID) {
-      return createMessageDescriptor('tokenSetup.errors.oauthMissingClientId');
     }
 
     if (!BROKER_BASE_URL) {
@@ -210,6 +239,24 @@ class SmartThingsAPI {
     writeStorage(SESSION_KEY, null);
     writeStorage(LEGACY_TOKEN_KEY, null);
     writeStorage(STATE_KEY, null);
+    this.#clearPendingAuth();
+  }
+
+  get hasPendingLogin() {
+    return !!this.#readPendingAuth();
+  }
+
+  async resumePendingLogin() {
+    if (isMockSmartThingsEnabled()) {
+      return false;
+    }
+
+    const pending = this.#readPendingAuth();
+    if (!pending) {
+      return false;
+    }
+
+    return this.#waitForPendingLogin(pending);
   }
 
   async maybeCompleteLoginFromRedirect() {
@@ -253,9 +300,9 @@ class SmartThingsAPI {
     return true;
   }
 
-  startLogin() {
+  async startLogin() {
     if (isMockSmartThingsEnabled()) {
-      return;
+      return false;
     }
 
     if (!this.isConfigured) {
@@ -265,19 +312,27 @@ class SmartThingsAPI {
       });
     }
 
-    const state = createStateToken();
-    // OAuth can return in a different browser context than the one that started it,
-    // especially from installed PWAs on mobile. Persist state across that handoff.
-    writeStorage(STATE_KEY, state);
+    const sessionId = createStateToken();
+    const start = await this.#brokerRequest('/auth/start', {
+      sessionId,
+      returnTo: this.getRedirectUri(),
+      scope: OAUTH_SCOPE,
+    });
+    const pending = {
+      sessionId,
+      expiresAt: Number(start.expiresAt) || (Date.now() + AUTH_RELAY_TTL_MS),
+    };
 
-    const url = new URL(AUTHORIZE_URL);
-    url.searchParams.set('response_type', 'code');
-    url.searchParams.set('client_id', OAUTH_CLIENT_ID);
-    url.searchParams.set('scope', OAUTH_SCOPE);
-    url.searchParams.set('redirect_uri', this.getRedirectUri());
-    url.searchParams.set('state', state);
+    this.#writePendingAuth(pending);
 
-    window.location.assign(url.toString());
+    const popup = window.open(start.authorizationUrl, '_blank');
+    if (!popup) {
+      window.location.assign(start.authorizationUrl);
+      return new Promise(() => {});
+    }
+
+    popup.focus?.();
+    return this.#waitForPendingLogin(pending);
   }
 
   getRedirectUri() {
@@ -461,6 +516,86 @@ class SmartThingsAPI {
     this.#session = session;
     writeStorage(SESSION_KEY, JSON.stringify(session));
     writeStorage(LEGACY_TOKEN_KEY, null);
+    this.#clearPendingAuth();
+  }
+
+  #readPendingAuth() {
+    const raw = readStorage(PENDING_AUTH_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const pending = JSON.parse(raw);
+      if (!pending?.sessionId || !pending?.expiresAt || pending.expiresAt <= Date.now()) {
+        writeStorage(PENDING_AUTH_KEY, null);
+        return null;
+      }
+
+      return pending;
+    } catch {
+      writeStorage(PENDING_AUTH_KEY, null);
+      return null;
+    }
+  }
+
+  #writePendingAuth(pending) {
+    writeStorage(PENDING_AUTH_KEY, JSON.stringify(pending));
+  }
+
+  #clearPendingAuth() {
+    this.#pendingLoginPromise = null;
+    writeStorage(PENDING_AUTH_KEY, null);
+  }
+
+  async #waitForPendingLogin(pending) {
+    if (this.#pendingLoginPromise) {
+      return this.#pendingLoginPromise;
+    }
+
+    this.#pendingLoginPromise = this.#pollPendingLogin(pending)
+      .finally(() => {
+        this.#pendingLoginPromise = null;
+      });
+
+    return this.#pendingLoginPromise;
+  }
+
+  async #pollPendingLogin(pending) {
+    while (pending.expiresAt > Date.now()) {
+      const result = await this.#brokerGet(`/auth/status/${encodeURIComponent(pending.sessionId)}`);
+
+      if (result.status === 'pending') {
+        await delay(AUTH_RELAY_POLL_INTERVAL_MS);
+        continue;
+      }
+
+      if (result.status === 'expired') {
+        this.#clearPendingAuth();
+        throw new AuthError('SmartThings login timed out.', {
+          descriptor: createMessageDescriptor('tokenSetup.errors.oauthTimeout'),
+        });
+      }
+
+      if (result.status === 'error') {
+        this.#clearPendingAuth();
+        throw new AuthError(result.errorDescription ?? result.error ?? 'SmartThings sign-in failed.', {
+          descriptor: describeRelayError(result),
+        });
+      }
+
+      if (result.status === 'complete') {
+        this.#persistSession(this.#normalizeTokenResponse(result));
+        return true;
+      }
+
+      await delay(AUTH_RELAY_POLL_INTERVAL_MS);
+    }
+
+    this.#clearPendingAuth();
+    throw new AuthError('SmartThings login timed out.', {
+      descriptor: createMessageDescriptor('tokenSetup.errors.oauthTimeout'),
+    });
   }
 
   #normalizeTokenResponse(payload, { fallbackRefreshToken = null } = {}) {
@@ -507,6 +642,22 @@ class SmartThingsAPI {
   }
 
   async #brokerRequest(path, payload) {
+    return this.#brokerFetch(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async #brokerGet(path) {
+    return this.#brokerFetch(path, {
+      method: 'GET',
+    });
+  }
+
+  async #brokerFetch(path, init) {
     if (!BROKER_BASE_URL) {
       throw new ConfigError('SmartThings OAuth broker URL is not configured.', {
         descriptor: createMessageDescriptor('tokenSetup.errors.oauthMissingBrokerUrl'),
@@ -518,11 +669,7 @@ class SmartThingsAPI {
 
     try {
       res = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        ...init,
       });
     } catch (error) {
       if (isUrlParseError(error)) {

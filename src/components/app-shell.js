@@ -79,13 +79,39 @@ export class AppShell extends LitElement {
       }
     };
 
+    this._onVisibilityChange = () => {
+      if (
+        document.visibilityState === 'visible'
+        && this._authMode === 'oauth'
+        && !this._hasToken
+        && !this._authPending
+      ) {
+        this._initializeAuth();
+      }
+    };
+
+    this._onAuthRelayMessage = (event) => {
+      if (
+        event.data?.source === 'smarthue-auth-relay'
+        && this._authMode === 'oauth'
+        && !this._hasToken
+        && !this._authPending
+      ) {
+        this._initializeAuth();
+      }
+    };
+
     store.addEventListener('error', this._onStoreError);
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+    window.addEventListener('message', this._onAuthRelayMessage);
     this._initializeAuth();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     store.removeEventListener('error', this._onStoreError);
+    document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    window.removeEventListener('message', this._onAuthRelayMessage);
     store.stopSync();
   }
 
@@ -100,7 +126,11 @@ export class AppShell extends LitElement {
 
     try {
       if (this._authMode === 'oauth') {
-        await smartthings.maybeCompleteLoginFromRedirect();
+        await smartthings.resumePendingLogin();
+
+        if (!smartthings.hasToken) {
+          await smartthings.maybeCompleteLoginFromRedirect();
+        }
       }
 
       this._hasToken = smartthings.hasToken;
@@ -133,7 +163,7 @@ export class AppShell extends LitElement {
     this._boot();
   }
 
-  _handleLoginStart() {
+  async _handleLoginStart() {
     this._authError = false;
     this._authMessage = smartthings.authConfigError;
 
@@ -144,10 +174,19 @@ export class AppShell extends LitElement {
     this._authPending = true;
 
     try {
-      smartthings.startLogin();
+      const completed = await smartthings.startLogin();
+
+      if (completed && smartthings.hasToken) {
+        this._hasToken = true;
+        this._authError = false;
+        this._authMessage = '';
+        await this._boot();
+      }
     } catch (error) {
-      this._authPending = false;
       this._authMessage = this._describeError(error);
+      this._authError = true;
+    } finally {
+      this._authPending = false;
     }
   }
 

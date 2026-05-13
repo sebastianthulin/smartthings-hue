@@ -4,6 +4,7 @@ import {
   sendMissingConfig,
   verifyCors,
 } from '../_lib/smartthings-broker.js';
+import { isAuthRelayConfigured } from '../_lib/auth-relay-store.js';
 
 export default async function handler(req, res) {
   const { handled, origin } = verifyCors(req, res);
@@ -24,8 +25,12 @@ export default async function handler(req, res) {
   sendJson(res, 200, {
     ok: true,
     configured: true,
+    relayConfigured: isAuthRelayConfigured(),
     endpoints: {
       health: '/health',
+      authStart: '/auth/start',
+      authCallback: '/auth/callback',
+      authStatus: '/auth/status/:sessionId',
       exchange: '/smartthings/exchange',
       refresh: '/smartthings/refresh',
     },

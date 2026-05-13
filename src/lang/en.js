@@ -32,6 +32,7 @@ export const en = {
       oauthVerify: 'We could not verify the SmartThings sign-in response. Please try again.',
       oauthPermissions: 'SmartThings approved the sign-in, but this app is missing required permissions. Update the selected scopes and try again.',
       oauthRedirectMismatch: 'SmartThings sign-in is configured with the wrong redirect URL. Update the redirect URI and try again.',
+      oauthTimeout: 'SmartThings sign-in took too long. Please start again.',
       oauthBrokerConfig: 'SmartThings sign-in is not configured correctly yet. Check the OAuth broker settings and try again.',
       oauthBrokerUnavailable: 'The SmartThings sign-in service could not be reached. Try again in a moment.',
       oauthMissingClientId: 'SmartThings sign-in is missing the client ID configuration.',
