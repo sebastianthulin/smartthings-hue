@@ -147,7 +147,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  const session = await getAuthSession(sessionId);
+  let session;
+
+  try {
+    session = await getAuthSession(sessionId);
+  } catch (sessionError) {
+    sendHtml(res, 500, buildCallbackPage({
+      title: 'Login failed',
+      message: `The SmartThings login session could not be restored. ${sessionError?.message ?? ''}`.trim(),
+      returnTo: null,
+      openerOrigin: null,
+      sessionId,
+      status: 'error',
+    }), origin);
+    return;
+  }
 
   if (!session) {
     sendHtml(res, 400, buildCallbackPage({
