@@ -1,6 +1,27 @@
-const TOKEN_URL = process.env.SMARTTHINGS_TOKEN_URL ?? 'https://api.smartthings.com/oauth/token';
-const CLIENT_ID = process.env.SMARTTHINGS_CLIENT_ID ?? '';
-const CLIENT_SECRET = process.env.SMARTTHINGS_CLIENT_SECRET ?? '';
+function normalizeEnvValue(value, fallback = '') {
+  const normalized = (value ?? fallback).trim();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"'))
+    || (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    const unquoted = normalized.slice(1, -1).trim();
+    return unquoted || fallback;
+  }
+
+  return normalized;
+}
+
+const TOKEN_URL = normalizeEnvValue(
+  process.env.SMARTTHINGS_TOKEN_URL,
+  'https://api.smartthings.com/oauth/token',
+);
+const CLIENT_ID = normalizeEnvValue(process.env.SMARTTHINGS_CLIENT_ID);
+const CLIENT_SECRET = normalizeEnvValue(process.env.SMARTTHINGS_CLIENT_SECRET);
 const BROKER_STATUS_HEADER = 'X-SmartThings-Broker-Status';
 const ALLOWED_ORIGINS = (process.env.SMARTTHINGS_ALLOWED_ORIGINS ?? '')
   .split(',')
@@ -106,6 +127,14 @@ export function isBrokerConfigured() {
   return Boolean(CLIENT_ID && CLIENT_SECRET);
 }
 
+function getValidatedTokenUrl() {
+  try {
+    return new URL(TOKEN_URL).toString();
+  } catch {
+    throw new Error(`SMARTTHINGS_TOKEN_URL is invalid: ${JSON.stringify(TOKEN_URL)}`);
+  }
+}
+
 export function sendMissingConfig(res, origin) {
   res.setHeader(BROKER_STATUS_HEADER, 'needs-configuration');
 
@@ -117,13 +146,14 @@ export function sendMissingConfig(res, origin) {
 }
 
 export async function requestToken(params) {
+  const tokenUrl = getValidatedTokenUrl();
   const body = new URLSearchParams({
     ...params,
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
   });
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
