@@ -98,165 +98,180 @@ function buildCallbackPage({ title, message, returnTo, openerOrigin, sessionId, 
 }
 
 export default async function handler(req, res) {
-  const { handled, origin } = verifyCors(req, res);
-  if (handled) {
-    return;
-  }
-
-  if (!isBrokerConfigured()) {
-    sendMissingConfig(res, origin);
-    return;
-  }
-
-  if (!isAuthRelayConfigured()) {
-    sendHtml(res, 503, buildCallbackPage({
-      title: 'SmartThings login is not available',
-      message: getAuthRelayConfigError(),
-      returnTo: null,
-      openerOrigin: null,
-      sessionId: null,
-      status: 'error',
-    }), origin);
-    return;
-  }
-
-  if (req.method !== 'GET') {
-    sendHtml(res, 404, buildCallbackPage({
-      title: 'Not found',
-      message: 'This SmartThings login endpoint only supports GET requests.',
-      returnTo: null,
-      openerOrigin: null,
-      sessionId: null,
-      status: 'error',
-    }), origin);
-    return;
-  }
-
-  const url = new URL(req.url ?? '/', getRequestBaseUrl(req));
-  const sessionId = url.searchParams.get('state');
-
-  if (!isValidAuthSessionId(sessionId)) {
-    sendHtml(res, 400, buildCallbackPage({
-      title: 'Login failed',
-      message: 'The SmartThings login session is invalid or has expired.',
-      returnTo: null,
-      openerOrigin: null,
-      sessionId,
-      status: 'error',
-    }), origin);
-    return;
-  }
-
-  let session;
+  let origin = null;
 
   try {
-    session = await getAuthSession(sessionId);
-  } catch (sessionError) {
-    sendHtml(res, 500, buildCallbackPage({
-      title: 'Login failed',
-      message: `The SmartThings login session could not be restored. ${sessionError?.message ?? ''}`.trim(),
-      returnTo: null,
-      openerOrigin: null,
+    const cors = verifyCors(req, res);
+    origin = cors.origin;
+
+    if (cors.handled) {
+      return;
+    }
+
+    if (!isBrokerConfigured()) {
+      sendMissingConfig(res, origin);
+      return;
+    }
+
+    if (!isAuthRelayConfigured()) {
+      sendHtml(res, 503, buildCallbackPage({
+        title: 'SmartThings login is not available',
+        message: getAuthRelayConfigError(),
+        returnTo: null,
+        openerOrigin: null,
+        sessionId: null,
+        status: 'error',
+      }), origin);
+      return;
+    }
+
+    if (req.method !== 'GET') {
+      sendHtml(res, 404, buildCallbackPage({
+        title: 'Not found',
+        message: 'This SmartThings login endpoint only supports GET requests.',
+        returnTo: null,
+        openerOrigin: null,
+        sessionId: null,
+        status: 'error',
+      }), origin);
+      return;
+    }
+
+    const url = new URL(req.url ?? '/', getRequestBaseUrl(req));
+    const sessionId = url.searchParams.get('state');
+
+    if (!isValidAuthSessionId(sessionId)) {
+      sendHtml(res, 400, buildCallbackPage({
+        title: 'Login failed',
+        message: 'The SmartThings login session is invalid or has expired.',
+        returnTo: null,
+        openerOrigin: null,
+        sessionId,
+        status: 'error',
+      }), origin);
+      return;
+    }
+
+    let session;
+
+    try {
+      session = await getAuthSession(sessionId);
+    } catch (sessionError) {
+      sendHtml(res, 500, buildCallbackPage({
+        title: 'Login failed',
+        message: `The SmartThings login session could not be restored. ${sessionError?.message ?? ''}`.trim(),
+        returnTo: null,
+        openerOrigin: null,
+        sessionId,
+        status: 'error',
+      }), origin);
+      return;
+    }
+
+    if (!session) {
+      sendHtml(res, 400, buildCallbackPage({
+        title: 'Login expired',
+        message: 'This SmartThings login session expired before it could be completed.',
+        returnTo: null,
+        openerOrigin: null,
+        sessionId,
+        status: 'error',
+      }), origin);
+      return;
+    }
+
+    const relayContext = {
+      returnTo: session.returnTo,
+      openerOrigin: session.origin,
       sessionId,
-      status: 'error',
-    }), origin);
-    return;
-  }
+    };
+    const error = url.searchParams.get('error');
+    const errorDescription = url.searchParams.get('error_description');
 
-  if (!session) {
-    sendHtml(res, 400, buildCallbackPage({
-      title: 'Login expired',
-      message: 'This SmartThings login session expired before it could be completed.',
-      returnTo: null,
-      openerOrigin: null,
-      sessionId,
-      status: 'error',
-    }), origin);
-    return;
-  }
-
-  const relayContext = {
-    returnTo: session.returnTo,
-    openerOrigin: session.origin,
-    sessionId,
-  };
-  const error = url.searchParams.get('error');
-  const errorDescription = url.searchParams.get('error_description');
-
-  if (error) {
-    await failAuthSession(sessionId, {
-      error,
-      errorDescription: errorDescription || null,
-      provider: 'smartthings',
-    });
-
-    sendHtml(res, 200, buildCallbackPage({
-      title: 'Login canceled',
-      message: 'SmartThings sign-in did not complete. Return to the app to see the error.',
-      ...relayContext,
-      status: 'error',
-    }), origin);
-    return;
-  }
-
-  const code = url.searchParams.get('code');
-
-  if (!code) {
-    await failAuthSession(sessionId, {
-      error: 'missing_code',
-      errorDescription: 'SmartThings did not provide an authorization code.',
-      provider: 'relay',
-    });
-
-    sendHtml(res, 200, buildCallbackPage({
-      title: 'Login failed',
-      message: 'SmartThings did not return an authorization code. Return to the app to see the error.',
-      ...relayContext,
-      status: 'error',
-    }), origin);
-    return;
-  }
-
-  try {
-    const result = await requestToken({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: `${getRequestBaseUrl(req)}/auth/callback`,
-    });
-
-    if (!result.ok) {
+    if (error) {
       await failAuthSession(sessionId, {
+        error,
+        errorDescription: errorDescription || null,
         provider: 'smartthings',
-        ...result.payload,
       });
 
       sendHtml(res, 200, buildCallbackPage({
-        title: 'Login failed',
-        message: 'SmartThings sign-in could not be completed. Return to the app to see the error.',
+        title: 'Login canceled',
+        message: 'SmartThings sign-in did not complete. Return to the app to see the error.',
         ...relayContext,
         status: 'error',
       }), origin);
       return;
     }
 
-    await completeAuthSession(sessionId, result.payload);
+    const code = url.searchParams.get('code');
 
-    sendHtml(res, 200, buildCallbackPage({
-      title: 'Login successful',
-      message: 'SmartThings is now connected. Return to the app to finish login.',
-      ...relayContext,
-      status: 'complete',
-    }), origin);
-  } catch (callbackError) {
-    await failAuthSession(sessionId, {
-      error: callbackError?.message ?? 'Unexpected relay callback error.',
-      provider: 'relay',
-    }).catch(() => {});
+    if (!code) {
+      await failAuthSession(sessionId, {
+        error: 'missing_code',
+        errorDescription: 'SmartThings did not provide an authorization code.',
+        provider: 'relay',
+      });
 
+      sendHtml(res, 200, buildCallbackPage({
+        title: 'Login failed',
+        message: 'SmartThings did not return an authorization code. Return to the app to see the error.',
+        ...relayContext,
+        status: 'error',
+      }), origin);
+      return;
+    }
+
+    try {
+      const result = await requestToken({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${getRequestBaseUrl(req)}/auth/callback`,
+      });
+
+      if (!result.ok) {
+        await failAuthSession(sessionId, {
+          provider: 'smartthings',
+          ...result.payload,
+        });
+
+        sendHtml(res, 200, buildCallbackPage({
+          title: 'Login failed',
+          message: 'SmartThings sign-in could not be completed. Return to the app to see the error.',
+          ...relayContext,
+          status: 'error',
+        }), origin);
+        return;
+      }
+
+      await completeAuthSession(sessionId, result.payload);
+
+      sendHtml(res, 200, buildCallbackPage({
+        title: 'Login successful',
+        message: 'SmartThings is now connected. Return to the app to finish login.',
+        ...relayContext,
+        status: 'complete',
+      }), origin);
+    } catch (callbackError) {
+      await failAuthSession(sessionId, {
+        error: callbackError?.message ?? 'Unexpected relay callback error.',
+        provider: 'relay',
+      }).catch(() => {});
+
+      sendHtml(res, 500, buildCallbackPage({
+        title: 'Login failed',
+        message: 'The SmartThings login callback failed. Return to the app to see the error.',
+        ...relayContext,
+        status: 'error',
+      }), origin);
+    }
+  } catch (unexpectedError) {
     sendHtml(res, 500, buildCallbackPage({
       title: 'Login failed',
-      message: 'The SmartThings login callback failed. Return to the app to see the error.',
-      ...relayContext,
+      message: `The SmartThings login callback crashed before completion. ${unexpectedError?.message ?? ''}`.trim(),
+      returnTo: null,
+      openerOrigin: null,
+      sessionId: null,
       status: 'error',
     }), origin);
   }
