@@ -27,11 +27,11 @@ Create a local `.env` file from `.env.example` and set these values:
 
 ```bash
 VITE_SMARTTHINGS_CLIENT_ID=your-smartthings-client-id
-VITE_SMARTTHINGS_BROKER_URL=https://your-broker.vercel.app/api
+VITE_SMARTTHINGS_BROKER_URL=https://your-broker.vercel.app
 VITE_SMARTTHINGS_SCOPES=r:locations:* r:rooms:* r:devices:* x:devices:*
 ```
 
-For a GitHub Pages frontend with a separate Vercel broker, point `VITE_SMARTTHINGS_BROKER_URL` at the Vercel project origin plus `/api`. Use `/api` only if the broker runs in the same deployment as the frontend. For local development, override it to `http://localhost:8787` and run the standalone broker with `npm run auth:broker`.
+For a GitHub Pages frontend with a separate Vercel broker, point `VITE_SMARTTHINGS_BROKER_URL` at the Vercel project origin. For local development, override it to `http://localhost:8787` and run the standalone broker with `npm run auth:broker`.
 
 ### 3. Configure and run the OAuth broker
 
@@ -39,7 +39,7 @@ The broker exchanges the authorization code and refresh token with SmartThings w
 
 For Vercel, the broker can run in a dedicated project by setting the project Root Directory to `api/`.
 
-This repository includes a nested `api/api/` wrapper so that when Vercel is pointed at the `api/` folder, the deployed endpoints still live under the `/api` path:
+This repository keeps the function files in `api/api/` for Vercel's project-local function convention, and `api/vercel.json` rewrites the public routes so the deployed broker still lives at the origin root:
 
 Set these environment variables in Vercel:
 
@@ -52,9 +52,9 @@ SMARTTHINGS_TOKEN_URL=https://api.smartthings.com/oauth/token
 
 The app will then use:
 
-- `https://your-broker.vercel.app/api/smartthings/exchange`
-- `https://your-broker.vercel.app/api/smartthings/refresh`
-- `https://your-broker.vercel.app/api/health`
+- `https://your-broker.vercel.app/smartthings/exchange`
+- `https://your-broker.vercel.app/smartthings/refresh`
+- `https://your-broker.vercel.app/health`
 
 If you connect Vercel directly to this repo only to host the broker, that is fine. The important part is that the SmartThings redirect URI must still point back to your GitHub Pages app, because the login flow returns to the frontend, not to the broker.
 

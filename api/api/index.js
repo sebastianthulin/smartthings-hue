@@ -25,9 +25,9 @@ export default async function handler(req, res) {
     ok: true,
     configured: true,
     endpoints: {
-      health: '/api/health',
-      exchange: '/api/smartthings/exchange',
-      refresh: '/api/smartthings/refresh',
+      health: '/health',
+      exchange: '/smartthings/exchange',
+      refresh: '/smartthings/refresh',
     },
   }, origin);
 }
