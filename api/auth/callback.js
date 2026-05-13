@@ -76,20 +76,35 @@ function buildCallbackPage({ title, message, returnTo, openerOrigin, sessionId, 
       <h1>${escapeHtml(title)}</h1>
       <p>${safeMessage}</p>
       ${safeReturnTo ? `<a href="${safeReturnTo}">Return to SmartHue</a>` : ''}
-      <small>You can close this window after returning to the app.</small>
+      ${safeReturnTo ? '<small>Returning to the app automatically…</small>' : '<small>You can close this window after returning to the app.</small>'}
     </main>
     <script>
       (() => {
         const openerOrigin = ${JSON.stringify(openerOrigin || '')};
+        const returnTo = ${JSON.stringify(returnTo || '')};
         const payload = ${JSON.stringify({ source: 'smarthue-auth-relay', sessionId, status })};
+        let closeAttempted = false;
 
         if (window.opener && openerOrigin) {
           try {
             window.opener.postMessage(payload, openerOrigin);
+            closeAttempted = true;
             setTimeout(() => window.close(), 250);
           } catch {
             // Ignore opener handoff failures.
           }
+        }
+
+        if (returnTo && (status === 'complete' || status === 'error')) {
+          setTimeout(() => {
+            if (!closeAttempted || !window.closed) {
+              try {
+                window.location.replace(returnTo);
+              } catch {
+                // Ignore auto-return failures.
+              }
+            }
+          }, closeAttempted ? 600 : 1200);
         }
       })();
     </script>

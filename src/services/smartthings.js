@@ -166,6 +166,55 @@ function delay(ms) {
   });
 }
 
+function writeAuthPopupPlaceholder(popup) {
+  if (!popup || popup.closed) {
+    return;
+  }
+
+  try {
+    popup.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Connecting to SmartThings</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0d0d0d;
+        color: #f5f5f5;
+        font: 16px/1.5 system-ui, sans-serif;
+        padding: 24px;
+      }
+      main {
+        width: min(100%, 420px);
+        background: #171717;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      h1 { margin: 0 0 12px; font-size: 1.25rem; }
+      p { margin: 0; color: #d4d4d4; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Connecting to SmartThings</h1>
+      <p>The SmartThings sign-in page is opening.</p>
+    </main>
+  </body>
+</html>`);
+    popup.document.close();
+  } catch {
+    // Ignore popup placeholder rendering failures.
+  }
+}
+
 class SmartThingsAPI {
   #session = null;
   #pendingLoginPromise = null;
@@ -312,12 +361,23 @@ class SmartThingsAPI {
       });
     }
 
+    const popup = window.open('', '_blank');
+    writeAuthPopupPlaceholder(popup);
+
     const sessionId = createStateToken();
-    const start = await this.#brokerRequest('/auth/start', {
-      sessionId,
-      returnTo: this.getRedirectUri(),
-      scope: OAUTH_SCOPE,
-    });
+    let start;
+
+    try {
+      start = await this.#brokerRequest('/auth/start', {
+        sessionId,
+        returnTo: this.getRedirectUri(),
+        scope: OAUTH_SCOPE,
+      });
+    } catch (error) {
+      popup?.close?.();
+      throw error;
+    }
+
     const pending = {
       sessionId,
       expiresAt: Number(start.expiresAt) || (Date.now() + AUTH_RELAY_TTL_MS),
@@ -325,12 +385,12 @@ class SmartThingsAPI {
 
     this.#writePendingAuth(pending);
 
-    const popup = window.open(start.authorizationUrl, '_blank');
-    if (!popup) {
+    if (!popup || popup.closed) {
       window.location.assign(start.authorizationUrl);
       return new Promise(() => {});
     }
 
+    popup.location.replace(start.authorizationUrl);
     popup.focus?.();
     return this.#waitForPendingLogin(pending);
   }

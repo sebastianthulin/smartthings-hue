@@ -89,6 +89,18 @@ export class AppShell extends LitElement {
       }
     };
 
+    this._onWindowFocus = () => {
+      if (this._authMode === 'oauth' && !this._hasToken) {
+        this._resumePendingOAuth();
+      }
+    };
+
+    this._onPageShow = () => {
+      if (this._authMode === 'oauth' && !this._hasToken) {
+        this._resumePendingOAuth();
+      }
+    };
+
     this._onAuthRelayMessage = (event) => {
       if (
         event.data?.source === 'smarthue-auth-relay'
@@ -101,6 +113,8 @@ export class AppShell extends LitElement {
 
     store.addEventListener('error', this._onStoreError);
     document.addEventListener('visibilitychange', this._onVisibilityChange);
+    window.addEventListener('focus', this._onWindowFocus);
+    window.addEventListener('pageshow', this._onPageShow);
     window.addEventListener('message', this._onAuthRelayMessage);
     this._initializeAuth();
   }
@@ -109,6 +123,8 @@ export class AppShell extends LitElement {
     super.disconnectedCallback();
     store.removeEventListener('error', this._onStoreError);
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    window.removeEventListener('focus', this._onWindowFocus);
+    window.removeEventListener('pageshow', this._onPageShow);
     window.removeEventListener('message', this._onAuthRelayMessage);
     store.stopSync();
   }
