@@ -78,6 +78,22 @@ function describeBrokerError(status, message) {
   return createMessageDescriptor('tokenSetup.errors.invalid', undefined, `status=${status}, message=${message}`);
 }
 
+function formatDebugDetail(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 export const SUPPORTED_CAPABILITIES = new Set([
   'switch',
   'switchLevel',
@@ -527,9 +543,16 @@ class SmartThingsAPI {
 
     if (!res.ok) {
       const message = body.error_description ?? body.error ?? `SmartThings OAuth broker error ${res.status}.`;
+      const descriptor = describeBrokerError(res.status, message);
 
       throw new AuthError(message, {
-        descriptor: describeBrokerError(res.status, message),
+        descriptor: {
+          ...descriptor,
+          detail: formatDebugDetail({
+            status: res.status,
+            body,
+          }),
+        },
       });
     }
 
