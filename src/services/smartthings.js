@@ -246,7 +246,7 @@ class SmartThingsAPI {
     return !!this.#readPendingAuth();
   }
 
-  async resumePendingLogin() {
+  async resumePendingLogin({ forceRestart = false } = {}) {
     if (isMockSmartThingsEnabled()) {
       return false;
     }
@@ -256,7 +256,7 @@ class SmartThingsAPI {
       return false;
     }
 
-    return this.#waitForPendingLogin(pending);
+    return this.#waitForPendingLogin(pending, { forceRestart });
   }
 
   async maybeCompleteLoginFromRedirect() {
@@ -548,7 +548,11 @@ class SmartThingsAPI {
     writeStorage(PENDING_AUTH_KEY, null);
   }
 
-  async #waitForPendingLogin(pending) {
+  async #waitForPendingLogin(pending, { forceRestart = false } = {}) {
+    if (forceRestart) {
+      this.#pendingLoginPromise = null;
+    }
+
     if (this.#pendingLoginPromise) {
       return this.#pendingLoginPromise;
     }

@@ -84,9 +84,8 @@ export class AppShell extends LitElement {
         document.visibilityState === 'visible'
         && this._authMode === 'oauth'
         && !this._hasToken
-        && !this._authPending
       ) {
-        this._initializeAuth();
+        this._resumePendingOAuth();
       }
     };
 
@@ -95,9 +94,8 @@ export class AppShell extends LitElement {
         event.data?.source === 'smarthue-auth-relay'
         && this._authMode === 'oauth'
         && !this._hasToken
-        && !this._authPending
       ) {
-        this._initializeAuth();
+        this._resumePendingOAuth();
       }
     };
 
@@ -148,6 +146,34 @@ export class AppShell extends LitElement {
       this._authError = true;
       this._authMessage = this._describeError(error);
     } finally {
+      this._authPending = false;
+    }
+  }
+
+  async _resumePendingOAuth() {
+    if (!smartthings.hasPendingLogin) {
+      return;
+    }
+
+    this._authPending = true;
+
+    try {
+      const completed = await smartthings.resumePendingLogin({ forceRestart: true });
+
+      if (completed && smartthings.hasToken) {
+        this._hasToken = true;
+        this._authError = false;
+        this._authMessage = '';
+        await this._boot();
+        return;
+      }
+
+      await this._initializeAuth();
+    } catch (error) {
+      smartthings.clearToken();
+      this._hasToken = false;
+      this._authError = true;
+      this._authMessage = this._describeError(error);
       this._authPending = false;
     }
   }
