@@ -1,0 +1,5 @@
+{
+  "name": "smartthings-hue-api",
+  "private": true,
+  "type": "module"
+}

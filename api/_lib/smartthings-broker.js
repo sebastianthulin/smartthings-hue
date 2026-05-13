@@ -1,6 +1,7 @@
 const TOKEN_URL = process.env.SMARTTHINGS_TOKEN_URL ?? 'https://api.smartthings.com/oauth/token';
 const CLIENT_ID = process.env.SMARTTHINGS_CLIENT_ID ?? '';
 const CLIENT_SECRET = process.env.SMARTTHINGS_CLIENT_SECRET ?? '';
+const BROKER_STATUS_HEADER = 'X-SmartThings-Broker-Status';
 const ALLOWED_ORIGINS = (process.env.SMARTTHINGS_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -106,8 +107,12 @@ export function isBrokerConfigured() {
 }
 
 export function sendMissingConfig(res, origin) {
-  sendJson(res, 500, {
-    error: 'Broker is not configured. Set SMARTTHINGS_CLIENT_ID and SMARTTHINGS_CLIENT_SECRET.',
+  res.setHeader(BROKER_STATUS_HEADER, 'needs-configuration');
+
+  sendJson(res, 503, {
+    configured: false,
+    error: 'Broker is not configured.',
+    message: 'Set SMARTTHINGS_CLIENT_ID and SMARTTHINGS_CLIENT_SECRET to enable the SmartThings OAuth broker.',
   }, origin);
 }
 

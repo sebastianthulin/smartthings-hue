@@ -37,7 +37,9 @@ For a GitHub Pages frontend with a separate Vercel broker, point `VITE_SMARTTHIN
 
 The broker exchanges the authorization code and refresh token with SmartThings while keeping the `client_secret` out of the browser.
 
-For Vercel, the broker can run in a dedicated project using the API routes in `api/`.
+For Vercel, the broker can run in a dedicated project by setting the project Root Directory to `api/`.
+
+This repository includes a nested `api/api/` wrapper so that when Vercel is pointed at the `api/` folder, the deployed endpoints still live under the `/api` path:
 
 Set these environment variables in Vercel:
 
