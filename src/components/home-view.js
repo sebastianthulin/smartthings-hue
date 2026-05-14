@@ -6,6 +6,9 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const SWIPE_BACK_EDGE_PX = 32;
+const SWIPE_BACK_TRIGGER_PX = 72;
+const SWIPE_BACK_LOCK_RATIO = 1.2;
 
 function createMainRoutineDraft(homeConfig = null) {
   return {
@@ -1208,6 +1211,11 @@ export class HomeView extends LocalizedElement {
     this._syncing               = false;
     this._transitionRoomId      = null;
     this._listScrollTop         = 0;
+    this._swipeBackPointerId    = null;
+    this._swipeBackStartX       = 0;
+    this._swipeBackStartY       = 0;
+    this._swipeBackLocked       = false;
+    this._swipeBackActive       = false;
   }
 
   connectedCallback() {
@@ -1880,6 +1888,87 @@ export class HomeView extends LocalizedElement {
     }, restoreScrollTop);
   }
 
+  _resetSwipeBackGesture() {
+    this._swipeBackPointerId = null;
+    this._swipeBackStartX = 0;
+    this._swipeBackStartY = 0;
+    this._swipeBackLocked = false;
+    this._swipeBackActive = false;
+  }
+
+  _onRoomDetailPointerDown(e) {
+    if (!this._activeRoomId || this._settingsOpen || e.button !== 0 || this._swipeBackPointerId !== null) {
+      return;
+    }
+
+    if (e.clientX > SWIPE_BACK_EDGE_PX) {
+      return;
+    }
+
+    const path = e.composedPath();
+    const startedFromInteractiveControl = path.some(target => {
+      if (!(target instanceof Element)) {
+        return false;
+      }
+
+      const tagName = target.tagName?.toLowerCase();
+      return tagName === 'button'
+        || tagName === 'input'
+        || tagName === 'select'
+        || tagName === 'textarea'
+        || tagName === 'dimmer-slider';
+    });
+
+    if (startedFromInteractiveControl) {
+      return;
+    }
+
+    this._swipeBackPointerId = e.pointerId;
+    this._swipeBackStartX = e.clientX;
+    this._swipeBackStartY = e.clientY;
+    this._swipeBackLocked = false;
+    this._swipeBackActive = false;
+  }
+
+  _onRoomDetailPointerMove(e) {
+    if (this._swipeBackPointerId !== e.pointerId || this._swipeBackLocked) {
+      return;
+    }
+
+    const deltaX = e.clientX - this._swipeBackStartX;
+    const deltaY = Math.abs(e.clientY - this._swipeBackStartY);
+
+    if (deltaX <= 0) {
+      if (deltaY > SWIPE_BACK_EDGE_PX) {
+        this._swipeBackLocked = true;
+      }
+      return;
+    }
+
+    if (deltaX > deltaY * SWIPE_BACK_LOCK_RATIO) {
+      this._swipeBackActive = true;
+      return;
+    }
+
+    if (deltaY > deltaX) {
+      this._swipeBackLocked = true;
+    }
+  }
+
+  async _onRoomDetailPointerEnd(e) {
+    if (this._swipeBackPointerId !== e.pointerId) {
+      return;
+    }
+
+    const deltaX = e.clientX - this._swipeBackStartX;
+    const shouldClose = this._swipeBackActive && deltaX >= SWIPE_BACK_TRIGGER_PX;
+    this._resetSwipeBackGesture();
+
+    if (shouldClose) {
+      await this._closeRoom();
+    }
+  }
+
   async _runRoomViewTransition(roomId, update, scrollTop) {
     const startViewTransition = document.startViewTransition?.bind(document);
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2027,7 +2116,13 @@ export class HomeView extends LocalizedElement {
 
       ${activeRoom
         ? html`
-            <div class="room-detail">
+            <div
+              class="room-detail"
+              @pointerdown=${this._onRoomDetailPointerDown}
+              @pointermove=${this._onRoomDetailPointerMove}
+              @pointerup=${this._onRoomDetailPointerEnd}
+              @pointercancel=${this._onRoomDetailPointerEnd}
+            >
               ${this._renderActiveRoomActions(activeRoom)}
               <room-card
                 .room=${activeRoom}
