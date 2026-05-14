@@ -187,6 +187,26 @@ const homeViewStyles = css`
     justify-content: flex-end;
   }
 
+  .material-symbols {
+    width: 1em;
+    height: 1em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Material Symbols Outlined Variable';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
   .icon-btn {
     appearance: none;
     -webkit-appearance: none;
@@ -505,16 +525,24 @@ const homeViewStyles = css`
 
   .settings-panel {
     min-height: 0;
+    display: grid;
+    gap: var(--space-7);
   }
 
-  .settings-section + .settings-section {
-    margin-top: var(--space-6);
+  .settings-group {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .settings-group-body {
+    display: grid;
+    gap: var(--space-4);
   }
 
   .settings-section-copy {
     display: grid;
     gap: 6px;
-    margin-bottom: var(--space-4);
+    margin-bottom: 0;
   }
 
   .settings-section-copy h3 {
@@ -533,7 +561,7 @@ const homeViewStyles = css`
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    margin-bottom: var(--space-5);
+    margin-bottom: 0;
   }
 
   .settings-row {
@@ -605,7 +633,7 @@ const homeViewStyles = css`
 
   .settings-empty {
     padding: var(--space-4);
-    margin-bottom: var(--space-5);
+    margin-bottom: 0;
     background: var(--color-surface-elevated);
     border-radius: var(--radius-md);
     color: var(--color-text-dim);
@@ -617,27 +645,78 @@ const homeViewStyles = css`
     padding: var(--space-3);
   }
 
+  .settings-empty-action {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-dim);
+    text-align: center;
+  }
+
+  .settings-empty-action p {
+    margin: 0;
+  }
+
+  .settings-empty-action-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .settings-empty-action-btn:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+    background: color-mix(in srgb, var(--color-surface-elevated) 82%, rgba(255, 179, 71, 0.08));
+  }
+
+  .settings-empty-action-btn .material-symbols {
+    font-size: 18px;
+  }
+
   .settings-subsection + .settings-subsection {
-    margin-top: var(--space-5);
+    margin-top: 0;
+  }
+
+  .settings-subsection {
+    display: grid;
+    gap: var(--space-4);
   }
 
   .settings-pill-list {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
-    margin-bottom: var(--space-3);
+    margin-bottom: 0;
   }
 
   .settings-pill {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     max-width: 100%;
-    padding: 8px 10px 8px 12px;
+    min-height: 36px;
+    padding: 6px 8px 6px 12px;
     background: var(--color-surface-elevated);
-    border: 1px solid var(--color-border);
+    border: none;
     border-radius: var(--radius-full);
     color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
   }
 
   .settings-pill span:first-child {
@@ -649,8 +728,8 @@ const homeViewStyles = css`
   .settings-pill button {
     appearance: none;
     -webkit-appearance: none;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -673,24 +752,116 @@ const homeViewStyles = css`
     line-height: 1;
   }
 
-  .settings-add-row {
+  .settings-picker {
     display: grid;
     gap: var(--space-2);
   }
 
-  .settings-add-row label {
-    font-size: var(--font-size-sm);
+  .settings-select-shell {
+    display: grid;
+    gap: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+  }
+
+  .settings-select-shell.open {
+    border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  }
+
+  .settings-select-surface {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    align-items: start;
+    padding: var(--space-2);
+    background: color-mix(in srgb, var(--color-surface) 92%, rgba(255, 255, 255, 0.02));
+  }
+
+  .settings-select-values {
+    min-height: 40px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    align-content: center;
+  }
+
+  .settings-select-placeholder {
     color: var(--color-text-dim);
+    font-size: var(--font-size-sm);
+    padding: 0 2px;
+  }
+
+  .settings-select-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--transition-base), color var(--transition-base), transform var(--transition-fast);
+  }
+
+  .settings-select-toggle:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: color-mix(in srgb, var(--color-surface-elevated) 68%, rgba(255, 179, 71, 0.08));
+    color: var(--color-text-primary);
+  }
+
+  .settings-select-toggle:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .settings-select-tag {
+    background: color-mix(in srgb, var(--color-surface-elevated) 74%, rgba(255, 179, 71, 0.08));
+  }
+
+  .settings-add-row {
+    display: grid;
+    gap: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .settings-search-row {
+    position: relative;
+    background: color-mix(in srgb, var(--color-surface) 90%, rgba(255, 255, 255, 0.02));
+  }
+
+  .settings-search-row .material-symbols {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--color-text-dim);
+    pointer-events: none;
   }
 
   .settings-search {
     width: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--color-surface) 90%, rgba(255, 255, 255, 0.02));
+    border: none;
+    border-radius: 0;
+    background: transparent;
     color: var(--color-text-primary);
     font: inherit;
-    padding: 10px 12px;
+    min-height: 40px;
+    padding: 9px 12px 9px 40px;
     box-sizing: border-box;
   }
 
@@ -700,43 +871,68 @@ const homeViewStyles = css`
   }
 
   .settings-search-results {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
+    max-height: 184px;
+    overflow-y: auto;
+    padding: var(--space-2);
+    background: color-mix(in srgb, var(--color-surface-elevated) 72%, transparent);
+    align-content: flex-start;
   }
 
   .settings-search-result {
     appearance: none;
     -webkit-appearance: none;
-    width: 100%;
-    display: flex;
+    max-width: 100%;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: 12px 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-elevated);
+    gap: var(--space-2);
+    min-height: 36px;
+    padding: 6px 8px 6px 12px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-surface-elevated) 84%, transparent);
     color: var(--color-text-primary);
     text-align: left;
     font: inherit;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
   }
 
+  .settings-search-result-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .settings-search-result:hover {
     transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
     background: color-mix(in srgb, var(--color-surface-elevated) 82%, rgba(255, 179, 71, 0.08));
   }
 
+  .settings-search-result-action {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+  }
+
   .settings-search-result .material-symbols {
-    font-size: 18px;
-    color: var(--color-text-dim);
+    font-size: 16px;
+    color: currentColor;
     flex-shrink: 0;
   }
 
   .settings-no-results {
-    padding: 12px 14px;
+    width: 100%;
+    padding: 10px 12px;
     border: 1px dashed var(--color-border);
     border-radius: var(--radius-md);
     color: var(--color-text-dim);
@@ -849,12 +1045,14 @@ export class HomeView extends LocalizedElement {
     _draftSharedHiddenRoomIds: { state: true },
     _hiddenRoomIds:         { state: true },
     _homeConfig:            { state: true },
+    _localHiddenRoomPickerOpen: { state: true },
     _localRoomSearch:       { state: true },
     _rooms:                 { state: true },
     _savingSharedSettings:  { state: true },
     _settingsTab:           { state: true },
     _scenes:                { state: true },
     _settingsOpen:          { state: true },
+    _sharedHiddenRoomPickerOpen: { state: true },
     _sharedRoomSearch:      { state: true },
     _sharedConfigEnabled:   { state: true },
     _syncing:               { state: true },
@@ -877,12 +1075,14 @@ export class HomeView extends LocalizedElement {
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(store.homeConfig);
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._homeConfig            = store.homeConfig;
+    this._localHiddenRoomPickerOpen = false;
     this._localRoomSearch       = '';
     this._rooms                 = store.rooms;
     this._savingSharedSettings  = false;
     this._settingsTab           = 'device';
     this._scenes                = store.scenes;
     this._settingsOpen          = false;
+    this._sharedHiddenRoomPickerOpen = false;
     this._sharedRoomSearch      = '';
     this._sharedConfigEnabled   = store.sharedConfigEnabled;
     this._syncing               = false;
@@ -979,7 +1179,9 @@ export class HomeView extends LocalizedElement {
 
     this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(this._homeConfig);
+    this._localHiddenRoomPickerOpen = false;
     this._localRoomSearch = '';
+    this._sharedHiddenRoomPickerOpen = false;
     this._sharedRoomSearch = '';
     this._settingsTab = 'device';
     this._settingsOpen = true;
@@ -1056,6 +1258,7 @@ export class HomeView extends LocalizedElement {
     }
 
     this._saveHiddenRooms([...this._hiddenRoomIds, room.id]);
+    this._localHiddenRoomPickerOpen = false;
     this._localRoomSearch = '';
   }
 
@@ -1072,6 +1275,7 @@ export class HomeView extends LocalizedElement {
 
     this._draftSharedHiddenRoomIds = normalizeRoomIds([...this._draftSharedHiddenRoomIds, room.id]);
     this._saveHiddenRooms(this._hiddenRoomIds.filter(hiddenRoomId => hiddenRoomId !== room.id));
+    this._sharedHiddenRoomPickerOpen = false;
     this._sharedRoomSearch = '';
   }
 
@@ -1085,6 +1289,20 @@ export class HomeView extends LocalizedElement {
 
   _onSharedRoomSearchInput(e) {
     this._sharedRoomSearch = e.target.value;
+  }
+
+  _toggleSharedHiddenRoomPicker() {
+    this._sharedHiddenRoomPickerOpen = !this._sharedHiddenRoomPickerOpen;
+    if (!this._sharedHiddenRoomPickerOpen) {
+      this._sharedRoomSearch = '';
+    }
+  }
+
+  _toggleLocalHiddenRoomPicker() {
+    this._localHiddenRoomPickerOpen = !this._localHiddenRoomPickerOpen;
+    if (!this._localHiddenRoomPickerOpen) {
+      this._localRoomSearch = '';
+    }
   }
 
   _filterRoomsBySearch(rooms, query) {
@@ -1129,38 +1347,91 @@ export class HomeView extends LocalizedElement {
   _renderHiddenRoomPicker({
     label,
     placeholder,
+    selectedRooms,
+    emptyText,
     query,
     rooms,
+    open,
+    onToggle,
     onInput,
     onPick,
+    onRemove,
     emptyKey,
+    disabled = false,
   }) {
-    const filteredRooms = this._filterRoomsBySearch(rooms, query);
+    const showSearch = rooms.length > 8;
+    const filteredRooms = showSearch ? this._filterRoomsBySearch(rooms, query) : rooms;
+    const canExpand = rooms.length > 0;
 
     return html`
-      <div class="settings-add-row">
-        <label>${label}</label>
-        <input
-          class="settings-search"
-          .value=${query}
-          placeholder=${placeholder}
-          autocomplete="off"
-          @input=${onInput}
-        />
-        <div class="settings-search-results">
-          ${filteredRooms.length > 0
-            ? filteredRooms.map(room => html`
-                <button
-                  class="settings-search-result"
-                  type="button"
-                  data-room-id=${room.id}
-                  @click=${onPick}
-                >
-                  <span>${room.name}</span>
-                  <span class="material-symbols" aria-hidden="true">add</span>
-                </button>
-              `)
-            : html`<div class="settings-no-results">${this.t(emptyKey)}</div>`}
+      <div class="settings-picker">
+        <div class="settings-select-shell ${open ? 'open' : ''}">
+          <div class="settings-select-surface">
+            <div class="settings-select-values">
+              ${selectedRooms.length > 0
+                ? selectedRooms.map(room => html`
+                    <div class="settings-pill settings-select-tag">
+                      <span>${room.name}</span>
+                      <button
+                        type="button"
+                        ?disabled=${disabled}
+                        @click=${() => onRemove(room.id)}
+                        aria-label=${this.t('home.removeHiddenRoom', { name: room.name })}
+                      >
+                        <span class="material-symbols" aria-hidden="true">close</span>
+                      </button>
+                    </div>
+                  `)
+                : html`<span class="settings-select-placeholder">${emptyText}</span>`}
+            </div>
+            <button
+              class="settings-select-toggle"
+              type="button"
+              aria-label=${label}
+              aria-expanded=${String(open)}
+              ?disabled=${disabled || !canExpand}
+              @click=${onToggle}
+            >
+              <span class="material-symbols" aria-hidden="true">${open ? 'expand_less' : 'expand_more'}</span>
+            </button>
+          </div>
+
+        ${open && canExpand ? html`
+          <div class="settings-add-row">
+            ${showSearch ? html`
+              <div class="settings-search-row">
+                <span class="material-symbols" aria-hidden="true">search</span>
+                <input
+                  class="settings-search"
+                  .value=${query}
+                  placeholder=${placeholder}
+                  aria-label=${label}
+                  autocomplete="off"
+                  @input=${onInput}
+                />
+              </div>
+            ` : ''}
+
+            <div class="settings-search-results">
+              ${filteredRooms.length > 0
+                ? filteredRooms.map(room => html`
+                    <button
+                      class="settings-search-result"
+                      type="button"
+                      ?disabled=${disabled}
+                      data-room-id=${room.id}
+                      @click=${onPick}
+                    >
+                      <span class="settings-search-result-label">${room.name}</span>
+                      <span class="settings-search-result-action" aria-hidden="true">
+                        <span class="material-symbols">add</span>
+                      </span>
+                    </button>
+                  `)
+                : html`<div class="settings-no-results">${this.t(emptyKey)}</div>`}
+            </div>
+          </div>
+        ` : ''}
         </div>
       </div>
     `;
@@ -1177,6 +1448,8 @@ export class HomeView extends LocalizedElement {
     this._settingsOpen = false;
     this._connectionMenuOpen = false;
     this._disconnectConfirmOpen = false;
+    this._localHiddenRoomPickerOpen = false;
+    this._sharedHiddenRoomPickerOpen = false;
     await this._persistSharedSettingsIfNeeded();
   }
 
@@ -1381,19 +1654,19 @@ export class HomeView extends LocalizedElement {
               ></room-card>
             </div>
           `
-        : html`
-            <div class="rooms">
-              ${visibleRooms.length === 0
-                ? this._renderEmpty()
-                : visibleRooms.map(r => html`
-                    <room-card
-                      .room=${r}
-                      .transitionName=${this._roomTransitionName(r.id)}
-                      @open-room=${this._openRoom}
-                    ></room-card>
-                  `)}
-            </div>
-          `}
+        : visibleRooms.length > 0
+          ? html`
+              <div class="rooms">
+                ${visibleRooms.map(room => html`
+                  <room-card
+                    .room=${room}
+                    .transitionName=${this._roomTransitionName(room.id)}
+                    @open-room=${this._openRoom}
+                  ></room-card>
+                `)}
+              </div>
+            `
+          : this._renderEmpty()}
 
       ${this._settingsOpen ? this._renderSettings() : ''}
       ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}
@@ -1401,10 +1674,6 @@ export class HomeView extends LocalizedElement {
   }
 
   _renderMainRoutines() {
-    if (!this._sharedConfigEnabled) {
-      return html``;
-    }
-
     const turnOnScene = this._selectedScene(this._homeConfig?.mainRoutines?.turnOnSceneId);
     const turnOffScene = this._selectedScene(this._homeConfig?.mainRoutines?.turnOffSceneId);
 
@@ -1477,154 +1746,131 @@ export class HomeView extends LocalizedElement {
           ${this._renderSettingsTabs()}
 
           ${this._settingsTab === 'device' ? html`
-            <section class="settings-panel settings-section">
-              <div class="settings-section-copy">
-                <h3>${this.t('home.deviceSettingsTitle')}</h3>
-                <p>${this.t('home.deviceSettingsDescription')}</p>
-              </div>
+            <section class="settings-panel">
+              <div class="settings-group">
+                ${this._rooms.length === 0
+                  ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
+                  : html`
+                      <div class="settings-group-body">
+                        <div class="settings-subsection">
+                          <div class="settings-section-copy">
+                            <h3>${this.t('home.localHiddenRoomsTitle')}</h3>
+                            <p>${this.t('home.localHiddenRoomsDescription')}</p>
+                          </div>
 
-              ${this._rooms.length === 0
-                ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
-                : html`
-                    <div class="settings-subsection">
-                      <div class="settings-section-copy">
-                        <h3>${this.t('home.localHiddenRoomsTitle')}</h3>
-                        <p>${this.t('home.localHiddenRoomsDescription')}</p>
-                      </div>
-
-                      ${localHiddenRooms.length === 0
-                        ? html`<div class="settings-empty compact">${this.t('home.sharedHiddenRoomsEmpty')}</div>`
-                        : html`
-                            <div class="settings-pill-list">
-                              ${localHiddenRooms.map(room => html`
-                                <div class="settings-pill">
-                                  <span>${room.name}</span>
-                                  <button
-                                    type="button"
-                                    @click=${() => this._onRemoveLocalHiddenRoom(room.id)}
-                                    aria-label=${this.t('home.removeHiddenRoom', { name: room.name })}
-                                  >
-                                    <span class="material-symbols" aria-hidden="true">close</span>
-                                  </button>
-                                </div>
-                              `)}
-                            </div>
-                          `}
-
-                      ${availableSharedHiddenRooms.length === 0
-                        ? html``
-                        : this._renderHiddenRoomPicker({
+                          ${this._renderHiddenRoomPicker({
                             label: this.t('home.addHiddenRoom'),
                             placeholder: this.t('home.searchHiddenRoomPlaceholder'),
+                            selectedRooms: localHiddenRooms,
+                            emptyText: this.t('home.localHiddenRoomsEmpty'),
                             query: this._localRoomSearch,
+                            open: this._localHiddenRoomPickerOpen,
                             rooms: availableLocalHiddenRooms,
+                            onToggle: this._toggleLocalHiddenRoomPicker,
                             onInput: this._onLocalRoomSearchInput,
                             onPick: this._onAddLocalHiddenRoom,
+                            onRemove: roomId => this._onRemoveLocalHiddenRoom(roomId),
                             emptyKey: 'home.hiddenRoomSearchEmpty',
                           })}
-                    </div>
-                  `}
+                        </div>
+                      </div>
+                    `}
+              </div>
             </section>
           ` : ''}
 
           ${this._settingsTab === 'shared' && this._sharedConfigEnabled ? html`
-            <section class="settings-panel settings-section">
-              <div class="settings-section-copy">
-                <h3>${this.t('home.sharedSettingsTitle')}</h3>
-                <p>${this.t('home.sharedSettingsDescription')}</p>
+            <section class="settings-panel">
+              <div class="settings-group">
+                <div class="settings-section-copy">
+                  <h3>${this.t('home.sharedSettingsTitle')}</h3>
+                  <p>${this.t('home.sharedSettingsDescription')}</p>
+                </div>
+
+                <div class="settings-group-body">
+                  ${this._scenes.length === 0
+                    ? html`<div class="settings-empty">${this.t('home.sharedSettingsEmpty')}</div>`
+                    : html`
+                        <div class="settings-list">
+                          <label class="settings-row">
+                            <span>${this.t('home.mainTurnOnLabel')}</span>
+                            <select
+                              class="settings-select"
+                              name="turnOnSceneId"
+                              .value=${turnOnSceneId}
+                              ?disabled=${this._savingSharedSettings}
+                              @change=${this._onMainRoutineChange}
+                            >
+                              <option value="">${this.t('home.unassignedRoutine')}</option>
+                              ${this._scenes.map(scene => html`
+                                <option value=${scene.sceneId}>${scene.sceneName}</option>
+                              `)}
+                            </select>
+                          </label>
+
+                          <label class="settings-row">
+                            <span>${this.t('home.mainTurnOffLabel')}</span>
+                            <select
+                              class="settings-select"
+                              name="turnOffSceneId"
+                              .value=${turnOffSceneId}
+                              ?disabled=${this._savingSharedSettings}
+                              @change=${this._onMainRoutineChange}
+                            >
+                              <option value="">${this.t('home.unassignedRoutine')}</option>
+                              ${this._scenes.map(scene => html`
+                                <option value=${scene.sceneId}>${scene.sceneName}</option>
+                              `)}
+                            </select>
+                          </label>
+                        </div>
+                      `}
+                </div>
               </div>
-
-              ${this._scenes.length === 0
-                ? html`<div class="settings-empty">${this.t('home.sharedSettingsEmpty')}</div>`
-                : html`
-                    <div class="settings-list">
-                      <label class="settings-row">
-                        <span>${this.t('home.mainTurnOnLabel')}</span>
-                        <select
-                          class="settings-select"
-                          name="turnOnSceneId"
-                          .value=${turnOnSceneId}
-                          ?disabled=${this._savingSharedSettings}
-                          @change=${this._onMainRoutineChange}
-                        >
-                          <option value="">${this.t('home.unassignedRoutine')}</option>
-                          ${this._scenes.map(scene => html`
-                            <option value=${scene.sceneId}>${scene.sceneName}</option>
-                          `)}
-                        </select>
-                      </label>
-
-                      <label class="settings-row">
-                        <span>${this.t('home.mainTurnOffLabel')}</span>
-                        <select
-                          class="settings-select"
-                          name="turnOffSceneId"
-                          .value=${turnOffSceneId}
-                          ?disabled=${this._savingSharedSettings}
-                          @change=${this._onMainRoutineChange}
-                        >
-                          <option value="">${this.t('home.unassignedRoutine')}</option>
-                          ${this._scenes.map(scene => html`
-                            <option value=${scene.sceneId}>${scene.sceneName}</option>
-                          `)}
-                        </select>
-                      </label>
-                    </div>
-                  `}
 
               ${this._rooms.length === 0
                 ? html``
                 : html`
-                    <div class="settings-subsection">
+                    <div class="settings-group">
                       <div class="settings-section-copy">
                         <h3>${this.t('home.sharedHiddenRoomsTitle')}</h3>
                         <p>${this.t('home.sharedHiddenRoomsDescription')}</p>
                       </div>
 
-                      ${sharedHiddenRooms.length === 0
-                        ? html`<div class="settings-empty compact">${this.t('home.sharedHiddenRoomsEmpty')}</div>`
-                        : html`
-                            <div class="settings-pill-list">
-                              ${sharedHiddenRooms.map(room => html`
-                                <div class="settings-pill">
-                                  <span>${room.name}</span>
-                                  <button
-                                    type="button"
-                                    ?disabled=${this._savingSharedSettings}
-                                    @click=${() => this._onRemoveSharedHiddenRoom(room.id)}
-                                    aria-label=${this.t('home.removeHiddenRoom', { name: room.name })}
-                                  >
-                                    <span class="material-symbols" aria-hidden="true">close</span>
-                                  </button>
-                                </div>
-                              `)}
-                            </div>
-                          `}
-
-                      ${availableSharedHiddenRooms.length === 0
-                        ? html``
-                        : this._renderHiddenRoomPicker({
-                            label: this.t('home.addHiddenRoom'),
-                            placeholder: this.t('home.searchHiddenRoomPlaceholder'),
-                            query: this._sharedRoomSearch,
-                            rooms: availableSharedHiddenRooms,
-                            onInput: this._onSharedRoomSearchInput,
-                            onPick: this._onAddSharedHiddenRoom,
-                            emptyKey: 'home.hiddenRoomSearchEmpty',
-                          })}
+                      <div class="settings-group-body">
+                        ${this._renderHiddenRoomPicker({
+                          label: this.t('home.addHiddenRoom'),
+                          placeholder: this.t('home.searchHiddenRoomPlaceholder'),
+                          selectedRooms: sharedHiddenRooms,
+                          emptyText: this.t('home.sharedHiddenRoomsEmpty'),
+                          query: this._sharedRoomSearch,
+                          open: this._sharedHiddenRoomPickerOpen,
+                          rooms: availableSharedHiddenRooms,
+                          onToggle: this._toggleSharedHiddenRoomPicker,
+                          onInput: this._onSharedRoomSearchInput,
+                          onPick: this._onAddSharedHiddenRoom,
+                          onRemove: roomId => this._onRemoveSharedHiddenRoom(roomId),
+                          emptyKey: 'home.hiddenRoomSearchEmpty',
+                          disabled: this._savingSharedSettings,
+                        })}
+                      </div>
                     </div>
                   `}
             </section>
           ` : ''}
 
           ${this._settingsTab === 'connection' ? html`
-            <section class="settings-panel settings-section">
-              <div class="settings-section-copy">
-                <h3>${this.t('home.connection')}</h3>
-                <p>${this.t(this._connectionCopyKey('DisconnectDescription'))}</p>
-              </div>
-              <div class="connection-panel">
-                <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>${this.t(this._connectionCopyKey('DisconnectAction'))}</button>
+            <section class="settings-panel">
+              <div class="settings-group">
+                <div class="settings-section-copy">
+                  <h3>${this.t('home.connection')}</h3>
+                  <p>${this.t(this._connectionCopyKey('DisconnectDescription'))}</p>
+                </div>
+                <div class="settings-group-body">
+                  <div class="connection-panel">
+                    <button class="disconnect-btn" @click=${this._openDisconnectConfirm}>${this.t(this._connectionCopyKey('DisconnectAction'))}</button>
+                  </div>
+                </div>
               </div>
             </section>
           ` : ''}
