@@ -5,13 +5,23 @@
  */
 
 import {
+  getMockHomeConfig,
   handleMockSmartThingsRequest,
   isMockSmartThingsEnabled,
+  saveMockHomeConfig,
 } from './smartthings.mock.js';
 import { i18n } from './i18n.js';
 
 const API_BASE = 'https://api.smartthings.com/v1';
-const BROKER_BASE_URL = (import.meta.env.VITE_SMARTTHINGS_BROKER_URL ?? '').replace(/\/$/, '');
+const LEGACY_BROKER_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_SMARTTHINGS_BROKER_URL ?? '');
+const EXPLICIT_AUTH_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_SMARTTHINGS_AUTH_URL ?? '');
+const EXPLICIT_SERVICE_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_SMARTTHINGS_SERVICE_URL ?? '');
+const AUTH_BASE_URL = EXPLICIT_AUTH_BASE_URL
+  || swapSubdomain(EXPLICIT_SERVICE_BASE_URL, 'service', 'auth')
+  || LEGACY_BROKER_BASE_URL;
+const SERVICE_BASE_URL = EXPLICIT_SERVICE_BASE_URL
+  || swapSubdomain(EXPLICIT_AUTH_BASE_URL || LEGACY_BROKER_BASE_URL, 'auth', 'service')
+  || AUTH_BASE_URL;
 const OAUTH_CLIENT_ID = import.meta.env.VITE_SMARTTHINGS_CLIENT_ID ?? '';
 const OAUTH_SCOPE = import.meta.env.VITE_SMARTTHINGS_SCOPES
   ?? 'r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*';
@@ -24,7 +34,32 @@ const REFRESH_LEEWAY_MS = 60_000;
 const AUTH_RELAY_TTL_MS = 5 * 60 * 1000;
 const AUTH_RELAY_POLL_INTERVAL_MS = 2_000;
 
-const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!BROKER_BASE_URL;
+const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!AUTH_BASE_URL;
+
+function normalizeBaseUrl(value) {
+  return (value ?? '').trim().replace(/\/$/, '');
+}
+
+function swapSubdomain(baseUrl, fromSubdomain, toSubdomain) {
+  if (!baseUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(baseUrl);
+    const hostParts = url.hostname.split('.');
+
+    if (hostParts.length < 3 || hostParts[0] !== fromSubdomain) {
+      return '';
+    }
+
+    hostParts[0] = toSubdomain;
+    url.hostname = hostParts.join('.');
+    return normalizeBaseUrl(url.toString());
+  } catch {
+    return '';
+  }
+}
 
 function createMessageDescriptor(key, values, detail = '') {
   return { key, values, detail };
@@ -292,7 +327,7 @@ class SmartThingsAPI {
   }
 
   get isConfigured() {
-    return isMockSmartThingsEnabled() || !!BROKER_BASE_URL;
+    return isMockSmartThingsEnabled() || !!AUTH_BASE_URL;
   }
 
   get authMode() {
@@ -312,11 +347,15 @@ class SmartThingsAPI {
       return '';
     }
 
-    if (!BROKER_BASE_URL) {
+    if (!AUTH_BASE_URL) {
       return createMessageDescriptor('tokenSetup.errors.oauthMissingBrokerUrl');
     }
 
     return '';
+  }
+
+  get sharedConfigEnabled() {
+    return isMockSmartThingsEnabled() || !!SERVICE_BASE_URL;
   }
 
   setToken(token) {
@@ -572,6 +611,53 @@ class SmartThingsAPI {
     return data.items ?? [];
   }
 
+  /** Fetch all scenes (optionally scoped to a location). */
+  async fetchScenes(locationId) {
+    const qs = locationId ? `?locationId=${encodeURIComponent(locationId)}` : '';
+    const data = await this.#request(`/scenes${qs}`);
+    return data.items ?? [];
+  }
+
+  /** Execute a scene for the current location. */
+  async executeScene(sceneId, locationId) {
+    const qs = locationId ? `?locationId=${encodeURIComponent(locationId)}` : '';
+    return this.#post(`/scenes/${encodeURIComponent(sceneId)}/execute${qs}`, {});
+  }
+
+  /** Fetch the shared home config for a location from the broker service. */
+  async fetchHomeConfig(locationId) {
+    if (isMockSmartThingsEnabled()) {
+      return getMockHomeConfig(locationId);
+    }
+
+    if (!SERVICE_BASE_URL) {
+      return null;
+    }
+
+    const response = await this.#serviceFetch(`/home-config/${encodeURIComponent(locationId)}`, {
+      method: 'GET',
+    });
+
+    return response.config ?? null;
+  }
+
+  /** Persist the shared home config for a location through the broker service. */
+  async saveHomeConfig(locationId, config) {
+    if (isMockSmartThingsEnabled()) {
+      return saveMockHomeConfig(locationId, config);
+    }
+
+    const response = await this.#serviceFetch(`/home-config/${encodeURIComponent(locationId)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ config }),
+    });
+
+    return response.config ?? null;
+  }
+
   /** Fetch full status for one device. */
   async fetchDeviceStatus(deviceId) {
     return this.#request(`/devices/${deviceId}/status`);
@@ -817,13 +903,13 @@ class SmartThingsAPI {
   }
 
   async #brokerFetch(path, init) {
-    if (!BROKER_BASE_URL) {
+    if (!AUTH_BASE_URL) {
       throw new ConfigError('SmartThings OAuth broker URL is not configured.', {
         descriptor: createMessageDescriptor('tokenSetup.errors.oauthMissingBrokerUrl'),
       });
     }
 
-    const requestUrl = `${BROKER_BASE_URL}${path}`;
+    const requestUrl = `${AUTH_BASE_URL}${path}`;
     let res;
 
     try {
@@ -860,6 +946,43 @@ class SmartThingsAPI {
           }),
         },
       });
+    }
+
+    return body;
+  }
+
+  async #serviceFetch(path, init) {
+    if (!SERVICE_BASE_URL) {
+      throw new Error('Shared home config service URL is not configured.');
+    }
+
+    const accessToken = await this.#ensureAccessToken();
+    const requestUrl = `${SERVICE_BASE_URL}${path}`;
+    let res;
+
+    try {
+      res = await fetch(requestUrl, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          ...init?.headers,
+        },
+      });
+    } catch (error) {
+      if (isUrlParseError(error)) {
+        throw new Error('Shared home config service URL is invalid.');
+      }
+
+      throw new Error('Could not reach the shared home config service.');
+    }
+
+    const contentType = res.headers.get('content-type') ?? '';
+    const body = contentType.includes('application/json')
+      ? await res.json()
+      : { error: await res.text() };
+
+    if (!res.ok) {
+      throw new Error(body.error ?? `Shared home config request failed with HTTP ${res.status}.`);
     }
 
     return body;

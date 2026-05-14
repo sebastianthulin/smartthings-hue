@@ -1,10 +1,19 @@
 import { html, css } from 'lit';
 import { store } from '../services/store.js';
 import { smartthings } from '../services/smartthings.js';
+import { toasts } from '../services/toasts.js';
 import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+
+function createMainRoutineDraft(homeConfig = null) {
+  return {
+    turnOnSceneId: homeConfig?.mainRoutines?.turnOnSceneId ?? null,
+    turnOffSceneId: homeConfig?.mainRoutines?.turnOffSceneId ?? null,
+  };
+}
+
 const homeViewStyles = css`
   @keyframes fade-in {
     from {
@@ -198,6 +207,50 @@ const homeViewStyles = css`
     view-transition-name: home-stage;
   }
 
+  .main-routines {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-3);
+  }
+
+  .main-routine-btn {
+    width: 100%;
+    display: grid;
+    gap: 6px;
+    padding: var(--space-4);
+    background:
+      radial-gradient(circle at top right, rgba(255, 179, 71, 0.18), transparent 48%),
+      var(--color-surface-elevated);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+    border-radius: var(--radius-lg);
+    text-align: left;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-base), box-shadow var(--transition-base);
+  }
+
+  .main-routine-btn:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+  }
+
+  .main-routine-btn:active {
+    transform: translateY(0);
+  }
+
+  .main-routine-btn strong {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.01em;
+  }
+
+  .main-routine-btn span {
+    color: var(--color-text-dim);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+  }
+
   .room-detail {
     padding: var(--space-2) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom, 0));
     view-transition-name: home-stage;
@@ -359,6 +412,28 @@ const homeViewStyles = css`
     color: var(--color-text-secondary);
   }
 
+  .settings-section + .settings-section {
+    margin-top: var(--space-6);
+  }
+
+  .settings-section-copy {
+    display: grid;
+    gap: 6px;
+    margin-bottom: var(--space-4);
+  }
+
+  .settings-section-copy h3 {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+  }
+
+  .settings-section-copy p {
+    margin: 0;
+    color: var(--color-text-dim);
+    font-size: var(--font-size-sm);
+  }
+
   .settings-list {
     display: flex;
     flex-direction: column;
@@ -416,6 +491,21 @@ const homeViewStyles = css`
   .settings-row input:focus-visible {
     outline: 2px solid rgba(255, 179, 71, 0.75);
     outline-offset: 3px;
+  }
+
+  .settings-select {
+    width: min(180px, 100%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-surface) 90%, rgba(255, 255, 255, 0.02));
+    color: var(--color-text-primary);
+    font: inherit;
+    padding: 10px 12px;
+  }
+
+  .settings-select:disabled {
+    opacity: 0.7;
+    cursor: progress;
   }
 
   .settings-empty {
@@ -519,9 +609,14 @@ export class HomeView extends LocalizedElement {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
     _activeRoomId:          { state: true },
+    _draftMainRoutines:     { state: true },
     _hiddenRoomIds:         { state: true },
+    _homeConfig:            { state: true },
     _rooms:                 { state: true },
+    _savingSharedSettings:  { state: true },
+    _scenes:                { state: true },
     _settingsOpen:          { state: true },
+    _sharedConfigEnabled:   { state: true },
     _syncing:               { state: true },
     _transitionRoomId:      { state: true },
   };
@@ -538,9 +633,14 @@ export class HomeView extends LocalizedElement {
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
     this._activeRoomId          = null;
+    this._draftMainRoutines     = createMainRoutineDraft(store.homeConfig);
     this._hiddenRoomIds         = this._loadHiddenRooms();
+    this._homeConfig            = store.homeConfig;
     this._rooms                 = store.rooms;
+    this._savingSharedSettings  = false;
+    this._scenes                = store.scenes;
     this._settingsOpen          = false;
+    this._sharedConfigEnabled   = store.sharedConfigEnabled;
     this._syncing               = false;
     this._transitionRoomId      = null;
     this._listScrollTop         = 0;
@@ -548,7 +648,16 @@ export class HomeView extends LocalizedElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this._onUpdate   = e => { this._rooms   = [...e.detail.rooms]; };
+    this._onUpdate   = (e) => {
+      this._rooms = [...e.detail.rooms];
+      this._homeConfig = e.detail.homeConfig;
+      this._scenes = [...e.detail.scenes];
+      this._sharedConfigEnabled = Boolean(e.detail.sharedConfigEnabled);
+
+      if (!this._settingsOpen || !this._hasSharedSettingsChanges()) {
+        this._draftMainRoutines = createMainRoutineDraft(e.detail.homeConfig);
+      }
+    };
     this._onSyncing  = ()  => { this._syncing = true; };
     this._onSynced   = ()  => { this._syncing = false; };
 
@@ -558,6 +667,10 @@ export class HomeView extends LocalizedElement {
 
     // Sync current state in case store already has data
     this._rooms = [...store.rooms];
+    this._homeConfig = store.homeConfig;
+    this._scenes = store.scenes;
+    this._sharedConfigEnabled = store.sharedConfigEnabled;
+    this._draftMainRoutines = createMainRoutineDraft(store.homeConfig);
   }
 
   disconnectedCallback() {
@@ -610,18 +723,18 @@ export class HomeView extends LocalizedElement {
   }
 
   _toggleSettings() {
-    this._settingsOpen = !this._settingsOpen;
-    if (!this._settingsOpen) {
-      this._connectionMenuOpen = false;
-      this._disconnectConfirmOpen = false;
+    if (this._settingsOpen) {
+      void this._closeSettings();
+      return;
     }
+
+    this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
+    this._settingsOpen = true;
   }
 
   _onSettingsKeyDown(e) {
     if (e.key === 'Escape') {
-      this._settingsOpen = false;
-      this._connectionMenuOpen = false;
-      this._disconnectConfirmOpen = false;
+      void this._closeSettings();
     }
   }
 
@@ -660,6 +773,69 @@ export class HomeView extends LocalizedElement {
     }
 
     this._saveHiddenRooms([...hidden]);
+  }
+
+  _hasSharedSettingsChanges() {
+    const current = createMainRoutineDraft(this._homeConfig);
+    return current.turnOnSceneId !== this._draftMainRoutines.turnOnSceneId
+      || current.turnOffSceneId !== this._draftMainRoutines.turnOffSceneId;
+  }
+
+  async _closeSettings() {
+    this._settingsOpen = false;
+    this._connectionMenuOpen = false;
+    this._disconnectConfirmOpen = false;
+    await this._persistSharedSettingsIfNeeded();
+  }
+
+  async _persistSharedSettingsIfNeeded() {
+    if (!this._sharedConfigEnabled || !this._hasSharedSettingsChanges()) {
+      return;
+    }
+
+    this._savingSharedSettings = true;
+
+    try {
+      await store.updateMainRoutines(this._draftMainRoutines);
+    } catch {
+      this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
+      toasts.show({
+        tone: 'error',
+        titleKey: 'home.toasts.sharedConfigErrorTitle',
+        descriptionKey: 'home.toasts.sharedConfigErrorDescription',
+      });
+    } finally {
+      this._savingSharedSettings = false;
+    }
+  }
+
+  _onMainRoutineChange(e) {
+    const field = e.target.name;
+
+    if (!['turnOnSceneId', 'turnOffSceneId'].includes(field)) {
+      return;
+    }
+
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      [field]: e.target.value || null,
+    };
+  }
+
+  _selectedScene(sceneId) {
+    return this._scenes.find(scene => scene.sceneId === sceneId) ?? null;
+  }
+
+  async _executeMainRoutine(type) {
+    try {
+      await store.executeMainRoutine(type);
+    } catch {
+      toasts.show({
+        tone: 'error',
+        titleKey: 'home.toasts.mainRoutineErrorTitle',
+        descriptionKey: 'home.toasts.mainRoutineErrorDescription',
+      });
+    }
   }
 
   async _openRoom(e) {
@@ -792,6 +968,7 @@ export class HomeView extends LocalizedElement {
           `
         : html`
             <div class="rooms">
+              ${this._renderMainRoutines()}
               ${visibleRooms.length === 0
                 ? this._renderEmpty()
                 : visibleRooms.map(r => html`
@@ -809,6 +986,46 @@ export class HomeView extends LocalizedElement {
     `;
   }
 
+  _renderMainRoutines() {
+    if (!this._sharedConfigEnabled) {
+      return html``;
+    }
+
+    const turnOnScene = this._selectedScene(this._homeConfig?.mainRoutines?.turnOnSceneId);
+    const turnOffScene = this._selectedScene(this._homeConfig?.mainRoutines?.turnOffSceneId);
+
+    if (!turnOnScene && !turnOffScene) {
+      return html``;
+    }
+
+    return html`
+      <div class="main-routines">
+        ${turnOnScene ? html`
+          <button
+            class="main-routine-btn"
+            type="button"
+            @click=${() => this._executeMainRoutine('turnOn')}
+            aria-label=${this.t('home.mainTurnOnAction')}
+          >
+            <strong>${this.t('home.mainTurnOnAction')}</strong>
+            <span>${turnOnScene.sceneName}</span>
+          </button>
+        ` : ''}
+        ${turnOffScene ? html`
+          <button
+            class="main-routine-btn"
+            type="button"
+            @click=${() => this._executeMainRoutine('turnOff')}
+            aria-label=${this.t('home.mainTurnOffAction')}
+          >
+            <strong>${this.t('home.mainTurnOffAction')}</strong>
+            <span>${turnOffScene.sceneName}</span>
+          </button>
+        ` : ''}
+      </div>
+    `;
+  }
+
   _renderEmpty() {
     const hasRooms = this._rooms.length > 0;
     return html`
@@ -823,6 +1040,9 @@ export class HomeView extends LocalizedElement {
   }
 
   _renderSettings() {
+    const turnOnSceneId = this._draftMainRoutines.turnOnSceneId ?? '';
+    const turnOffSceneId = this._draftMainRoutines.turnOffSceneId ?? '';
+
     return html`
       <div class="settings-backdrop" @click=${this._toggleSettings}>
         <div
@@ -837,26 +1057,80 @@ export class HomeView extends LocalizedElement {
           <h2>${this.t('home.settingsTitle')}</h2>
           <p>${this.t('home.settingsDescription')}</p>
 
-          ${this._rooms.length === 0
-            ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
-            : html`
-                <div class="settings-list">
-                  ${this._rooms.map(room => {
-                    const visible = !this._hiddenRoomIds.includes(room.id);
-                    return html`
+          <section class="settings-section">
+            <div class="settings-section-copy">
+              <h3>${this.t('home.deviceSettingsTitle')}</h3>
+              <p>${this.t('home.deviceSettingsDescription')}</p>
+            </div>
+
+            ${this._rooms.length === 0
+              ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
+              : html`
+                  <div class="settings-list">
+                    ${this._rooms.map(room => {
+                      const visible = !this._hiddenRoomIds.includes(room.id);
+                      return html`
+                        <label class="settings-row">
+                          <span>${room.name}</span>
+                          <input
+                            type="checkbox"
+                            .checked=${visible}
+                            data-room-id=${room.id}
+                            @change=${this._toggleRoomVisibility}
+                          />
+                        </label>
+                      `;
+                    })}
+                  </div>
+                `}
+          </section>
+
+          ${this._sharedConfigEnabled ? html`
+            <section class="settings-section">
+              <div class="settings-section-copy">
+                <h3>${this.t('home.sharedSettingsTitle')}</h3>
+                <p>${this.t('home.sharedSettingsDescription')}</p>
+              </div>
+
+              ${this._scenes.length === 0
+                ? html`<div class="settings-empty">${this.t('home.sharedSettingsEmpty')}</div>`
+                : html`
+                    <div class="settings-list">
                       <label class="settings-row">
-                        <span>${room.name}</span>
-                        <input
-                          type="checkbox"
-                          .checked=${visible}
-                          data-room-id=${room.id}
-                          @change=${this._toggleRoomVisibility}
-                        />
+                        <span>${this.t('home.mainTurnOnLabel')}</span>
+                        <select
+                          class="settings-select"
+                          name="turnOnSceneId"
+                          .value=${turnOnSceneId}
+                          ?disabled=${this._savingSharedSettings}
+                          @change=${this._onMainRoutineChange}
+                        >
+                          <option value="">${this.t('home.unassignedRoutine')}</option>
+                          ${this._scenes.map(scene => html`
+                            <option value=${scene.sceneId}>${scene.sceneName}</option>
+                          `)}
+                        </select>
                       </label>
-                    `;
-                  })}
-                </div>
-              `}
+
+                      <label class="settings-row">
+                        <span>${this.t('home.mainTurnOffLabel')}</span>
+                        <select
+                          class="settings-select"
+                          name="turnOffSceneId"
+                          .value=${turnOffSceneId}
+                          ?disabled=${this._savingSharedSettings}
+                          @change=${this._onMainRoutineChange}
+                        >
+                          <option value="">${this.t('home.unassignedRoutine')}</option>
+                          ${this._scenes.map(scene => html`
+                            <option value=${scene.sceneId}>${scene.sceneName}</option>
+                          `)}
+                        </select>
+                      </label>
+                    </div>
+                  `}
+            </section>
+          ` : ''}
 
           <button class="connection-btn" @click=${this._toggleConnectionMenu} aria-expanded=${String(this._connectionMenuOpen)}>
             <span>${this.t('home.connection')}</span>

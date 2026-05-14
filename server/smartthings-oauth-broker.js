@@ -4,6 +4,7 @@ import callbackHandler from '../api/auth/callback.js';
 import startHandler from '../api/auth/start.js';
 import statusHandler from '../api/auth/status/[sessionId].js';
 import healthHandler from '../api/health.js';
+import homeConfigHandler from '../api/home-config/[locationId].js';
 import exchangeHandler from '../api/smartthings/exchange.js';
 import refreshHandler from '../api/smartthings/refresh.js';
 
@@ -36,6 +37,10 @@ function resolveHandler(url) {
 
   if (url.pathname === '/smartthings/refresh') {
     return refreshHandler;
+  }
+
+  if (url.pathname.startsWith('/home-config/')) {
+    return homeConfigHandler;
   }
 
   return null;

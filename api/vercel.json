@@ -27,6 +27,10 @@
     {
       "source": "/smartthings/refresh",
       "destination": "/api/smartthings/refresh"
+    },
+    {
+      "source": "/home-config/:locationId",
+      "destination": "/api/home-config/:locationId"
     }
   ]
 }

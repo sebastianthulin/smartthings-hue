@@ -14,8 +14,85 @@ import { normalizeHome, sortHome } from './normalizer.js';
 
 const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms
+const HOME_CONFIG_SYNC_INTERVAL = 5 * 60_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
 const MOCK_LOCATION_ID = 'mock-location';
+
+function createDefaultHomeConfig(locationId = null) {
+  return {
+    schemaVersion: 1,
+    locationId,
+    updatedAt: null,
+    mainRoutines: {
+      turnOnSceneId: null,
+      turnOffSceneId: null,
+    },
+    roomSettings: {},
+  };
+}
+
+function normalizeHomeConfig(locationId, homeConfig) {
+  const config = homeConfig && typeof homeConfig === 'object' && !Array.isArray(homeConfig)
+    ? homeConfig
+    : {};
+  const fallback = createDefaultHomeConfig(locationId);
+  const updatedAt = Number(config.updatedAt);
+  const roomSettings = config.roomSettings && typeof config.roomSettings === 'object' && !Array.isArray(config.roomSettings)
+    ? Object.fromEntries(
+      Object.entries(config.roomSettings).map(([roomId, value]) => [
+        roomId,
+        {
+          routineSceneIds: Array.isArray(value?.routineSceneIds)
+            ? [...new Set(value.routineSceneIds.filter(sceneId => typeof sceneId === 'string' && sceneId.trim()))]
+            : [],
+        },
+      ])
+    )
+    : {};
+
+  return {
+    schemaVersion: 1,
+    locationId,
+    updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : fallback.updatedAt,
+    mainRoutines: {
+      turnOnSceneId: typeof config.mainRoutines?.turnOnSceneId === 'string' && config.mainRoutines.turnOnSceneId.trim()
+        ? config.mainRoutines.turnOnSceneId.trim()
+        : null,
+      turnOffSceneId: typeof config.mainRoutines?.turnOffSceneId === 'string' && config.mainRoutines.turnOffSceneId.trim()
+        ? config.mainRoutines.turnOffSceneId.trim()
+        : null,
+    },
+    roomSettings,
+  };
+}
+
+function normalizeScenes(scenes) {
+  if (!Array.isArray(scenes)) {
+    return [];
+  }
+
+  const normalizedScenes = new Map();
+
+  for (const scene of scenes) {
+    const sceneId = typeof scene?.sceneId === 'string' ? scene.sceneId.trim() : '';
+    if (!sceneId) {
+      continue;
+    }
+
+    const sceneName = typeof scene?.sceneName === 'string' && scene.sceneName.trim()
+      ? scene.sceneName.trim()
+      : (typeof scene?.name === 'string' && scene.name.trim() ? scene.name.trim() : sceneId);
+
+    normalizedScenes.set(sceneId, {
+      sceneId,
+      sceneName,
+      locationId: typeof scene?.locationId === 'string' ? scene.locationId : null,
+    });
+  }
+
+  return [...normalizedScenes.values()]
+    .sort((left, right) => left.sceneName.localeCompare(right.sceneName));
+}
 
 function getCurrentCacheMode() {
   return smartthings.authMode === 'mock' ? 'mock' : 'live';
@@ -36,6 +113,10 @@ class HomeStore extends EventTarget {
   #lastSync    = null;
   #locationId  = null;
   #authError   = false;
+  #homeConfig  = createDefaultHomeConfig();
+  #scenes      = [];
+  #sharedConfigEnabled = smartthings.sharedConfigEnabled;
+  #sharedConfigLastSync = 0;
   #lightLevelTimers = new Map();
   #roomLevelTimers  = new Map();
 
@@ -43,6 +124,9 @@ class HomeStore extends EventTarget {
   get syncing()   { return this.#syncing; }
   get lastSync()  { return this.#lastSync; }
   get authError() { return this.#authError; }
+  get homeConfig() { return this.#snapshotHomeConfig(); }
+  get scenes() { return this.#snapshotScenes(); }
+  get sharedConfigEnabled() { return this.#sharedConfigEnabled; }
 
   // ── Cache ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +135,15 @@ class HomeStore extends EventTarget {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return false;
-      const { rooms, lastSync, locationId, mode } = JSON.parse(raw);
+      const {
+        rooms,
+        lastSync,
+        locationId,
+        mode,
+        homeConfig,
+        scenes,
+        sharedConfigLastSync,
+      } = JSON.parse(raw);
       if (inferCachedMode({ mode, locationId }) !== getCurrentCacheMode()) {
         this.clearCache();
         return false;
@@ -60,6 +152,10 @@ class HomeStore extends EventTarget {
       this.#rooms      = sortHome(rooms ?? []);
       this.#lastSync   = lastSync   ?? null;
       this.#locationId = locationId ?? null;
+      this.#sharedConfigEnabled = smartthings.sharedConfigEnabled;
+      this.#homeConfig = normalizeHomeConfig(this.#locationId, homeConfig);
+      this.#scenes = normalizeScenes(scenes);
+      this.#sharedConfigLastSync = Number(sharedConfigLastSync) || 0;
       this.#emit();
       return true;
     } catch {
@@ -74,6 +170,9 @@ class HomeStore extends EventTarget {
         lastSync:   this.#lastSync,
         locationId: this.#locationId,
         mode:       getCurrentCacheMode(),
+        homeConfig: this.#homeConfig,
+        scenes: this.#scenes,
+        sharedConfigLastSync: this.#sharedConfigLastSync,
       }));
     } catch { /* storage full — silently ignore */ }
   }
@@ -83,6 +182,10 @@ class HomeStore extends EventTarget {
     this.#rooms = [];
     this.#locationId = null;
     this.#lastSync = null;
+    this.#homeConfig = createDefaultHomeConfig();
+    this.#scenes = [];
+    this.#sharedConfigLastSync = 0;
+    this.#sharedConfigEnabled = smartthings.sharedConfigEnabled;
   }
 
   // ── Sync ───────────────────────────────────────────────────────────────────
@@ -107,9 +210,13 @@ class HomeStore extends EventTarget {
     this.dispatchEvent(new CustomEvent('syncing'));
 
     try {
+      this.#sharedConfigEnabled = smartthings.sharedConfigEnabled;
+
       if (getCurrentCacheMode() === 'live' && this.#locationId === MOCK_LOCATION_ID) {
         this.#locationId = null;
       }
+
+      const previousLocationId = this.#locationId;
 
       // Discover location on first sync
       if (!this.#locationId) {
@@ -117,6 +224,19 @@ class HomeStore extends EventTarget {
         if (!locations.length) throw new Error('No SmartThings locations found.');
         this.#locationId = locations[0].locationId;
       }
+
+      const locationChanged = previousLocationId !== this.#locationId;
+
+      if (locationChanged) {
+        this.#homeConfig = normalizeHomeConfig(this.#locationId, null);
+        this.#scenes = [];
+        this.#sharedConfigLastSync = 0;
+      }
+
+      const sharedConfigPromise = this.#syncSharedHomeData({ force: locationChanged })
+        .catch((error) => {
+          this.dispatchEvent(new CustomEvent('error', { detail: error }));
+        });
 
       const [rawRooms, rawDevices] = await Promise.all([
         smartthings.fetchRooms(this.#locationId),
@@ -157,6 +277,7 @@ class HomeStore extends EventTarget {
       this.#lastSync = Date.now();
       this.#save();
       this.#emit();
+      await sharedConfigPromise;
     } catch (err) {
       if (err instanceof AuthError) {
         this.#authError = true;
@@ -249,7 +370,76 @@ class HomeStore extends EventTarget {
     }, BRIGHTNESS_DEBOUNCE_MS));
   }
 
+  async updateMainRoutines(mainRoutines) {
+    if (!this.#locationId || !this.#sharedConfigEnabled) {
+      return this.#snapshotHomeConfig();
+    }
+
+    const nextConfig = normalizeHomeConfig(this.#locationId, {
+      ...this.#homeConfig,
+      mainRoutines: {
+        ...this.#homeConfig.mainRoutines,
+        ...mainRoutines,
+      },
+    });
+
+    if (
+      nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
+      && nextConfig.mainRoutines.turnOffSceneId === this.#homeConfig.mainRoutines.turnOffSceneId
+    ) {
+      return this.#snapshotHomeConfig();
+    }
+
+    const savedConfig = await smartthings.saveHomeConfig(this.#locationId, nextConfig);
+    this.#homeConfig = normalizeHomeConfig(this.#locationId, savedConfig);
+    this.#sharedConfigLastSync = Date.now();
+    this.#save();
+    this.#emit();
+    return this.#snapshotHomeConfig();
+  }
+
+  async executeMainRoutine(type) {
+    if (!this.#locationId) {
+      return false;
+    }
+
+    const sceneId = type === 'turnOn'
+      ? this.#homeConfig.mainRoutines.turnOnSceneId
+      : this.#homeConfig.mainRoutines.turnOffSceneId;
+
+    if (!sceneId) {
+      return false;
+    }
+
+    await smartthings.executeScene(sceneId, this.#locationId);
+    void this.#syncOnce();
+    return true;
+  }
+
   // ── Internal helpers ───────────────────────────────────────────────────────
+
+  async #syncSharedHomeData({ force = false } = {}) {
+    if (!this.#sharedConfigEnabled || !this.#locationId) {
+      return false;
+    }
+
+    const lastSyncAge = Date.now() - this.#sharedConfigLastSync;
+    if (!force && this.#sharedConfigLastSync && lastSyncAge < HOME_CONFIG_SYNC_INTERVAL) {
+      return false;
+    }
+
+    const [scenes, homeConfig] = await Promise.all([
+      smartthings.fetchScenes(this.#locationId),
+      smartthings.fetchHomeConfig(this.#locationId),
+    ]);
+
+    this.#scenes = normalizeScenes(scenes);
+    this.#homeConfig = normalizeHomeConfig(this.#locationId, homeConfig);
+    this.#sharedConfigLastSync = Date.now();
+    this.#save();
+    this.#emit();
+    return true;
+  }
 
   #findRoom(roomId) {
     return this.#rooms.find(r => r.id === roomId) ?? null;
@@ -297,8 +487,36 @@ class HomeStore extends EventTarget {
     }));
   }
 
+  #snapshotHomeConfig() {
+    return {
+      ...this.#homeConfig,
+      mainRoutines: {
+        ...this.#homeConfig.mainRoutines,
+      },
+      roomSettings: Object.fromEntries(
+        Object.entries(this.#homeConfig.roomSettings ?? {}).map(([roomId, value]) => [
+          roomId,
+          {
+            routineSceneIds: [...(value.routineSceneIds ?? [])],
+          },
+        ])
+      ),
+    };
+  }
+
+  #snapshotScenes() {
+    return this.#scenes.map(scene => ({ ...scene }));
+  }
+
   #emit() {
-    this.dispatchEvent(new CustomEvent('update', { detail: { rooms: this.#snapshotRooms() } }));
+    this.dispatchEvent(new CustomEvent('update', {
+      detail: {
+        rooms: this.#snapshotRooms(),
+        homeConfig: this.#snapshotHomeConfig(),
+        scenes: this.#snapshotScenes(),
+        sharedConfigEnabled: this.#sharedConfigEnabled,
+      },
+    }));
   }
 }
 

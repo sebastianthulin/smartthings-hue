@@ -10,6 +10,13 @@ const MOCK_ROOMS = [
   { roomId: 'bedroom', locationId: MOCK_LOCATION_ID, name: 'Bedroom' },
 ];
 
+const MOCK_SCENES = [
+  { sceneId: 'all-lights-on', locationId: MOCK_LOCATION_ID, sceneName: 'All lights on' },
+  { sceneId: 'all-lights-off', locationId: MOCK_LOCATION_ID, sceneName: 'All lights off' },
+  { sceneId: 'living-room-relax', locationId: MOCK_LOCATION_ID, sceneName: 'Living room relax' },
+  { sceneId: 'bedroom-night', locationId: MOCK_LOCATION_ID, sceneName: 'Bedroom night' },
+];
+
 const MOCK_DEVICES = [
   makeDevice('sofa-lamp', 'Sofa Lamp', 'living-room', ['switch', 'switchLevel', 'colorControl', 'colorTemperature']),
   makeDevice('ceiling-strip', 'Ceiling Strip', 'living-room', ['switch', 'switchLevel', 'colorTemperature']),
@@ -70,6 +77,19 @@ const mockState = {
   statuses: clone(INITIAL_STATUSES),
 };
 
+const mockHomeConfigState = {
+  [MOCK_LOCATION_ID]: {
+    schemaVersion: 1,
+    locationId: MOCK_LOCATION_ID,
+    updatedAt: Date.now(),
+    mainRoutines: {
+      turnOnSceneId: 'all-lights-on',
+      turnOffSceneId: 'all-lights-off',
+    },
+    roomSettings: {},
+  },
+};
+
 export function isMockSmartThingsEnabled() {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('mock') === '1';
@@ -96,6 +116,15 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
     return { items: clone(devices) };
   }
 
+  if (method === 'GET' && pathname === '/scenes') {
+    const params = new URLSearchParams(search);
+    const locationId = params.get('locationId');
+    const scenes = locationId && locationId !== MOCK_LOCATION_ID
+      ? []
+      : MOCK_SCENES;
+    return { items: clone(scenes) };
+  }
+
   if (method === 'GET' && pathname.startsWith('/devices/') && pathname.endsWith('/status')) {
     const deviceId = pathname.split('/')[2];
     return clone(mockState.statuses[deviceId] ?? makeStatus({}));
@@ -113,7 +142,37 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
     return { results: [{ id: `mock-${deviceId}`, status: 'ACCEPTED' }] };
   }
 
+  if (method === 'POST' && pathname.startsWith('/scenes/') && pathname.endsWith('/execute')) {
+    const sceneId = pathname.split('/')[2];
+    applyScene(sceneId);
+    return { status: 'success' };
+  }
+
   throw new Error(`Unsupported mock SmartThings request: ${method} ${path}`);
+}
+
+export function getMockHomeConfig(locationId) {
+  return clone(mockHomeConfigState[locationId] ?? {
+    schemaVersion: 1,
+    locationId,
+    updatedAt: null,
+    mainRoutines: {
+      turnOnSceneId: null,
+      turnOffSceneId: null,
+    },
+    roomSettings: {},
+  });
+}
+
+export function saveMockHomeConfig(locationId, config) {
+  mockHomeConfigState[locationId] = clone({
+    ...config,
+    schemaVersion: 1,
+    locationId,
+    updatedAt: Date.now(),
+  });
+
+  return getMockHomeConfig(locationId);
 }
 
 function makeDevice(deviceId, label, roomId, capabilities) {
@@ -224,6 +283,42 @@ function applyCommands(deviceId, commands) {
       main.colorTemperature = {
         colorTemperature: { value: Number(command.arguments?.[0] ?? 0) },
       };
+    }
+  }
+}
+
+function applyScene(sceneId) {
+  switch (sceneId) {
+    case 'all-lights-on':
+      setDevicesPowerState(MOCK_DEVICES.map(device => device.deviceId), true, 100);
+      break;
+    case 'all-lights-off':
+      setDevicesPowerState(MOCK_DEVICES.map(device => device.deviceId), false, 0);
+      break;
+    case 'living-room-relax':
+      setDevicesPowerState(['sofa-lamp', 'ceiling-strip'], true, 42);
+      break;
+    case 'bedroom-night':
+      setDevicesPowerState(['bedside-left', 'bedside-right'], true, 12);
+      break;
+    default:
+      break;
+  }
+}
+
+function setDevicesPowerState(deviceIds, on, level) {
+  for (const deviceId of deviceIds) {
+    const status = mockState.statuses[deviceId];
+    const main = status?.components?.main;
+
+    if (!main?.switch) {
+      continue;
+    }
+
+    main.switch.switch.value = on ? 'on' : 'off';
+
+    if (main.switchLevel?.level) {
+      main.switchLevel.level.value = level;
     }
   }
 }

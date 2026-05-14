@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       authStatus: '/auth/status/:sessionId',
       exchange: '/smartthings/exchange',
       refresh: '/smartthings/refresh',
+      homeConfig: '/home-config/:locationId',
     },
   }, origin);
 }

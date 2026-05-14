@@ -10,6 +10,7 @@ It has one focus; to be the most enjoyable "daily-driver" app for smartthings.
 - Room humidity and temperature (aggregated value, if multiple)
 - Dim lights 
 - Turn on / off lights
+- Shared home-wide main routines backed by Upstash
 - Hide rooms locally on device
 
 # Good to know
@@ -45,11 +46,21 @@ You will need:
 Create a local `.env` file from `.env.example` and set these values:
 
 ```bash
-VITE_SMARTTHINGS_BROKER_URL=https://your-broker.vercel.app
+VITE_SMARTTHINGS_AUTH_URL=https://auth.domain.tld
+VITE_SMARTTHINGS_SERVICE_URL=https://service.domain.tld
 VITE_SMARTTHINGS_SCOPES=r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*
 ```
 
-For a GitHub Pages frontend with a separate Vercel broker, point `VITE_SMARTTHINGS_BROKER_URL` at the Vercel project origin. For local development, override it to `http://localhost:8787` and run the standalone broker with `npm run auth:broker`.
+The intended production split is now:
+
+- `auth.domain.tld` for OAuth and token relay endpoints
+- `service.domain.tld` for shared home-config endpoints
+
+Both subdomains can point to the same deployed Vercel project for now. They are only separate to make the endpoint roles clearer.
+
+If only one of these env vars is set and it uses the `auth.` or `service.` naming convention, the app derives the other automatically. The older `VITE_SMARTTHINGS_BROKER_URL` env is still supported as a legacy fallback.
+
+For local development, point `VITE_SMARTTHINGS_AUTH_URL` and `VITE_SMARTTHINGS_SERVICE_URL` to `http://localhost:8787`, or leave them unset and use the legacy fallback, then run the standalone broker with `npm run auth:broker`.
 
 ### 3. Configure and run the OAuth broker
 
@@ -70,23 +81,24 @@ KV_REST_API_URL=https://your-upstash-rest-url
 KV_REST_API_TOKEN=your-upstash-rest-token
 ```
 
-You can also use `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` instead of the `KV_*` names. Local development falls back to in-memory relay storage automatically, but production needs durable storage so callback and poll requests can land on different serverless instances.
+You can also use `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` instead of the `KV_*` names. Local development falls back to in-memory storage automatically, but production needs durable storage so callback and poll requests can land on different serverless instances and so shared home config can be reused across users in the same SmartThings location.
 
 The app will then use:
 
-- `https://your-broker.vercel.app/auth/start`
-- `https://your-broker.vercel.app/auth/callback`
-- `https://your-broker.vercel.app/auth/status/:sessionId`
-- `https://your-broker.vercel.app/smartthings/exchange`
-- `https://your-broker.vercel.app/smartthings/refresh`
-- `https://your-broker.vercel.app/health`
+- `https://auth.domain.tld/auth/start`
+- `https://auth.domain.tld/auth/callback`
+- `https://auth.domain.tld/auth/status/:sessionId`
+- `https://auth.domain.tld/smartthings/exchange`
+- `https://auth.domain.tld/smartthings/refresh`
+- `https://service.domain.tld/home-config/:locationId`
+- `https://auth.domain.tld/health`
 
 If you connect Vercel directly to this repo only to host the broker, that is fine.
 
 For SmartThings OAuth, register the broker callback URL as the redirect URI, for example:
 
 ```bash
-https://your-broker.vercel.app/auth/callback
+https://auth.domain.tld/auth/callback
 ```
 
 ```bash
