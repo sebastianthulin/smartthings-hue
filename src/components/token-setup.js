@@ -80,31 +80,6 @@ export class TokenSetup extends LocalizedElement {
       gap: var(--space-2);
     }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      width: fit-content;
-      padding: 7px 12px;
-      border-radius: var(--radius-full);
-      background: color-mix(in srgb, var(--color-surface-elevated) 84%, transparent);
-      border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-      color: var(--color-text-secondary);
-      font-size: 0.74rem;
-      font-weight: var(--font-weight-medium);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .eyebrow::before {
-      content: '';
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: var(--color-accent);
-      box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-accent) 14%, transparent);
-    }
-
     h1 {
       margin: 0;
       font-size: clamp(2rem, 5vw, 2.45rem);
@@ -573,12 +548,6 @@ export class TokenSetup extends LocalizedElement {
     return this.authMode === 'token' ? 'key' : 'arrow_forward';
   }
 
-  _eyebrowLabel() {
-    return this.authMode === 'token'
-      ? this.t('tokenSetup.eyebrowToken')
-      : this.t('tokenSetup.eyebrowOauth');
-  }
-
   _oauthStepsTemplate() {
     if (this.authMode !== 'oauth') {
       return '';
@@ -659,7 +628,6 @@ export class TokenSetup extends LocalizedElement {
     return html`
       <div class="card">
         <div class="intro">
-          <span class="eyebrow">${this._eyebrowLabel()}</span>
           <h1>${this.t('tokenSetup.title')}</h1>
           <p>${this._description()}</p>
         </div>
