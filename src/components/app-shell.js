@@ -29,6 +29,7 @@ export class AppShell extends LitElement {
     _authError:            { state: true },
     _authMessage:          { state: true },
     _authPending:          { state: true },
+    _authPendingMode:      { state: true },
     _pageTransitionActive: { state: true },
   };
 
@@ -45,6 +46,7 @@ export class AppShell extends LitElement {
     this._authError            = false;
     this._authMessage          = '';
     this._authPending          = true;
+    this._authPendingMode      = smartthings.pendingLoginMode;
     this._pageTransitionActive = false;
   }
 
@@ -137,6 +139,7 @@ export class AppShell extends LitElement {
   async _initializeAuth() {
     this._authPending = true;
     this._authMode = smartthings.authMode;
+    this._authPendingMode = smartthings.pendingLoginMode;
 
     try {
       if (this._authMode === 'oauth') {
@@ -152,15 +155,18 @@ export class AppShell extends LitElement {
       if (this._hasToken) {
         this._authError = false;
         this._authMessage = '';
+        this._authPendingMode = '';
         await this._boot();
       } else if (this._authMode === 'oauth') {
         this._authMessage = smartthings.authConfigError;
+        this._authPendingMode = smartthings.pendingLoginMode;
       }
     } catch (error) {
       smartthings.clearToken();
       this._hasToken = false;
       this._authError = true;
       this._authMessage = this._describeError(error);
+      this._authPendingMode = '';
     } finally {
       this._authPending = false;
     }
@@ -168,10 +174,12 @@ export class AppShell extends LitElement {
 
   async _resumePendingOAuth() {
     if (!smartthings.hasPendingLogin) {
+      this._authPendingMode = '';
       return;
     }
 
     this._authPending = true;
+    this._authPendingMode = smartthings.pendingLoginMode;
 
     try {
       const completed = await smartthings.resumePendingLogin({ forceRestart: true });
@@ -180,6 +188,7 @@ export class AppShell extends LitElement {
         this._hasToken = true;
         this._authError = false;
         this._authMessage = '';
+        this._authPendingMode = '';
         await this._boot();
         return;
       }
@@ -190,6 +199,7 @@ export class AppShell extends LitElement {
       this._hasToken = false;
       this._authError = true;
       this._authMessage = this._describeError(error);
+      this._authPendingMode = '';
       this._authPending = false;
     }
   }
@@ -208,6 +218,7 @@ export class AppShell extends LitElement {
   async _handleLoginStart() {
     this._authError = false;
     this._authMessage = smartthings.authConfigError;
+    this._authPendingMode = '';
 
     if (this._authMessage) {
       return;
@@ -218,18 +229,29 @@ export class AppShell extends LitElement {
     try {
       const completed = await smartthings.startLogin();
 
+      if (completed?.pending) {
+        this._authPendingMode = completed.handoff === 'standalone' ? 'standalone' : 'browser';
+        return;
+      }
+
       if (completed && smartthings.hasToken) {
         this._hasToken = true;
         this._authError = false;
         this._authMessage = '';
+        this._authPendingMode = '';
         await this._boot();
       }
     } catch (error) {
       this._authMessage = this._describeError(error);
       this._authError = true;
+      this._authPendingMode = '';
     } finally {
       this._authPending = false;
     }
+  }
+
+  _handlePendingLoginResume() {
+    this._resumePendingOAuth();
   }
 
   async _runAppViewTransition(update) {
@@ -265,8 +287,10 @@ export class AppShell extends LitElement {
             .authMode=${this._authMode}
             ?auth-error=${this._authError}
             ?processing=${this._authPending}
+            .pendingMode=${this._authPendingMode}
             .errorMessage=${this._authMessage}
             @oauth-login-start=${this._handleLoginStart}
+            @oauth-login-resume=${this._handlePendingLoginResume}
             @token-set=${this._handleTokenSet}
           ></token-setup>
         </div>

@@ -148,7 +148,13 @@ export function getAuthRelayConfigError() {
   return 'SmartThings auth relay requires KV_REST_API_URL and KV_REST_API_TOKEN, or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.';
 }
 
-export async function createPendingAuthSession({ sessionId, origin = null, returnTo = null }) {
+export async function createPendingAuthSession({
+  sessionId,
+  origin = null,
+  returnTo = null,
+  locale = null,
+  launchMode = 'browser',
+}) {
   const now = Date.now();
 
   return writeSession({
@@ -158,6 +164,8 @@ export async function createPendingAuthSession({ sessionId, origin = null, retur
     expiresAt: now + AUTH_RELAY_TTL_MS,
     origin,
     returnTo,
+    locale: typeof locale === 'string' ? locale : null,
+    launchMode: launchMode === 'standalone' ? 'standalone' : 'browser',
   });
 }
 

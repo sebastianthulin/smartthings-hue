@@ -8,6 +8,7 @@ import {
   handleMockSmartThingsRequest,
   isMockSmartThingsEnabled,
 } from './smartthings.mock.js';
+import { i18n } from './i18n.js';
 
 const API_BASE = 'https://api.smartthings.com/v1';
 const BROKER_BASE_URL = (import.meta.env.VITE_SMARTTHINGS_BROKER_URL ?? '').replace(/\/$/, '');
@@ -166,49 +167,100 @@ function delay(ms) {
   });
 }
 
+function isStandaloneDisplayMode() {
+  return window.matchMedia?.('(display-mode: standalone)')?.matches
+    || window.navigator.standalone === true;
+}
+
+function buildAuthWindowMarkup({ language, badge, title, message }) {
+  return `<!doctype html>
+<html lang="${language}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${title}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        background:
+          radial-gradient(circle at top, rgba(245, 197, 66, 0.18), transparent 40%),
+          linear-gradient(180deg, #09131a, #121923);
+        color: #f8fafc;
+        font: 16px/1.5 system-ui, sans-serif;
+      }
+      main {
+        width: min(100%, 440px);
+        padding: 28px;
+        box-sizing: border-box;
+        border-radius: 28px;
+        background: rgba(18, 26, 36, 0.86);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(18px);
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #cbd5e1;
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .eyebrow::before {
+        content: '';
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #f5c542;
+        box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04);
+      }
+      h1 {
+        margin: 18px 0 12px;
+        font-size: clamp(1.4rem, 4vw, 1.9rem);
+        line-height: 1.15;
+        letter-spacing: -0.03em;
+      }
+      p {
+        margin: 0;
+        color: #cbd5e1;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="eyebrow">${badge}</span>
+      <h1>${title}</h1>
+      <p>${message}</p>
+    </main>
+  </body>
+</html>`;
+}
+
 function writeAuthPopupPlaceholder(popup) {
   if (!popup || popup.closed) {
     return;
   }
 
   try {
-    popup.document.write(`<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Connecting to SmartThings</title>
-    <style>
-      :root { color-scheme: dark; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #0d0d0d;
-        color: #f5f5f5;
-        font: 16px/1.5 system-ui, sans-serif;
-        padding: 24px;
-      }
-      main {
-        width: min(100%, 420px);
-        background: #171717;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 20px;
-        padding: 24px;
-        box-sizing: border-box;
-      }
-      h1 { margin: 0 0 12px; font-size: 1.25rem; }
-      p { margin: 0; color: #d4d4d4; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Connecting to SmartThings</h1>
-      <p>The SmartThings sign-in page is opening.</p>
-    </main>
-  </body>
-</html>`);
+    popup.document.write(buildAuthWindowMarkup({
+      language: i18n.language,
+      badge: i18n.t('authRelay.badge'),
+      title: i18n.t('authRelay.placeholder.title'),
+      message: i18n.t('authRelay.placeholder.message'),
+    }));
     popup.document.close();
   } catch {
     // Ignore popup placeholder rendering failures.
@@ -295,6 +347,10 @@ class SmartThingsAPI {
     return !!this.#readPendingAuth();
   }
 
+  get pendingLoginMode() {
+    return this.#readPendingAuth()?.launchMode ?? '';
+  }
+
   async resumePendingLogin({ forceRestart = false } = {}) {
     if (isMockSmartThingsEnabled()) {
       return false;
@@ -361,8 +417,12 @@ class SmartThingsAPI {
       });
     }
 
-    const popup = window.open('', '_blank');
-    writeAuthPopupPlaceholder(popup);
+    const prefersExternalHandoff = isStandaloneDisplayMode();
+    const popup = prefersExternalHandoff ? null : window.open('', '_blank');
+
+    if (!prefersExternalHandoff) {
+      writeAuthPopupPlaceholder(popup);
+    }
 
     const sessionId = createStateToken();
     let start;
@@ -372,6 +432,8 @@ class SmartThingsAPI {
         sessionId,
         returnTo: this.getRedirectUri(),
         scope: OAUTH_SCOPE,
+        locale: i18n.language,
+        launchMode: prefersExternalHandoff ? 'standalone' : 'browser',
       });
     } catch (error) {
       popup?.close?.();
@@ -381,13 +443,17 @@ class SmartThingsAPI {
     const pending = {
       sessionId,
       expiresAt: Number(start.expiresAt) || (Date.now() + AUTH_RELAY_TTL_MS),
+      launchMode: prefersExternalHandoff ? 'standalone' : 'browser',
     };
 
     this.#writePendingAuth(pending);
 
-    if (!popup || popup.closed) {
+    if (prefersExternalHandoff || !popup || popup.closed) {
       window.location.assign(start.authorizationUrl);
-      return new Promise(() => {});
+      return {
+        handoff: prefersExternalHandoff ? 'standalone' : 'redirect',
+        pending: true,
+      };
     }
 
     popup.location.replace(start.authorizationUrl);
@@ -592,7 +658,10 @@ class SmartThingsAPI {
         return null;
       }
 
-      return pending;
+      return {
+        ...pending,
+        launchMode: pending.launchMode === 'standalone' ? 'standalone' : 'browser',
+      };
     } catch {
       writeStorage(PENDING_AUTH_KEY, null);
       return null;

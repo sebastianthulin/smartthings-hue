@@ -68,11 +68,15 @@ export default async function handler(req, res) {
     const scope = typeof body.scope === 'string' && body.scope.trim()
       ? body.scope.trim()
       : DEFAULT_SCOPE;
+    const locale = typeof body.locale === 'string' ? body.locale : null;
+    const launchMode = body.launchMode === 'standalone' ? 'standalone' : 'browser';
 
     const session = await createPendingAuthSession({
       sessionId,
       origin: req.headers.origin ?? null,
       returnTo,
+      locale,
+      launchMode,
     });
 
     const authorizeUrl = new URL(getAuthorizeUrl());

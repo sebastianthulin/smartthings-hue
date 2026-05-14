@@ -6,6 +6,7 @@ export class TokenSetup extends LocalizedElement {
     authMode:     { type: String, attribute: 'auth-mode' },
     authError:    { type: Boolean, attribute: 'auth-error' },
     processing:   { type: Boolean },
+    pendingMode:  { type: String, attribute: 'pending-mode' },
     errorMessage: { state: true },
     _token:       { state: true },
     _error:       { state: true },
@@ -15,6 +16,7 @@ export class TokenSetup extends LocalizedElement {
 
   static styles = css`
     :host {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -22,6 +24,34 @@ export class TokenSetup extends LocalizedElement {
       min-height: 100dvh;
       padding: var(--space-6);
       gap: var(--space-4);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    :host::before,
+    :host::after {
+      content: '';
+      position: absolute;
+      inset: auto;
+      width: 46vh;
+      height: 46vh;
+      border-radius: 999px;
+      filter: blur(48px);
+      opacity: 0.2;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    :host::before {
+      top: -16vh;
+      left: -12vh;
+      background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+    }
+
+    :host::after {
+      right: -18vh;
+      bottom: -16vh;
+      background: color-mix(in srgb, #5bc0ff 50%, transparent);
     }
 
     *, *::before, *::after {
@@ -31,37 +61,148 @@ export class TokenSetup extends LocalizedElement {
     .card {
       display: flex;
       flex-direction: column;
-      gap: var(--space-4);
+      gap: var(--space-5);
       width: 100%;
-      max-width: 380px;
-      background: var(--color-surface);
-      border-radius: var(--radius-xl);
+      max-width: 430px;
+      background: color-mix(in srgb, var(--color-surface) 88%, rgba(255, 255, 255, 0.02));
+      border-radius: calc(var(--radius-xl) + 8px);
       padding: var(--space-8);
       border: 1px solid var(--color-border);
       box-sizing: border-box;
       view-transition-name: home-stage;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(18px);
     }
 
     .intro {
       display: flex;
       flex-direction: column;
-      gap: var(--space-1);
-      margin-bottom: var(--space-4);
+      gap: var(--space-2);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 7px 12px;
+      border-radius: var(--radius-full);
+      background: color-mix(in srgb, var(--color-surface-elevated) 84%, transparent);
+      border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+      color: var(--color-text-secondary);
+      font-size: 0.74rem;
+      font-weight: var(--font-weight-medium);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--color-accent);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-accent) 14%, transparent);
     }
 
     h1 {
       margin: 0;
-      font-size: var(--font-size-xl);
+      font-size: clamp(2rem, 5vw, 2.45rem);
       font-weight: var(--font-weight-semibold);
       color: var(--color-text-primary);
-      letter-spacing: -0.5px;
+      line-height: 1.02;
+      letter-spacing: -0.05em;
       view-transition-name: page-title;
     }
 
     .field {
       display: flex;
       flex-direction: column;
-      gap: var(--space-2);
+      line-height: 1.6;
+    }
+
+    .oauth-flow {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--color-surface-elevated) 92%, rgba(255, 255, 255, 0.02));
+      border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+    }
+
+    .oauth-flow-title {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-text-dim);
+    }
+
+    .oauth-steps {
+      display: grid;
+      gap: var(--space-3);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .oauth-step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-3);
+      align-items: start;
+    }
+
+    .oauth-step-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+      color: var(--color-accent);
+      font-size: 0.82rem;
+      font-weight: var(--font-weight-semibold);
+      flex-shrink: 0;
+    }
+
+    .oauth-step-text {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: 1.55;
+    }
+
+    .status-card {
+      display: grid;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, #5bc0ff 10%, var(--color-surface));
+      border: 1px solid color-mix(in srgb, #5bc0ff 24%, transparent);
+    }
+
+    .status-card.is-processing {
+      background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+      border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+    }
+
+    .status-copy {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .status-title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+
+    .status-description {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: 1.55;
+    }
     }
 
     p {
@@ -108,6 +249,10 @@ export class TokenSetup extends LocalizedElement {
 
     button {
       width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
       padding: var(--space-4);
       background: var(--color-accent);
       color: #0d0d0d;
@@ -119,6 +264,34 @@ export class TokenSetup extends LocalizedElement {
       cursor: pointer;
       transition: opacity var(--transition-base), transform var(--transition-fast);
       -webkit-tap-highlight-color: transparent;
+    }
+
+    .button-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.25rem;
+      height: 1.25rem;
+      font-family: 'Material Symbols Outlined Variable';
+      font-size: 1.1rem;
+      line-height: 1;
+      font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 20;
+    }
+
+    .button-icon.spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    .secondary-button {
+      background: transparent;
+      color: var(--color-text-primary);
+      border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+      justify-content: center;
+    }
+
+    .secondary-button:hover,
+    .secondary-button:focus-visible {
+      background: color-mix(in srgb, var(--color-surface-elevated) 92%, transparent);
     }
 
     button:hover {
@@ -134,6 +307,15 @@ export class TokenSetup extends LocalizedElement {
       opacity: 0.4;
       cursor: default;
       transform: none;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .error {
@@ -261,6 +443,7 @@ export class TokenSetup extends LocalizedElement {
     super();
     this.authMode = 'oauth';
     this.processing = false;
+    this.pendingMode = '';
     this.errorMessage = '';
     this._token = '';
     this._error = '';
@@ -334,6 +517,13 @@ export class TokenSetup extends LocalizedElement {
     this._showErrorDetail = !this._showErrorDetail;
   }
 
+  _resumeOauthLogin() {
+    this.dispatchEvent(new CustomEvent('oauth-login-resume', {
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   _connect() {
     this._error = '';
 
@@ -375,6 +565,77 @@ export class TokenSetup extends LocalizedElement {
       : this.t('tokenSetup.oauthConnect');
   }
 
+  _buttonIcon() {
+    if (this.processing) {
+      return 'progress_activity';
+    }
+
+    return this.authMode === 'token' ? 'key' : 'arrow_forward';
+  }
+
+  _eyebrowLabel() {
+    return this.authMode === 'token'
+      ? this.t('tokenSetup.eyebrowToken')
+      : this.t('tokenSetup.eyebrowOauth');
+  }
+
+  _oauthStepsTemplate() {
+    if (this.authMode !== 'oauth') {
+      return '';
+    }
+
+    const steps = [
+      this.t('tokenSetup.oauthStepOpen'),
+      this.t('tokenSetup.oauthStepApprove'),
+      this.t('tokenSetup.oauthStepReturn'),
+    ];
+
+    return html`
+      <section class="oauth-flow" aria-label=${this.t('tokenSetup.oauthStepsTitle')}>
+        <span class="oauth-flow-title">${this.t('tokenSetup.oauthStepsTitle')}</span>
+        <ol class="oauth-steps">
+          ${steps.map((step, index) => html`
+            <li class="oauth-step">
+              <span class="oauth-step-index" aria-hidden="true">${index + 1}</span>
+              <span class="oauth-step-text">${step}</span>
+            </li>
+          `)}
+        </ol>
+      </section>
+    `;
+  }
+
+  _statusTemplate() {
+    if (this.authMode !== 'oauth') {
+      return '';
+    }
+
+    if (!this.processing && this.pendingMode !== 'standalone') {
+      return '';
+    }
+
+    const title = this.processing
+      ? this.t('tokenSetup.status.checkingTitle')
+      : this.t('tokenSetup.status.standaloneTitle');
+    const description = this.processing
+      ? this.t('tokenSetup.status.checkingDescription')
+      : this.t('tokenSetup.status.standaloneDescription');
+
+    return html`
+      <section class=${`status-card ${this.processing ? 'is-processing' : ''}`}>
+        <div class="status-copy">
+          <span class="status-title">${title}</span>
+          <span class="status-description">${description}</span>
+        </div>
+        ${!this.processing && this.pendingMode === 'standalone' ? html`
+          <button class="secondary-button" type="button" @click=${this._resumeOauthLogin}>
+            <span>${this.t('tokenSetup.status.checkAction')}</span>
+          </button>
+        ` : ''}
+      </section>
+    `;
+  }
+
   _hintTemplate() {
     if (this.authMode === 'token') {
       return html`
@@ -398,9 +659,14 @@ export class TokenSetup extends LocalizedElement {
     return html`
       <div class="card">
         <div class="intro">
+          <span class="eyebrow">${this._eyebrowLabel()}</span>
           <h1>${this.t('tokenSetup.title')}</h1>
           <p>${this._description()}</p>
         </div>
+
+        ${this._oauthStepsTemplate()}
+
+        ${this._statusTemplate()}
 
         ${this._error ? html`
           <div class="error" role="alert" aria-live="polite">
@@ -453,7 +719,8 @@ export class TokenSetup extends LocalizedElement {
           @click=${this._connect}
           ?disabled=${this.processing || (this.authMode === 'token' && !this._token.trim())}
         >
-          ${this._buttonLabel()}
+          <span>${this._buttonLabel()}</span>
+          <span class=${`button-icon ${this.processing ? 'spinning' : ''}`} aria-hidden="true">${this._buttonIcon()}</span>
         </button>
 
         <p class="hint">
