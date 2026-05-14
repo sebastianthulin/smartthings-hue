@@ -423,6 +423,14 @@ class HomeStore extends EventTarget {
     }, BRIGHTNESS_DEBOUNCE_MS));
   }
 
+  async ensureSharedHomeData({ force = false } = {}) {
+    if (!this.#locationId || !this.#sharedConfigEnabled) {
+      return false;
+    }
+
+    return this.#syncSharedHomeData({ force: force || this.#scenes.length === 0 });
+  }
+
   async updateMainRoutines(mainRoutines) {
     if (!this.#locationId || !this.#sharedConfigEnabled) {
       return this.#snapshotHomeConfig();

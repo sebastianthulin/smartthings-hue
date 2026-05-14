@@ -761,7 +761,7 @@ export class HomeView extends LocalizedElement {
     } catch { /* storage unavailable — ignore */ }
   }
 
-  _toggleSettings() {
+  async _toggleSettings() {
     if (this._settingsOpen) {
       void this._closeSettings();
       return;
@@ -769,6 +769,14 @@ export class HomeView extends LocalizedElement {
 
     this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
     this._settingsOpen = true;
+
+    if (this._sharedConfigEnabled) {
+      try {
+        await store.ensureSharedHomeData();
+      } catch {
+        // Keep the settings sheet open even if the refresh fails.
+      }
+    }
   }
 
   _onSettingsKeyDown(e) {
