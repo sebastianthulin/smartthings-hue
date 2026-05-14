@@ -94,6 +94,31 @@ function normalizeScenes(scenes) {
     .sort((left, right) => left.sceneName.localeCompare(right.sceneName));
 }
 
+function readEmbeddedDeviceStatus(device) {
+  const status = device?.status;
+  return status?.components ? status : null;
+}
+
+function readEmbeddedDeviceHealth(device) {
+  if (device?.healthState?.state) {
+    return {
+      deviceId: device.deviceId,
+      state: device.healthState.state,
+      lastUpdatedDate: device.healthState.lastUpdatedDate ?? null,
+    };
+  }
+
+  if (device?.health?.state) {
+    return {
+      deviceId: device.deviceId,
+      state: device.health.state,
+      lastUpdatedDate: device.health.lastUpdatedDate ?? null,
+    };
+  }
+
+  return null;
+}
+
 function getCurrentCacheMode() {
   return smartthings.authMode === 'mock' ? 'mock' : 'live';
 }
@@ -192,6 +217,11 @@ class HomeStore extends EventTarget {
 
   /** Kick off background sync and keep it running. */
   startSync() {
+    if (this.#syncTimer) {
+      this.#syncOnce();
+      return;
+    }
+
     this.#syncOnce();
     this.#syncTimer = setInterval(() => this.#syncOnce(), SYNC_INTERVAL);
   }
@@ -240,36 +270,59 @@ class HomeStore extends EventTarget {
 
       const [rawRooms, rawDevices] = await Promise.all([
         smartthings.fetchRooms(this.#locationId),
-        smartthings.fetchDevices(this.#locationId),
-      ]);
-
-      // Fetch device statuses and health in parallel (best-effort)
-      const [statusSettled, healthSettled] = await Promise.all([
-        Promise.allSettled(
-          rawDevices.map(d =>
-            smartthings.fetchDeviceStatus(d.deviceId).then(s => [d.deviceId, s])
-          )
-        ),
-        Promise.allSettled(
-          rawDevices.map(d =>
-            smartthings.fetchDeviceHealth(d.deviceId).then(h => [d.deviceId, h])
-          )
-        ),
+        smartthings.fetchDevices(this.#locationId, {
+          includeStatus: true,
+          includeHealth: true,
+        }),
       ]);
 
       const statusMap = {};
-      for (const r of statusSettled) {
-        if (r.status === 'fulfilled') {
-          const [id, status] = r.value;
-          statusMap[id] = status;
+      const healthMap = {};
+      const missingStatusIds = [];
+      const missingHealthIds = [];
+
+      for (const device of rawDevices) {
+        const status = readEmbeddedDeviceStatus(device);
+        if (status) {
+          statusMap[device.deviceId] = status;
+        } else {
+          missingStatusIds.push(device.deviceId);
+        }
+
+        const health = readEmbeddedDeviceHealth(device);
+        if (health) {
+          healthMap[device.deviceId] = health;
+        } else {
+          missingHealthIds.push(device.deviceId);
         }
       }
 
-      const healthMap = {};
-      for (const r of healthSettled) {
-        if (r.status === 'fulfilled') {
-          const [id, health] = r.value;
-          healthMap[id] = health;
+      if (missingStatusIds.length || missingHealthIds.length) {
+        const [statusSettled, healthSettled] = await Promise.all([
+          Promise.allSettled(
+            missingStatusIds.map(deviceId =>
+              smartthings.fetchDeviceStatus(deviceId).then(status => [deviceId, status])
+            )
+          ),
+          Promise.allSettled(
+            missingHealthIds.map(deviceId =>
+              smartthings.fetchDeviceHealth(deviceId).then(health => [deviceId, health])
+            )
+          ),
+        ]);
+
+        for (const result of statusSettled) {
+          if (result.status === 'fulfilled') {
+            const [deviceId, status] = result.value;
+            statusMap[deviceId] = status;
+          }
+        }
+
+        for (const result of healthSettled) {
+          if (result.status === 'fulfilled') {
+            const [deviceId, health] = result.value;
+            healthMap[deviceId] = health;
+          }
         }
       }
 

@@ -605,8 +605,19 @@ class SmartThingsAPI {
   }
 
   /** Fetch all devices (optionally scoped to a location). */
-  async fetchDevices(locationId) {
-    const qs = locationId ? `?locationId=${locationId}` : '';
+  async fetchDevices(locationId, options = {}) {
+    const params = new URLSearchParams();
+    if (locationId) {
+      params.set('locationId', locationId);
+    }
+    if (options.includeStatus) {
+      params.set('includeStatus', 'true');
+    }
+    if (options.includeHealth) {
+      params.set('includeHealth', 'true');
+    }
+
+    const qs = params.size ? `?${params.toString()}` : '';
     const data = await this.#request(`/devices${qs}`);
     return data.items ?? [];
   }
