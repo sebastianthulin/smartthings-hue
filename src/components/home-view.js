@@ -1145,6 +1145,10 @@ export class HomeView extends LocalizedElement {
     _activeRoomId:          { state: true },
     _draftActiveRoomSettings: { state: true },
     _draftMainRoutines:     { state: true },
+    _mainTurnOffPickerOpen: { state: true },
+    _mainTurnOffSearch:     { state: true },
+    _mainTurnOnPickerOpen:  { state: true },
+    _mainTurnOnSearch:      { state: true },
     _draftSharedHiddenRoomIds: { state: true },
     _hiddenRoomIds:         { state: true },
     _homeConfig:            { state: true },
@@ -1180,6 +1184,10 @@ export class HomeView extends LocalizedElement {
     this._activeRoomId          = null;
     this._draftActiveRoomSettings = createRoomSettingsDraft(store.homeConfig);
     this._draftMainRoutines     = createMainRoutineDraft(store.homeConfig);
+    this._mainTurnOffPickerOpen = false;
+    this._mainTurnOffSearch     = '';
+    this._mainTurnOnPickerOpen  = false;
+    this._mainTurnOnSearch      = '';
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(store.homeConfig);
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._homeConfig            = store.homeConfig;
@@ -1296,6 +1304,10 @@ export class HomeView extends LocalizedElement {
 
     this._draftActiveRoomSettings = createRoomSettingsDraft(this._homeConfig, this._activeRoomId);
     this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
+    this._mainTurnOnPickerOpen = false;
+    this._mainTurnOnSearch = '';
+    this._mainTurnOffPickerOpen = false;
+    this._mainTurnOffSearch = '';
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(this._homeConfig);
     this._roomHiddenDevicePickerOpen = false;
     this._roomHiddenDeviceSearch = '';
@@ -1416,6 +1428,56 @@ export class HomeView extends LocalizedElement {
     this._sharedRoomSearch = e.target.value;
   }
 
+  _onMainTurnOnSearchInput(e) {
+    this._mainTurnOnSearch = e.target.value;
+  }
+
+  _onMainTurnOffSearchInput(e) {
+    this._mainTurnOffSearch = e.target.value;
+  }
+
+  _onAddMainTurnOnRoutine(e) {
+    const sceneId = e.currentTarget.dataset.itemId;
+    if (!this._scenes.some(scene => scene.sceneId === sceneId)) {
+      return;
+    }
+
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      turnOnSceneId: sceneId,
+    };
+    this._mainTurnOnPickerOpen = false;
+    this._mainTurnOnSearch = '';
+  }
+
+  _onAddMainTurnOffRoutine(e) {
+    const sceneId = e.currentTarget.dataset.itemId;
+    if (!this._scenes.some(scene => scene.sceneId === sceneId)) {
+      return;
+    }
+
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      turnOffSceneId: sceneId,
+    };
+    this._mainTurnOffPickerOpen = false;
+    this._mainTurnOffSearch = '';
+  }
+
+  _onRemoveMainTurnOnRoutine() {
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      turnOnSceneId: null,
+    };
+  }
+
+  _onRemoveMainTurnOffRoutine() {
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      turnOffSceneId: null,
+    };
+  }
+
   _onAddRoomHiddenDevice(e) {
     const lightId = e.currentTarget.dataset.itemId;
     const light = this._availableActiveRoomLights.find(candidate => candidate.id === lightId) ?? null;
@@ -1493,6 +1555,20 @@ export class HomeView extends LocalizedElement {
     this._roomRoutinePickerOpen = !this._roomRoutinePickerOpen;
     if (!this._roomRoutinePickerOpen) {
       this._roomRoutineSearch = '';
+    }
+  }
+
+  _toggleMainTurnOnPicker() {
+    this._mainTurnOnPickerOpen = !this._mainTurnOnPickerOpen;
+    if (!this._mainTurnOnPickerOpen) {
+      this._mainTurnOnSearch = '';
+    }
+  }
+
+  _toggleMainTurnOffPicker() {
+    this._mainTurnOffPickerOpen = !this._mainTurnOffPickerOpen;
+    if (!this._mainTurnOffPickerOpen) {
+      this._mainTurnOffSearch = '';
     }
   }
 
@@ -1675,6 +1751,8 @@ export class HomeView extends LocalizedElement {
       this._settingsOpen = false;
       this._connectionMenuOpen = false;
       this._disconnectConfirmOpen = false;
+      this._mainTurnOnPickerOpen = false;
+      this._mainTurnOffPickerOpen = false;
       this._roomHiddenDevicePickerOpen = false;
       this._roomRoutinePickerOpen = false;
       this._localHiddenRoomPickerOpen = false;
@@ -2065,8 +2143,8 @@ export class HomeView extends LocalizedElement {
       return this._renderActiveRoomSettings();
     }
 
-    const turnOnSceneId = this._draftMainRoutines.turnOnSceneId ?? '';
-    const turnOffSceneId = this._draftMainRoutines.turnOffSceneId ?? '';
+    const turnOnScene = this._selectedScene(this._draftMainRoutines.turnOnSceneId);
+    const turnOffScene = this._selectedScene(this._draftMainRoutines.turnOffSceneId);
     const localHiddenRooms = this._rooms.filter(room => this._hiddenRoomIds.includes(room.id));
     const sharedHiddenRooms = this._rooms.filter(room => this._draftSharedHiddenRoomIds.includes(room.id));
     const availableLocalHiddenRooms = this._availableLocalHiddenRooms;
@@ -2135,37 +2213,53 @@ export class HomeView extends LocalizedElement {
                     ? html`<div class="settings-empty">${this.t('home.sharedSettingsEmpty')}</div>`
                     : html`
                         <div class="settings-list">
-                          <label class="settings-row settings-field">
-                            <span class="settings-field-label">${this.t('home.mainTurnOnLabel')}</span>
-                            <select
-                              class="settings-select"
-                              name="turnOnSceneId"
-                              .value=${turnOnSceneId}
-                              ?disabled=${this._savingSharedSettings}
-                              @change=${this._onMainRoutineChange}
-                            >
-                              <option value="">${this.t('home.unassignedRoutine')}</option>
-                              ${this._scenes.map(scene => html`
-                                <option value=${scene.sceneId}>${scene.sceneName}</option>
-                              `)}
-                            </select>
-                          </label>
+                          <div class="settings-subsection">
+                            <div class="settings-section-copy">
+                              <h3>${this.t('home.mainTurnOnLabel')}</h3>
+                            </div>
+                            ${this._renderSettingsPicker({
+                              label: this.t('home.mainTurnOnLabel'),
+                              placeholder: this.t('home.searchRoomRoutinePlaceholder'),
+                              selectedItems: turnOnScene ? [{ id: turnOnScene.sceneId, name: turnOnScene.sceneName }] : [],
+                              emptyText: this.t('home.unassignedRoutine'),
+                              query: this._mainTurnOnSearch,
+                              open: this._mainTurnOnPickerOpen,
+                              items: this._scenes
+                                .filter(scene => scene.sceneId !== turnOnScene?.sceneId)
+                                .map(scene => ({ id: scene.sceneId, name: scene.sceneName })),
+                              onToggle: this._toggleMainTurnOnPicker,
+                              onInput: this._onMainTurnOnSearchInput,
+                              onPick: this._onAddMainTurnOnRoutine,
+                              onRemove: () => this._onRemoveMainTurnOnRoutine(),
+                              emptyKey: 'home.roomRoutineSearchEmpty',
+                              disabled: this._savingSharedSettings,
+                              removeLabel: scene => this.t('home.removeAssignedRoutine', { name: scene.name }),
+                            })}
+                          </div>
 
-                          <label class="settings-row settings-field">
-                            <span class="settings-field-label">${this.t('home.mainTurnOffLabel')}</span>
-                            <select
-                              class="settings-select"
-                              name="turnOffSceneId"
-                              .value=${turnOffSceneId}
-                              ?disabled=${this._savingSharedSettings}
-                              @change=${this._onMainRoutineChange}
-                            >
-                              <option value="">${this.t('home.unassignedRoutine')}</option>
-                              ${this._scenes.map(scene => html`
-                                <option value=${scene.sceneId}>${scene.sceneName}</option>
-                              `)}
-                            </select>
-                          </label>
+                          <div class="settings-subsection">
+                            <div class="settings-section-copy">
+                              <h3>${this.t('home.mainTurnOffLabel')}</h3>
+                            </div>
+                            ${this._renderSettingsPicker({
+                              label: this.t('home.mainTurnOffLabel'),
+                              placeholder: this.t('home.searchRoomRoutinePlaceholder'),
+                              selectedItems: turnOffScene ? [{ id: turnOffScene.sceneId, name: turnOffScene.sceneName }] : [],
+                              emptyText: this.t('home.unassignedRoutine'),
+                              query: this._mainTurnOffSearch,
+                              open: this._mainTurnOffPickerOpen,
+                              items: this._scenes
+                                .filter(scene => scene.sceneId !== turnOffScene?.sceneId)
+                                .map(scene => ({ id: scene.sceneId, name: scene.sceneName })),
+                              onToggle: this._toggleMainTurnOffPicker,
+                              onInput: this._onMainTurnOffSearchInput,
+                              onPick: this._onAddMainTurnOffRoutine,
+                              onRemove: () => this._onRemoveMainTurnOffRoutine(),
+                              emptyKey: 'home.roomRoutineSearchEmpty',
+                              disabled: this._savingSharedSettings,
+                              removeLabel: scene => this.t('home.removeAssignedRoutine', { name: scene.name }),
+                            })}
+                          </div>
                         </div>
                       `}
                 </div>
