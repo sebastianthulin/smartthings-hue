@@ -218,9 +218,10 @@ const homeViewStyles = css`
 
   .main-routine-btn {
     min-width: 112px;
-    min-height: 40px;
-    display: inline-grid;
-    gap: 2px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     padding: 8px 12px;
     background:
       radial-gradient(circle at top right, rgba(255, 179, 71, 0.18), transparent 48%),
@@ -250,14 +251,22 @@ const homeViewStyles = css`
     line-height: 1.2;
   }
 
-  .main-routine-btn span {
-    color: var(--color-text-dim);
-    font-size: 11px;
-    line-height: 1.2;
-    max-width: 16ch;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .main-routine-btn .material-symbols {
+    width: 18px;
+    height: 18px;
+    font-family: 'Material Symbols Outlined Variable';
+    font-size: 18px;
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
     white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   @media (max-width: 640px) {
@@ -1033,10 +1042,11 @@ export class HomeView extends LocalizedElement {
             class="main-routine-btn"
             type="button"
             @click=${() => this._executeMainRoutine('turnOn')}
-            aria-label=${this.t('home.mainTurnOnAction')}
+            aria-label=${`${this.t('home.mainTurnOnAction')}: ${turnOnScene.sceneName}`}
+            title=${turnOnScene.sceneName}
           >
+            <span class="material-symbols" aria-hidden="true">lightbulb</span>
             <strong>${this.t('home.mainTurnOnAction')}</strong>
-            <span>${turnOnScene.sceneName}</span>
           </button>
         ` : ''}
         ${turnOffScene ? html`
@@ -1044,10 +1054,11 @@ export class HomeView extends LocalizedElement {
             class="main-routine-btn"
             type="button"
             @click=${() => this._executeMainRoutine('turnOff')}
-            aria-label=${this.t('home.mainTurnOffAction')}
+            aria-label=${`${this.t('home.mainTurnOffAction')}: ${turnOffScene.sceneName}`}
+            title=${turnOffScene.sceneName}
           >
+            <span class="material-symbols" aria-hidden="true">light_off</span>
             <strong>${this.t('home.mainTurnOffAction')}</strong>
-            <span>${turnOffScene.sceneName}</span>
           </button>
         ` : ''}
       </div>
