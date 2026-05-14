@@ -272,21 +272,19 @@ const homeViewStyles = css`
     align-items: center;
     justify-content: center;
     padding: 0;
-    background:
-      radial-gradient(circle at top right, rgba(255, 179, 71, 0.18), transparent 48%),
-      var(--color-surface-elevated);
+    background: var(--color-surface-elevated);
     border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
     border-radius: var(--radius-full);
     text-align: left;
     color: var(--color-text-primary);
     cursor: pointer;
-    transition: transform var(--transition-fast), border-color var(--transition-base), box-shadow var(--transition-base);
+    transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
   }
 
   .main-routine-btn:hover {
     transform: translateY(-1px);
     border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+    background: color-mix(in srgb, var(--color-surface-elevated) 76%, rgba(255, 179, 71, 0.08));
   }
 
   .main-routine-btn:active {
@@ -458,7 +456,7 @@ const homeViewStyles = css`
     backdrop-filter: blur(2px);
     overflow-y: auto;
     z-index: 20;
-    animation: fade-in var(--motion-duration-fast) var(--motion-ease-out);
+    view-transition-name: settings-backdrop;
   }
 
   .settings-sheet {
@@ -470,7 +468,29 @@ const homeViewStyles = css`
     padding: var(--space-6);
     box-sizing: border-box;
     overflow-y: auto;
-    animation: rise-in var(--motion-duration-base) var(--motion-ease-soft) both;
+    view-transition-name: settings-sheet;
+  }
+
+  ::view-transition-group(settings-backdrop) {
+    animation-duration: var(--motion-duration-fast);
+    animation-timing-function: var(--motion-ease-out);
+  }
+
+  ::view-transition-group(settings-sheet) {
+    animation-duration: var(--motion-duration-base);
+    animation-timing-function: var(--motion-ease-soft);
+  }
+
+  ::view-transition-old(settings-backdrop),
+  ::view-transition-new(settings-backdrop) {
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(settings-sheet),
+  ::view-transition-new(settings-sheet) {
+    mix-blend-mode: normal;
+    border-radius: var(--radius-xl);
+    overflow: clip;
   }
 
   .settings-sheet h2 {
@@ -580,6 +600,18 @@ const homeViewStyles = css`
     min-width: 0;
   }
 
+  .settings-field {
+    display: grid;
+    gap: var(--space-2);
+    align-items: stretch;
+  }
+
+  .settings-field-label {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+  }
+
   .settings-row input {
     appearance: none;
     -webkit-appearance: none;
@@ -629,6 +661,10 @@ const homeViewStyles = css`
   .settings-select:disabled {
     opacity: 0.7;
     cursor: progress;
+  }
+
+  .settings-field .settings-select {
+    width: 100%;
   }
 
   .settings-empty {
@@ -942,9 +978,9 @@ const homeViewStyles = css`
   .settings-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: stretch;
     gap: var(--space-4);
-    margin-top: var(--space-4);
+    margin-top: var(--space-6);
   }
 
   .secondary-btn {
@@ -957,28 +993,29 @@ const homeViewStyles = css`
   }
 
   .primary-btn {
-    min-width: 108px;
-    border: none;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
     border-radius: var(--radius-md);
     padding: 12px 18px;
-    background: linear-gradient(180deg, var(--color-accent-bright) 0%, var(--color-accent) 100%);
+    background: var(--color-accent);
     color: #0d0d0d;
     font: inherit;
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
-    box-shadow: 0 10px 24px rgba(255, 179, 71, 0.22);
-    transition: transform var(--transition-fast), box-shadow var(--transition-base), filter var(--transition-base);
+    box-shadow: none;
+    transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base), color var(--transition-base);
   }
 
   .primary-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 14px 30px rgba(255, 179, 71, 0.28);
-    filter: saturate(1.03);
+    border-color: color-mix(in srgb, var(--color-accent-bright) 42%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 88%, white 12%);
   }
 
   .primary-btn:active {
     transform: translateY(0);
-    box-shadow: 0 8px 18px rgba(255, 179, 71, 0.2);
+    background: color-mix(in srgb, var(--color-accent) 94%, black 6%);
   }
 
   .confirm-backdrop {
@@ -1184,7 +1221,10 @@ export class HomeView extends LocalizedElement {
     this._sharedHiddenRoomPickerOpen = false;
     this._sharedRoomSearch = '';
     this._settingsTab = 'device';
-    this._settingsOpen = true;
+
+    await this._runSettingsViewTransition(() => {
+      this._settingsOpen = true;
+    });
 
     if (this._sharedConfigEnabled) {
       try {
@@ -1316,8 +1356,32 @@ export class HomeView extends LocalizedElement {
       .slice(0, 8);
   }
 
+  async _runSettingsViewTransition(update) {
+    const startViewTransition = document.startViewTransition?.bind(document);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!startViewTransition || reducedMotion) {
+      update();
+      await this.updateComplete;
+      return;
+    }
+
+    const transition = startViewTransition(async () => {
+      update();
+      await this.updateComplete;
+    });
+
+    await transition.finished;
+  }
+
   _setSettingsTab(tab) {
-    this._settingsTab = tab;
+    if (this._settingsTab === tab) {
+      return;
+    }
+
+    void this._runSettingsViewTransition(() => {
+      this._settingsTab = tab;
+    });
   }
 
   _renderSettingsTabs() {
@@ -1445,11 +1509,14 @@ export class HomeView extends LocalizedElement {
   }
 
   async _closeSettings() {
-    this._settingsOpen = false;
-    this._connectionMenuOpen = false;
-    this._disconnectConfirmOpen = false;
-    this._localHiddenRoomPickerOpen = false;
-    this._sharedHiddenRoomPickerOpen = false;
+    await this._runSettingsViewTransition(() => {
+      this._settingsOpen = false;
+      this._connectionMenuOpen = false;
+      this._disconnectConfirmOpen = false;
+      this._localHiddenRoomPickerOpen = false;
+      this._sharedHiddenRoomPickerOpen = false;
+    });
+
     await this._persistSharedSettingsIfNeeded();
   }
 
@@ -1792,8 +1859,8 @@ export class HomeView extends LocalizedElement {
                     ? html`<div class="settings-empty">${this.t('home.sharedSettingsEmpty')}</div>`
                     : html`
                         <div class="settings-list">
-                          <label class="settings-row">
-                            <span>${this.t('home.mainTurnOnLabel')}</span>
+                          <label class="settings-row settings-field">
+                            <span class="settings-field-label">${this.t('home.mainTurnOnLabel')}</span>
                             <select
                               class="settings-select"
                               name="turnOnSceneId"
@@ -1808,8 +1875,8 @@ export class HomeView extends LocalizedElement {
                             </select>
                           </label>
 
-                          <label class="settings-row">
-                            <span>${this.t('home.mainTurnOffLabel')}</span>
+                          <label class="settings-row settings-field">
+                            <span class="settings-field-label">${this.t('home.mainTurnOffLabel')}</span>
                             <select
                               class="settings-select"
                               name="turnOffSceneId"
@@ -1875,9 +1942,11 @@ export class HomeView extends LocalizedElement {
             </section>
           ` : ''}
 
-          <div class="settings-actions">
-            <button class="primary-btn" @click=${this._toggleSettings}>${this.t('common.done')}</button>
-          </div>
+          ${this._settingsTab !== 'connection' ? html`
+            <div class="settings-actions">
+              <button class="primary-btn" @click=${this._toggleSettings}>${this.t('common.save')}</button>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;

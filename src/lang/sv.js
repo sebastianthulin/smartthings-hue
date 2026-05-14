@@ -6,6 +6,7 @@ export const sv = {
     cancel: 'Avbryt',
     close: 'Stäng',
     done: 'Klar',
+    save: 'Spara',
   },
   tokenSetup: {
     title: 'SmartHue',

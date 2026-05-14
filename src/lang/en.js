@@ -6,6 +6,7 @@ export const en = {
     cancel: 'Cancel',
     close: 'Close',
     done: 'Done',
+    save: 'Save',
   },
   tokenSetup: {
     title: 'SmartHue',
