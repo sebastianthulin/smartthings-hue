@@ -246,12 +246,12 @@ const homeViewStyles = css`
   }
 
   .main-routine-btn {
-    min-width: 112px;
+    width: 40px;
     height: 40px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    justify-content: center;
+    padding: 0;
     background:
       radial-gradient(circle at top right, rgba(255, 179, 71, 0.18), transparent 48%),
       var(--color-surface-elevated);
@@ -271,13 +271,6 @@ const homeViewStyles = css`
 
   .main-routine-btn:active {
     transform: translateY(0);
-  }
-
-  .main-routine-btn strong {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: -0.01em;
-    line-height: 1.2;
   }
 
   .main-routine-btn .material-symbols {
@@ -309,11 +302,6 @@ const homeViewStyles = css`
 
     .header-main-routines {
       max-width: min(46vw, 240px);
-    }
-
-    .main-routine-btn {
-      min-width: 96px;
-      padding: 8px 10px;
     }
   }
 
@@ -1435,7 +1423,6 @@ export class HomeView extends LocalizedElement {
             title=${turnOnScene.sceneName}
           >
             <span class="material-symbols" aria-hidden="true">lightbulb</span>
-            <strong>${this.t('home.mainTurnOnAction')}</strong>
           </button>
         ` : ''}
         ${turnOffScene ? html`
@@ -1447,7 +1434,6 @@ export class HomeView extends LocalizedElement {
             title=${turnOffScene.sceneName}
           >
             <span class="material-symbols" aria-hidden="true">light_off</span>
-            <strong>${this.t('home.mainTurnOffAction')}</strong>
           </button>
         ` : ''}
       </div>
