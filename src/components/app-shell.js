@@ -1,6 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { smartthings } from '../services/smartthings.js';
 import { store } from '../services/store.js';
+import { toasts } from '../services/toasts.js';
+import './app-toasts.js';
 import './token-setup.js';
 import './home-view.js';
 
@@ -136,6 +138,21 @@ export class AppShell extends LitElement {
     store.startSync();   // then sync in background
   }
 
+  _showQueuedAuthToast() {
+    const notice = smartthings.consumeAuthNotice();
+
+    if (notice?.type !== 'oauth-standalone-complete') {
+      return;
+    }
+
+    toasts.show({
+      tone: 'success',
+      titleKey: 'home.toasts.oauthLoginSuccessTitle',
+      descriptionKey: 'home.toasts.oauthLoginSuccessDescription',
+      duration: 7000,
+    });
+  }
+
   async _initializeAuth() {
     this._authPending = true;
     this._authMode = smartthings.authMode;
@@ -157,6 +174,7 @@ export class AppShell extends LitElement {
         this._authMessage = '';
         this._authPendingMode = '';
         await this._boot();
+        this._showQueuedAuthToast();
       } else if (this._authMode === 'oauth') {
         this._authMessage = smartthings.authConfigError;
         this._authPendingMode = smartthings.pendingLoginMode;
@@ -190,6 +208,7 @@ export class AppShell extends LitElement {
         this._authMessage = '';
         this._authPendingMode = '';
         await this._boot();
+        this._showQueuedAuthToast();
         return;
       }
 
@@ -240,6 +259,7 @@ export class AppShell extends LitElement {
         this._authMessage = '';
         this._authPendingMode = '';
         await this._boot();
+        this._showQueuedAuthToast();
       }
     } catch (error) {
       this._authMessage = this._describeError(error);
@@ -279,10 +299,8 @@ export class AppShell extends LitElement {
   }
 
   render() {
-    if (!this._hasToken) {
-      return html`
-        <style>${appShellStyles.cssText}</style>
-        <div class="page-shell" style=${`view-transition-name: ${this._pageTransitionActive ? 'app-page' : 'none'};`}>
+    const page = !this._hasToken
+      ? html`
           <token-setup
             .authMode=${this._authMode}
             ?auth-error=${this._authError}
@@ -293,12 +311,15 @@ export class AppShell extends LitElement {
             @oauth-login-resume=${this._handlePendingLoginResume}
             @token-set=${this._handleTokenSet}
           ></token-setup>
-        </div>
-      `;
-    }
+        `
+      : html`<home-view></home-view>`;
+
     return html`
       <style>${appShellStyles.cssText}</style>
-      <div class="page-shell" style=${`view-transition-name: ${this._pageTransitionActive ? 'app-page' : 'none'};`}><home-view></home-view></div>
+      <div class="page-shell" style=${`view-transition-name: ${this._pageTransitionActive ? 'app-page' : 'none'};`}>
+        ${page}
+      </div>
+      <app-toasts></app-toasts>
     `;
   }
 }

@@ -4,6 +4,7 @@ export const en = {
   },
   common: {
     cancel: 'Cancel',
+    close: 'Close',
     done: 'Done',
   },
   tokenSetup: {
@@ -56,7 +57,7 @@ export const en = {
     badge: 'SmartThings sign-in',
     placeholder: {
       title: 'Connecting to SmartThings',
-      message: 'The SmartThings sign-in page is opening in a secure window.',
+      message: 'SmartHue is opening Samsung SmartThings in a secure window.',
     },
     callback: {
       unavailableTitle: 'SmartThings login is not available',
@@ -70,13 +71,13 @@ export const en = {
       expiredTitle: 'Login expired',
       expiredMessage: 'This SmartThings login session expired before it could be completed.',
       canceledTitle: 'Login canceled',
-      canceledMessage: 'SmartThings sign-in did not complete.',
+      canceledMessage: 'The SmartThings sign-in was canceled before setup finished.',
       missingCodeTitle: 'Login failed',
       missingCodeMessage: 'SmartThings did not return an authorization code.',
       failedTitle: 'Login failed',
-      failedMessage: 'SmartThings sign-in could not be completed.',
-      successTitle: 'Login successful',
-      successMessage: 'SmartThings is now connected.',
+      failedMessage: 'The SmartThings sign-in did not finish correctly.',
+      successTitle: 'SmartThings is connected',
+      successMessage: 'You can go back to SmartHue and finish setup.',
       callbackFailedTitle: 'Login failed',
       callbackFailedMessage: 'The SmartThings login callback failed.',
       crashedTitle: 'Login failed',
@@ -87,10 +88,10 @@ export const en = {
         openBrowser: 'Open SmartHue in browser',
       },
       hints: {
-        autoReturn: 'Returning to SmartHue automatically…',
+        autoReturn: 'SmartHue should reopen automatically in a moment…',
         closeAfterReturn: 'You can close this tab after you return to SmartHue.',
-        standaloneComplete: 'If you started from the installed app, switch back to SmartHue to finish. If it still says it is connecting, reopen SmartHue once.',
-        standaloneError: 'Switch back to SmartHue to see the result. If the app does not update, reopen SmartHue and try again.',
+        standaloneComplete: 'If you started from the installed app, switch back to SmartHue to finish. If it still says it is connecting, close and reopen SmartHue once.',
+        standaloneError: 'Switch back to SmartHue to review the result. If nothing changes, close and reopen the app, then try again.',
       },
     },
   },
@@ -119,6 +120,10 @@ export const en = {
     oauthConfirmDisconnectTitle: 'Log out of SmartThings?',
     oauthConfirmDisconnectDescription: 'Your SmartThings session will be removed from this device and the cached home state will be cleared. Hidden room choices on this device will stay saved.',
     oauthDisconnect: 'Log out',
+    toasts: {
+      oauthLoginSuccessTitle: 'SmartThings connected',
+      oauthLoginSuccessDescription: 'SmartHue is signed in and ready on this device.',
+    },
   },
   room: {
     lights: 'Lights',

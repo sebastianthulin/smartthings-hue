@@ -19,6 +19,7 @@ const LEGACY_TOKEN_KEY = 'st_token';
 const SESSION_KEY = 'st_oauth_session';
 const STATE_KEY = 'st_oauth_state';
 const PENDING_AUTH_KEY = 'st_oauth_pending';
+const AUTH_NOTICE_KEY = 'st_auth_notice';
 const REFRESH_LEEWAY_MS = 60_000;
 const AUTH_RELAY_TTL_MS = 5 * 60 * 1000;
 const AUTH_RELAY_POLL_INTERVAL_MS = 2_000;
@@ -340,6 +341,7 @@ class SmartThingsAPI {
     writeStorage(SESSION_KEY, null);
     writeStorage(LEGACY_TOKEN_KEY, null);
     writeStorage(STATE_KEY, null);
+    writeStorage(AUTH_NOTICE_KEY, null);
     this.#clearPendingAuth();
   }
 
@@ -349,6 +351,22 @@ class SmartThingsAPI {
 
   get pendingLoginMode() {
     return this.#readPendingAuth()?.launchMode ?? '';
+  }
+
+  consumeAuthNotice() {
+    const raw = readStorage(AUTH_NOTICE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    writeStorage(AUTH_NOTICE_KEY, null);
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   }
 
   async resumePendingLogin({ forceRestart = false } = {}) {
@@ -672,6 +690,10 @@ class SmartThingsAPI {
     writeStorage(PENDING_AUTH_KEY, JSON.stringify(pending));
   }
 
+  #writeAuthNotice(notice) {
+    writeStorage(AUTH_NOTICE_KEY, JSON.stringify(notice));
+  }
+
   #clearPendingAuth() {
     this.#pendingLoginPromise = null;
     writeStorage(PENDING_AUTH_KEY, null);
@@ -718,6 +740,10 @@ class SmartThingsAPI {
       }
 
       if (result.status === 'complete') {
+        if (pending.launchMode === 'standalone') {
+          this.#writeAuthNotice({ type: 'oauth-standalone-complete' });
+        }
+
         this.#persistSession(this.#normalizeTokenResponse(result));
         return true;
       }

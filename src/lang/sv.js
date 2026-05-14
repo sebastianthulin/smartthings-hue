@@ -4,6 +4,7 @@ export const sv = {
   },
   common: {
     cancel: 'Avbryt',
+    close: 'Stäng',
     done: 'Klar',
   },
   tokenSetup: {
@@ -56,7 +57,7 @@ export const sv = {
     badge: 'SmartThings-inloggning',
     placeholder: {
       title: 'Ansluter till SmartThings',
-      message: 'SmartThings-inloggningen öppnas i ett säkert fönster.',
+      message: 'SmartHue öppnar Samsung SmartThings i ett säkert fönster.',
     },
     callback: {
       unavailableTitle: 'SmartThings-inloggningen är inte tillgänglig',
@@ -70,13 +71,13 @@ export const sv = {
       expiredTitle: 'Inloggningen gick ut',
       expiredMessage: 'SmartThings-inloggningssessionen gick ut innan den hann slutföras.',
       canceledTitle: 'Inloggningen avbröts',
-      canceledMessage: 'SmartThings-inloggningen slutfördes inte.',
+      canceledMessage: 'SmartThings-inloggningen avbröts innan konfigurationen hann bli klar.',
       missingCodeTitle: 'Inloggningen misslyckades',
       missingCodeMessage: 'SmartThings returnerade ingen auktoriseringskod.',
       failedTitle: 'Inloggningen misslyckades',
-      failedMessage: 'Det gick inte att slutföra SmartThings-inloggningen.',
-      successTitle: 'Inloggningen lyckades',
-      successMessage: 'SmartThings är nu anslutet.',
+      failedMessage: 'SmartThings-inloggningen slutfördes inte korrekt.',
+      successTitle: 'SmartThings är anslutet',
+      successMessage: 'Du kan gå tillbaka till SmartHue och slutföra konfigurationen.',
       callbackFailedTitle: 'Inloggningen misslyckades',
       callbackFailedMessage: 'Callbacken för SmartThings-inloggningen misslyckades.',
       crashedTitle: 'Inloggningen misslyckades',
@@ -87,10 +88,10 @@ export const sv = {
         openBrowser: 'Öppna SmartHue i webbläsaren',
       },
       hints: {
-        autoReturn: 'Återgår till SmartHue automatiskt…',
+        autoReturn: 'SmartHue bör öppnas igen automatiskt om en liten stund…',
         closeAfterReturn: 'Du kan stänga den här fliken när du har återvänt till SmartHue.',
-        standaloneComplete: 'Om du startade från den installerade appen ska du växla tillbaka till SmartHue för att slutföra. Om det fortfarande står att den ansluter, öppna SmartHue en gång till.',
-        standaloneError: 'Växla tillbaka till SmartHue för att se resultatet. Om appen inte uppdateras, öppna SmartHue igen och försök en gång till.',
+        standaloneComplete: 'Om du startade från den installerade appen ska du växla tillbaka till SmartHue för att slutföra. Om det fortfarande står att den ansluter, stäng och öppna SmartHue en gång.',
+        standaloneError: 'Växla tillbaka till SmartHue för att se resultatet. Om inget förändras, stäng och öppna appen igen och försök sedan på nytt.',
       },
     },
   },
@@ -119,6 +120,10 @@ export const sv = {
     oauthConfirmDisconnectTitle: 'Logga ut från SmartThings?',
     oauthConfirmDisconnectDescription: 'Din SmartThings-session tas bort från den här enheten och den cachade hemstatusen rensas. Val av dolda rum på den här enheten sparas.',
     oauthDisconnect: 'Logga ut',
+    toasts: {
+      oauthLoginSuccessTitle: 'SmartThings är anslutet',
+      oauthLoginSuccessDescription: 'SmartHue är nu inloggat och klart på den här enheten.',
+    },
   },
   room: {
     lights: 'Lampor',
