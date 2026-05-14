@@ -84,13 +84,14 @@ const homeViewStyles = css`
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    flex-wrap: nowrap;
     overflow: hidden;
     opacity: 0;
     transition: width var(--transition-base), opacity var(--transition-base);
   }
 
   .header-title.room-active {
-    gap: var(--space-3);
+    flex-wrap: nowrap;
   }
 
   .header-title.room-active .header-nav-slot {
@@ -98,6 +99,7 @@ const homeViewStyles = css`
     opacity: 1;
   }
 
+    line-height: 1;
   .header-title h1 {
     transform: translateX(0);
     transition: transform var(--transition-base);
@@ -271,7 +273,7 @@ const homeViewStyles = css`
 
   @media (max-width: 640px) {
     .header-inner {
-      align-items: flex-start;
+      align-items: center;
     }
 
     .header-actions {
