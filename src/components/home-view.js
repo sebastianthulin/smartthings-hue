@@ -147,6 +147,15 @@ const homeViewStyles = css`
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    flex-shrink: 0;
+  }
+
+  .header-main-routines {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .icon-btn {
@@ -207,22 +216,17 @@ const homeViewStyles = css`
     view-transition-name: home-stage;
   }
 
-  .main-routines {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--space-3);
-  }
-
   .main-routine-btn {
-    width: 100%;
-    display: grid;
-    gap: 6px;
-    padding: var(--space-4);
+    min-width: 112px;
+    min-height: 40px;
+    display: inline-grid;
+    gap: 2px;
+    padding: 8px 12px;
     background:
       radial-gradient(circle at top right, rgba(255, 179, 71, 0.18), transparent 48%),
       var(--color-surface-elevated);
     border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-full);
     text-align: left;
     color: var(--color-text-primary);
     cursor: pointer;
@@ -240,15 +244,39 @@ const homeViewStyles = css`
   }
 
   .main-routine-btn strong {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     letter-spacing: -0.01em;
+    line-height: 1.2;
   }
 
   .main-routine-btn span {
     color: var(--color-text-dim);
-    font-size: var(--font-size-sm);
-    line-height: 1.4;
+    font-size: 11px;
+    line-height: 1.2;
+    max-width: 16ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .header-inner {
+      align-items: flex-start;
+    }
+
+    .header-actions {
+      gap: var(--space-2);
+    }
+
+    .header-main-routines {
+      max-width: min(46vw, 240px);
+    }
+
+    .main-routine-btn {
+      min-width: 96px;
+      padding: 8px 10px;
+    }
   }
 
   .room-detail {
@@ -948,6 +976,7 @@ export class HomeView extends LocalizedElement {
             <h1 style=${`view-transition-name: ${this._titleTransitionName()};`}>${activeRoom?.name ?? this.t('home.title')}</h1>
           </div>
           <div class="header-actions">
+            ${!activeRoom ? this._renderMainRoutines() : ''}
             <div class="sync-dot ${this._syncing ? 'active' : ''}"></div>
             <button class="icon-btn" @click=${this._toggleSettings} aria-label=${settingsLabel}>
               <span class="material-symbols" aria-hidden="true">settings</span>
@@ -968,7 +997,6 @@ export class HomeView extends LocalizedElement {
           `
         : html`
             <div class="rooms">
-              ${this._renderMainRoutines()}
               ${visibleRooms.length === 0
                 ? this._renderEmpty()
                 : visibleRooms.map(r => html`
@@ -999,7 +1027,7 @@ export class HomeView extends LocalizedElement {
     }
 
     return html`
-      <div class="main-routines">
+      <div class="header-main-routines">
         ${turnOnScene ? html`
           <button
             class="main-routine-btn"
