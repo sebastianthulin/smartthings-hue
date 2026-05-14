@@ -86,6 +86,7 @@ const mockHomeConfigState = {
       turnOnSceneId: 'all-lights-on',
       turnOffSceneId: 'all-lights-off',
     },
+    hiddenRoomIds: [],
     roomSettings: {},
   },
 };
@@ -160,6 +161,7 @@ export function getMockHomeConfig(locationId) {
       turnOnSceneId: null,
       turnOffSceneId: null,
     },
+    hiddenRoomIds: [],
     roomSettings: {},
   });
 }
@@ -170,6 +172,7 @@ export function saveMockHomeConfig(locationId, config) {
     schemaVersion: 1,
     locationId,
     updatedAt: Date.now(),
+    hiddenRoomIds: Array.isArray(config?.hiddenRoomIds) ? [...new Set(config.hiddenRoomIds)] : [],
   });
 
   return getMockHomeConfig(locationId);

@@ -27,8 +27,22 @@ function createDefaultHomeConfig(locationId = null) {
       turnOnSceneId: null,
       turnOffSceneId: null,
     },
+    hiddenRoomIds: [],
     roomSettings: {},
   };
+}
+
+function normalizeHiddenRoomIds(hiddenRoomIds) {
+  if (!Array.isArray(hiddenRoomIds)) {
+    return [];
+  }
+
+  return [...new Set(
+    hiddenRoomIds
+      .filter(roomId => typeof roomId === 'string')
+      .map(roomId => roomId.trim())
+      .filter(Boolean)
+  )];
 }
 
 function normalizeHomeConfig(locationId, homeConfig) {
@@ -62,6 +76,7 @@ function normalizeHomeConfig(locationId, homeConfig) {
         ? config.mainRoutines.turnOffSceneId.trim()
         : null,
     },
+    hiddenRoomIds: normalizeHiddenRoomIds(config.hiddenRoomIds),
     roomSettings,
   };
 }
@@ -432,6 +447,10 @@ class HomeStore extends EventTarget {
   }
 
   async updateMainRoutines(mainRoutines) {
+    return this.updateSharedSettings({ mainRoutines });
+  }
+
+  async updateSharedSettings({ mainRoutines, hiddenRoomIds } = {}) {
     if (!this.#locationId || !this.#sharedConfigEnabled) {
       return this.#snapshotHomeConfig();
     }
@@ -442,11 +461,13 @@ class HomeStore extends EventTarget {
         ...this.#homeConfig.mainRoutines,
         ...mainRoutines,
       },
+      hiddenRoomIds: hiddenRoomIds ?? this.#homeConfig.hiddenRoomIds,
     });
 
     if (
       nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
       && nextConfig.mainRoutines.turnOffSceneId === this.#homeConfig.mainRoutines.turnOffSceneId
+      && JSON.stringify(nextConfig.hiddenRoomIds) === JSON.stringify(this.#homeConfig.hiddenRoomIds)
     ) {
       return this.#snapshotHomeConfig();
     }
@@ -554,6 +575,7 @@ class HomeStore extends EventTarget {
       mainRoutines: {
         ...this.#homeConfig.mainRoutines,
       },
+      hiddenRoomIds: [...(this.#homeConfig.hiddenRoomIds ?? [])],
       roomSettings: Object.fromEntries(
         Object.entries(this.#homeConfig.roomSettings ?? {}).map(([roomId, value]) => [
           roomId,

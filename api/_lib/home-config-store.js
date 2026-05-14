@@ -49,6 +49,7 @@ function getDefaultHomeConfig(locationId) {
       turnOnSceneId: null,
       turnOffSceneId: null,
     },
+    hiddenRoomIds: [],
     roomSettings: {},
   };
 }
@@ -60,6 +61,14 @@ function sanitizeSceneId(value) {
 
   const normalized = value.trim();
   return normalized || null;
+}
+
+function sanitizeHiddenRoomIds(hiddenRoomIds) {
+  if (!Array.isArray(hiddenRoomIds)) {
+    return [];
+  }
+
+  return [...new Set(hiddenRoomIds.map(sanitizeSceneId).filter(Boolean))];
 }
 
 function sanitizeRoomSettings(roomSettings) {
@@ -102,6 +111,7 @@ function normalizeHomeConfig(locationId, rawConfig = {}) {
       turnOnSceneId: sanitizeSceneId(config.mainRoutines?.turnOnSceneId),
       turnOffSceneId: sanitizeSceneId(config.mainRoutines?.turnOffSceneId),
     },
+    hiddenRoomIds: sanitizeHiddenRoomIds(config.hiddenRoomIds),
     roomSettings: sanitizeRoomSettings(config.roomSettings),
   };
 }

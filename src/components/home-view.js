@@ -14,6 +14,31 @@ function createMainRoutineDraft(homeConfig = null) {
   };
 }
 
+function normalizeRoomIds(roomIds) {
+  if (!Array.isArray(roomIds)) {
+    return [];
+  }
+
+  return [...new Set(
+    roomIds
+      .filter(roomId => typeof roomId === 'string')
+      .map(roomId => roomId.trim())
+      .filter(Boolean)
+  )];
+}
+
+function createSharedHiddenRoomDraft(homeConfig = null) {
+  return normalizeRoomIds(homeConfig?.hiddenRoomIds ?? []);
+}
+
+function roomIdListsEqual(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((roomId, index) => roomId === right[index]);
+}
+
 const homeViewStyles = css`
   @keyframes fade-in {
     from {
@@ -91,6 +116,7 @@ const homeViewStyles = css`
   }
 
   .header-title.room-active {
+    gap: var(--space-3);
     flex-wrap: nowrap;
   }
 
@@ -99,7 +125,6 @@ const homeViewStyles = css`
     opacity: 1;
   }
 
-    line-height: 1;
   .header-title h1 {
     transform: translateX(0);
     transition: transform var(--transition-base);
@@ -122,6 +147,7 @@ const homeViewStyles = css`
     margin: 0;
     font-size: var(--font-size-2xl, 34px);
     font-weight: var(--font-weight-bold);
+    line-height: 1;
     letter-spacing: -1px;
     color: var(--color-text-primary);
     min-width: 0;
@@ -150,13 +176,14 @@ const homeViewStyles = css`
     align-items: center;
     gap: var(--space-3);
     flex-shrink: 0;
+    flex-wrap: nowrap;
   }
 
   .header-main-routines {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
   }
 
@@ -556,6 +583,81 @@ const homeViewStyles = css`
     font-size: var(--font-size-sm);
   }
 
+  .settings-empty.compact {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .settings-subsection + .settings-subsection {
+    margin-top: var(--space-5);
+  }
+
+  .settings-pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .settings-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    padding: 8px 10px 8px 12px;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    color: var(--color-text-primary);
+  }
+
+  .settings-pill span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-pill button {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .settings-pill button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--color-text-primary);
+  }
+
+  .settings-pill button .material-symbols {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .settings-add-row {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .settings-add-row label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-dim);
+  }
+
+  .settings-add-row .settings-select {
+    width: 100%;
+  }
+
   .settings-actions {
     display: flex;
     align-items: center;
@@ -649,6 +751,7 @@ export class HomeView extends LocalizedElement {
     _disconnectConfirmOpen: { state: true },
     _activeRoomId:          { state: true },
     _draftMainRoutines:     { state: true },
+    _draftSharedHiddenRoomIds: { state: true },
     _hiddenRoomIds:         { state: true },
     _homeConfig:            { state: true },
     _rooms:                 { state: true },
@@ -673,6 +776,7 @@ export class HomeView extends LocalizedElement {
     this._disconnectConfirmOpen = false;
     this._activeRoomId          = null;
     this._draftMainRoutines     = createMainRoutineDraft(store.homeConfig);
+    this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(store.homeConfig);
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._homeConfig            = store.homeConfig;
     this._rooms                 = store.rooms;
@@ -692,9 +796,11 @@ export class HomeView extends LocalizedElement {
       this._homeConfig = e.detail.homeConfig;
       this._scenes = [...e.detail.scenes];
       this._sharedConfigEnabled = Boolean(e.detail.sharedConfigEnabled);
+      this._syncLocalHiddenRoomsWithGlobal();
 
       if (!this._settingsOpen || !this._hasSharedSettingsChanges()) {
         this._draftMainRoutines = createMainRoutineDraft(e.detail.homeConfig);
+        this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(e.detail.homeConfig);
       }
     };
     this._onSyncing  = ()  => { this._syncing = true; };
@@ -710,6 +816,8 @@ export class HomeView extends LocalizedElement {
     this._scenes = store.scenes;
     this._sharedConfigEnabled = store.sharedConfigEnabled;
     this._draftMainRoutines = createMainRoutineDraft(store.homeConfig);
+    this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(store.homeConfig);
+    this._syncLocalHiddenRoomsWithGlobal();
   }
 
   disconnectedCallback() {
@@ -745,19 +853,20 @@ export class HomeView extends LocalizedElement {
   _loadHiddenRooms() {
     try {
       const hiddenRoomIds = JSON.parse(localStorage.getItem(HIDDEN_ROOMS_KEY) ?? '[]');
-      return Array.isArray(hiddenRoomIds) ? hiddenRoomIds : [];
+      return normalizeRoomIds(hiddenRoomIds);
     } catch {
       return [];
     }
   }
 
   _saveHiddenRooms(hiddenRoomIds) {
-    this._hiddenRoomIds = hiddenRoomIds;
-    if (this._activeRoomId && hiddenRoomIds.includes(this._activeRoomId)) {
+    const nextHiddenRoomIds = this._sanitizeLocalHiddenRoomIds(hiddenRoomIds);
+    this._hiddenRoomIds = nextHiddenRoomIds;
+    if (this._activeRoomId && this._effectiveHiddenRoomIds.has(this._activeRoomId)) {
       this._activeRoomId = null;
     }
     try {
-      localStorage.setItem(HIDDEN_ROOMS_KEY, JSON.stringify(hiddenRoomIds));
+      localStorage.setItem(HIDDEN_ROOMS_KEY, JSON.stringify(nextHiddenRoomIds));
     } catch { /* storage unavailable — ignore */ }
   }
 
@@ -768,6 +877,7 @@ export class HomeView extends LocalizedElement {
     }
 
     this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
+  this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(this._homeConfig);
     this._settingsOpen = true;
 
     if (this._sharedConfigEnabled) {
@@ -822,10 +932,52 @@ export class HomeView extends LocalizedElement {
     this._saveHiddenRooms([...hidden]);
   }
 
+  _sanitizeLocalHiddenRoomIds(hiddenRoomIds) {
+    const globalHiddenRoomIds = new Set(this._globalHiddenRoomIds);
+    return normalizeRoomIds(hiddenRoomIds).filter(roomId => !globalHiddenRoomIds.has(roomId));
+  }
+
+  _syncLocalHiddenRoomsWithGlobal() {
+    const nextHiddenRoomIds = this._sanitizeLocalHiddenRoomIds(this._hiddenRoomIds);
+    if (!roomIdListsEqual(nextHiddenRoomIds, this._hiddenRoomIds)) {
+      this._saveHiddenRooms(nextHiddenRoomIds);
+    }
+  }
+
+  _onAddLocalHiddenRoom(e) {
+    const roomId = e.target.value;
+    if (!roomId) {
+      return;
+    }
+
+    this._saveHiddenRooms([...this._hiddenRoomIds, roomId]);
+    e.target.value = '';
+  }
+
+  _onRemoveLocalHiddenRoom(roomId) {
+    this._saveHiddenRooms(this._hiddenRoomIds.filter(hiddenRoomId => hiddenRoomId !== roomId));
+  }
+
+  _onAddSharedHiddenRoom(e) {
+    const roomId = e.target.value;
+    if (!roomId) {
+      return;
+    }
+
+    this._draftSharedHiddenRoomIds = normalizeRoomIds([...this._draftSharedHiddenRoomIds, roomId]);
+    this._saveHiddenRooms(this._hiddenRoomIds.filter(hiddenRoomId => hiddenRoomId !== roomId));
+    e.target.value = '';
+  }
+
+  _onRemoveSharedHiddenRoom(roomId) {
+    this._draftSharedHiddenRoomIds = this._draftSharedHiddenRoomIds.filter(hiddenRoomId => hiddenRoomId !== roomId);
+  }
+
   _hasSharedSettingsChanges() {
     const current = createMainRoutineDraft(this._homeConfig);
     return current.turnOnSceneId !== this._draftMainRoutines.turnOnSceneId
-      || current.turnOffSceneId !== this._draftMainRoutines.turnOffSceneId;
+      || current.turnOffSceneId !== this._draftMainRoutines.turnOffSceneId
+      || !roomIdListsEqual(this._globalHiddenRoomIds, this._draftSharedHiddenRoomIds);
   }
 
   async _closeSettings() {
@@ -843,9 +995,13 @@ export class HomeView extends LocalizedElement {
     this._savingSharedSettings = true;
 
     try {
-      await store.updateMainRoutines(this._draftMainRoutines);
+      await store.updateSharedSettings({
+        mainRoutines: this._draftMainRoutines,
+        hiddenRoomIds: this._draftSharedHiddenRoomIds,
+      });
     } catch {
       this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
+      this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(this._homeConfig);
       toasts.show({
         tone: 'error',
         titleKey: 'home.toasts.sharedConfigErrorTitle',
@@ -958,8 +1114,26 @@ export class HomeView extends LocalizedElement {
     return this._transitionRoomId ? 'home-header' : 'none';
   }
 
+  get _globalHiddenRoomIds() {
+    return normalizeRoomIds(this._homeConfig?.hiddenRoomIds ?? []);
+  }
+
+  get _effectiveHiddenRoomIds() {
+    return new Set([...this._globalHiddenRoomIds, ...this._hiddenRoomIds]);
+  }
+
+  get _availableLocalHiddenRooms() {
+    const unavailableRoomIds = this._effectiveHiddenRoomIds;
+    return this._rooms.filter(room => !unavailableRoomIds.has(room.id));
+  }
+
+  get _availableSharedHiddenRooms() {
+    const unavailableRoomIds = new Set(this._draftSharedHiddenRoomIds);
+    return this._rooms.filter(room => !unavailableRoomIds.has(room.id));
+  }
+
   get _visibleRooms() {
-    const hidden = new Set(this._hiddenRoomIds);
+    const hidden = this._effectiveHiddenRoomIds;
     return this._rooms.filter(room => !hidden.has(room.id));
   }
 
@@ -1091,6 +1265,10 @@ export class HomeView extends LocalizedElement {
   _renderSettings() {
     const turnOnSceneId = this._draftMainRoutines.turnOnSceneId ?? '';
     const turnOffSceneId = this._draftMainRoutines.turnOffSceneId ?? '';
+    const localHiddenRooms = this._rooms.filter(room => this._hiddenRoomIds.includes(room.id));
+    const sharedHiddenRooms = this._rooms.filter(room => this._draftSharedHiddenRoomIds.includes(room.id));
+    const availableLocalHiddenRooms = this._availableLocalHiddenRooms;
+    const availableSharedHiddenRooms = this._availableSharedHiddenRooms;
 
     return html`
       <div class="settings-backdrop" @click=${this._toggleSettings}>
@@ -1115,21 +1293,48 @@ export class HomeView extends LocalizedElement {
             ${this._rooms.length === 0
               ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
               : html`
-                  <div class="settings-list">
-                    ${this._rooms.map(room => {
-                      const visible = !this._hiddenRoomIds.includes(room.id);
-                      return html`
-                        <label class="settings-row">
-                          <span>${room.name}</span>
-                          <input
-                            type="checkbox"
-                            .checked=${visible}
-                            data-room-id=${room.id}
-                            @change=${this._toggleRoomVisibility}
-                          />
-                        </label>
-                      `;
-                    })}
+                  <div class="settings-subsection">
+                    <div class="settings-section-copy">
+                      <h3>${this.t('home.localHiddenRoomsTitle')}</h3>
+                      <p>${this.t('home.localHiddenRoomsDescription')}</p>
+                    </div>
+
+                    ${localHiddenRooms.length === 0
+                      ? html`<div class="settings-empty compact">${this.t('home.localHiddenRoomsEmpty')}</div>`
+                      : html`
+                          <div class="settings-pill-list">
+                            ${localHiddenRooms.map(room => html`
+                              <div class="settings-pill">
+                                <span>${room.name}</span>
+                                <button
+                                  type="button"
+                                  @click=${() => this._onRemoveLocalHiddenRoom(room.id)}
+                                  aria-label=${this.t('home.removeHiddenRoom', { name: room.name })}
+                                >
+                                  <span class="material-symbols" aria-hidden="true">close</span>
+                                </button>
+                              </div>
+                            `)}
+                          </div>
+                        `}
+
+                    ${availableLocalHiddenRooms.length === 0
+                      ? html``
+                      : html`
+                          <div class="settings-add-row">
+                            <label for="local-hidden-room-select">${this.t('home.addHiddenRoom')}</label>
+                            <select
+                              id="local-hidden-room-select"
+                              class="settings-select"
+                              @change=${this._onAddLocalHiddenRoom}
+                            >
+                              <option value="">${this.t('home.addHiddenRoom')}</option>
+                              ${availableLocalHiddenRooms.map(room => html`
+                                <option value=${room.id}>${room.name}</option>
+                              `)}
+                            </select>
+                          </div>
+                        `}
                   </div>
                 `}
           </section>
@@ -1176,6 +1381,56 @@ export class HomeView extends LocalizedElement {
                           `)}
                         </select>
                       </label>
+                    </div>
+                  `}
+
+              ${this._rooms.length === 0
+                ? html``
+                : html`
+                    <div class="settings-subsection">
+                      <div class="settings-section-copy">
+                        <h3>${this.t('home.sharedHiddenRoomsTitle')}</h3>
+                        <p>${this.t('home.sharedHiddenRoomsDescription')}</p>
+                      </div>
+
+                      ${sharedHiddenRooms.length === 0
+                        ? html`<div class="settings-empty compact">${this.t('home.sharedHiddenRoomsEmpty')}</div>`
+                        : html`
+                            <div class="settings-pill-list">
+                              ${sharedHiddenRooms.map(room => html`
+                                <div class="settings-pill">
+                                  <span>${room.name}</span>
+                                  <button
+                                    type="button"
+                                    ?disabled=${this._savingSharedSettings}
+                                    @click=${() => this._onRemoveSharedHiddenRoom(room.id)}
+                                    aria-label=${this.t('home.removeHiddenRoom', { name: room.name })}
+                                  >
+                                    <span class="material-symbols" aria-hidden="true">close</span>
+                                  </button>
+                                </div>
+                              `)}
+                            </div>
+                          `}
+
+                      ${availableSharedHiddenRooms.length === 0
+                        ? html``
+                        : html`
+                            <div class="settings-add-row">
+                              <label for="shared-hidden-room-select">${this.t('home.addHiddenRoom')}</label>
+                              <select
+                                id="shared-hidden-room-select"
+                                class="settings-select"
+                                ?disabled=${this._savingSharedSettings}
+                                @change=${this._onAddSharedHiddenRoom}
+                              >
+                                <option value="">${this.t('home.addHiddenRoom')}</option>
+                                ${availableSharedHiddenRooms.map(room => html`
+                                  <option value=${room.id}>${room.name}</option>
+                                `)}
+                              </select>
+                            </div>
+                          `}
                     </div>
                   `}
             </section>
