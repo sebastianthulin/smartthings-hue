@@ -14,21 +14,34 @@ function createMainRoutineDraft(homeConfig = null) {
   };
 }
 
-function normalizeRoomIds(roomIds) {
-  if (!Array.isArray(roomIds)) {
+function normalizeStringIds(values) {
+  if (!Array.isArray(values)) {
     return [];
   }
 
   return [...new Set(
-    roomIds
-      .filter(roomId => typeof roomId === 'string')
-      .map(roomId => roomId.trim())
+    values
+      .filter(value => typeof value === 'string')
+      .map(value => value.trim())
       .filter(Boolean)
   )];
 }
 
+function normalizeRoomIds(roomIds) {
+  return normalizeStringIds(roomIds);
+}
+
 function createSharedHiddenRoomDraft(homeConfig = null) {
   return normalizeRoomIds(homeConfig?.hiddenRoomIds ?? []);
+}
+
+function createRoomSettingsDraft(homeConfig = null, roomId = null) {
+  const roomSettings = roomId ? homeConfig?.roomSettings?.[roomId] : null;
+
+  return {
+    hiddenLightIds: normalizeStringIds(roomSettings?.hiddenLightIds ?? []),
+    routineSceneIds: normalizeStringIds(roomSettings?.routineSceneIds ?? []),
+  };
 }
 
 function roomIdListsEqual(left, right) {
@@ -307,6 +320,60 @@ const homeViewStyles = css`
     font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  .room-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-4);
+  }
+
+  .room-action {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    max-width: 100%;
+    padding: 0 14px;
+    background: var(--color-surface-elevated);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+    border-radius: var(--radius-full);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base);
+  }
+
+  .room-action:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--color-surface-elevated) 76%, rgba(255, 179, 71, 0.08));
+  }
+
+  .room-action:active {
+    transform: translateY(0);
+  }
+
+  .room-action .material-symbols {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .room-action-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   @media (max-width: 640px) {
@@ -1076,10 +1143,15 @@ export class HomeView extends LocalizedElement {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
     _activeRoomId:          { state: true },
+    _draftActiveRoomSettings: { state: true },
     _draftMainRoutines:     { state: true },
     _draftSharedHiddenRoomIds: { state: true },
     _hiddenRoomIds:         { state: true },
     _homeConfig:            { state: true },
+    _roomHiddenDevicePickerOpen: { state: true },
+    _roomHiddenDeviceSearch: { state: true },
+    _roomRoutinePickerOpen: { state: true },
+    _roomRoutineSearch:     { state: true },
     _localHiddenRoomPickerOpen: { state: true },
     _localRoomSearch:       { state: true },
     _rooms:                 { state: true },
@@ -1106,10 +1178,15 @@ export class HomeView extends LocalizedElement {
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
     this._activeRoomId          = null;
+    this._draftActiveRoomSettings = createRoomSettingsDraft(store.homeConfig);
     this._draftMainRoutines     = createMainRoutineDraft(store.homeConfig);
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(store.homeConfig);
     this._hiddenRoomIds         = this._loadHiddenRooms();
     this._homeConfig            = store.homeConfig;
+    this._roomHiddenDevicePickerOpen = false;
+    this._roomHiddenDeviceSearch = '';
+    this._roomRoutinePickerOpen = false;
+    this._roomRoutineSearch     = '';
     this._localHiddenRoomPickerOpen = false;
     this._localRoomSearch       = '';
     this._rooms                 = store.rooms;
@@ -1138,6 +1215,10 @@ export class HomeView extends LocalizedElement {
         this._draftMainRoutines = createMainRoutineDraft(e.detail.homeConfig);
         this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(e.detail.homeConfig);
       }
+
+      if (!this._settingsOpen || !this._hasActiveRoomSettingsChanges()) {
+        this._draftActiveRoomSettings = createRoomSettingsDraft(e.detail.homeConfig, this._activeRoomId);
+      }
     };
     this._onSyncing  = ()  => { this._syncing = true; };
     this._onSynced   = ()  => { this._syncing = false; };
@@ -1151,6 +1232,7 @@ export class HomeView extends LocalizedElement {
     this._homeConfig = store.homeConfig;
     this._scenes = store.scenes;
     this._sharedConfigEnabled = store.sharedConfigEnabled;
+    this._draftActiveRoomSettings = createRoomSettingsDraft(store.homeConfig, this._activeRoomId);
     this._draftMainRoutines = createMainRoutineDraft(store.homeConfig);
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(store.homeConfig);
     this._syncLocalHiddenRoomsWithGlobal();
@@ -1212,13 +1294,18 @@ export class HomeView extends LocalizedElement {
       return;
     }
 
+    this._draftActiveRoomSettings = createRoomSettingsDraft(this._homeConfig, this._activeRoomId);
     this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
     this._draftSharedHiddenRoomIds = createSharedHiddenRoomDraft(this._homeConfig);
+    this._roomHiddenDevicePickerOpen = false;
+    this._roomHiddenDeviceSearch = '';
+    this._roomRoutinePickerOpen = false;
+    this._roomRoutineSearch = '';
     this._localHiddenRoomPickerOpen = false;
     this._localRoomSearch = '';
     this._sharedHiddenRoomPickerOpen = false;
     this._sharedRoomSearch = '';
-    this._settingsTab = 'device';
+    this._settingsTab = this._activeRoomId && this._sharedConfigEnabled ? 'shared' : 'device';
 
     await this._runSettingsViewTransition(() => {
       this._settingsOpen = true;
@@ -1289,7 +1376,7 @@ export class HomeView extends LocalizedElement {
   }
 
   _onAddLocalHiddenRoom(e) {
-    const roomId = e.currentTarget.dataset.roomId;
+    const roomId = e.currentTarget.dataset.itemId;
     const room = this._availableLocalHiddenRooms.find(candidate => candidate.id === roomId) ?? null;
     if (!room) {
       return;
@@ -1305,7 +1392,7 @@ export class HomeView extends LocalizedElement {
   }
 
   _onAddSharedHiddenRoom(e) {
-    const roomId = e.currentTarget.dataset.roomId;
+    const roomId = e.currentTarget.dataset.itemId;
     const room = this._availableSharedHiddenRooms.find(candidate => candidate.id === roomId) ?? null;
     if (!room) {
       return;
@@ -1329,6 +1416,58 @@ export class HomeView extends LocalizedElement {
     this._sharedRoomSearch = e.target.value;
   }
 
+  _onAddRoomHiddenDevice(e) {
+    const lightId = e.currentTarget.dataset.itemId;
+    const light = this._availableActiveRoomLights.find(candidate => candidate.id === lightId) ?? null;
+    if (!light) {
+      return;
+    }
+
+    this._draftActiveRoomSettings = {
+      ...this._draftActiveRoomSettings,
+      hiddenLightIds: normalizeStringIds([...this._draftActiveRoomSettings.hiddenLightIds, light.id]),
+    };
+    this._roomHiddenDevicePickerOpen = false;
+    this._roomHiddenDeviceSearch = '';
+  }
+
+  _onRemoveRoomHiddenDevice(lightId) {
+    this._draftActiveRoomSettings = {
+      ...this._draftActiveRoomSettings,
+      hiddenLightIds: this._draftActiveRoomSettings.hiddenLightIds.filter(hiddenLightId => hiddenLightId !== lightId),
+    };
+  }
+
+  _onAddRoomRoutine(e) {
+    const sceneId = e.currentTarget.dataset.itemId;
+    const scene = this._availableActiveRoomRoutines.find(candidate => candidate.id === sceneId) ?? null;
+    if (!scene) {
+      return;
+    }
+
+    this._draftActiveRoomSettings = {
+      ...this._draftActiveRoomSettings,
+      routineSceneIds: normalizeStringIds([...this._draftActiveRoomSettings.routineSceneIds, scene.id]),
+    };
+    this._roomRoutinePickerOpen = false;
+    this._roomRoutineSearch = '';
+  }
+
+  _onRemoveRoomRoutine(sceneId) {
+    this._draftActiveRoomSettings = {
+      ...this._draftActiveRoomSettings,
+      routineSceneIds: this._draftActiveRoomSettings.routineSceneIds.filter(routineSceneId => routineSceneId !== sceneId),
+    };
+  }
+
+  _onRoomHiddenDeviceSearchInput(e) {
+    this._roomHiddenDeviceSearch = e.target.value;
+  }
+
+  _onRoomRoutineSearchInput(e) {
+    this._roomRoutineSearch = e.target.value;
+  }
+
   _toggleSharedHiddenRoomPicker() {
     this._sharedHiddenRoomPickerOpen = !this._sharedHiddenRoomPickerOpen;
     if (!this._sharedHiddenRoomPickerOpen) {
@@ -1340,6 +1479,20 @@ export class HomeView extends LocalizedElement {
     this._localHiddenRoomPickerOpen = !this._localHiddenRoomPickerOpen;
     if (!this._localHiddenRoomPickerOpen) {
       this._localRoomSearch = '';
+    }
+  }
+
+  _toggleRoomHiddenDevicePicker() {
+    this._roomHiddenDevicePickerOpen = !this._roomHiddenDevicePickerOpen;
+    if (!this._roomHiddenDevicePickerOpen) {
+      this._roomHiddenDeviceSearch = '';
+    }
+  }
+
+  _toggleRoomRoutinePicker() {
+    this._roomRoutinePickerOpen = !this._roomRoutinePickerOpen;
+    if (!this._roomRoutinePickerOpen) {
+      this._roomRoutineSearch = '';
     }
   }
 
@@ -1406,13 +1559,13 @@ export class HomeView extends LocalizedElement {
     `;
   }
 
-  _renderHiddenRoomPicker({
+  _renderSettingsPicker({
     label,
     placeholder,
-    selectedRooms,
+    selectedItems,
     emptyText,
     query,
-    rooms,
+    items,
     open,
     onToggle,
     onInput,
@@ -1420,25 +1573,26 @@ export class HomeView extends LocalizedElement {
     onRemove,
     emptyKey,
     disabled = false,
+    removeLabel,
   }) {
-    const showSearch = rooms.length > 8;
-    const filteredRooms = showSearch ? this._filterRoomsBySearch(rooms, query) : rooms;
-    const canExpand = rooms.length > 0;
+    const showSearch = items.length > 8;
+    const filteredItems = showSearch ? this._filterRoomsBySearch(items, query) : items;
+    const canExpand = items.length > 0;
 
     return html`
       <div class="settings-picker">
         <div class="settings-select-shell ${open ? 'open' : ''}">
           <div class="settings-select-surface">
             <div class="settings-select-values">
-              ${selectedRooms.length > 0
-                ? selectedRooms.map(room => html`
+              ${selectedItems.length > 0
+                ? selectedItems.map(item => html`
                     <div class="settings-pill settings-select-tag">
-                      <span>${room.name}</span>
+                      <span>${item.name}</span>
                       <button
                         type="button"
                         ?disabled=${disabled}
-                        @click=${() => onRemove(room.id)}
-                        aria-label=${this.t('home.removeHiddenRoom', { name: room.name })}
+                        @click=${() => onRemove(item.id)}
+                        aria-label=${removeLabel(item)}
                       >
                         <span class="material-symbols" aria-hidden="true">close</span>
                       </button>
@@ -1475,16 +1629,16 @@ export class HomeView extends LocalizedElement {
             ` : ''}
 
             <div class="settings-search-results">
-              ${filteredRooms.length > 0
-                ? filteredRooms.map(room => html`
+              ${filteredItems.length > 0
+                ? filteredItems.map(item => html`
                     <button
                       class="settings-search-result"
                       type="button"
                       ?disabled=${disabled}
-                      data-room-id=${room.id}
+                      data-item-id=${item.id}
                       @click=${onPick}
                     >
-                      <span class="settings-search-result-label">${room.name}</span>
+                      <span class="settings-search-result-label">${item.name}</span>
                       <span class="settings-search-result-action" aria-hidden="true">
                         <span class="material-symbols">add</span>
                       </span>
@@ -1506,16 +1660,54 @@ export class HomeView extends LocalizedElement {
       || !roomIdListsEqual(this._globalHiddenRoomIds, this._draftSharedHiddenRoomIds);
   }
 
+  _hasActiveRoomSettingsChanges() {
+    if (!this._activeRoomId) {
+      return false;
+    }
+
+    const current = createRoomSettingsDraft(this._homeConfig, this._activeRoomId);
+    return !roomIdListsEqual(current.hiddenLightIds, this._draftActiveRoomSettings.hiddenLightIds)
+      || !roomIdListsEqual(current.routineSceneIds, this._draftActiveRoomSettings.routineSceneIds);
+  }
+
   async _closeSettings() {
     await this._runSettingsViewTransition(() => {
       this._settingsOpen = false;
       this._connectionMenuOpen = false;
       this._disconnectConfirmOpen = false;
+      this._roomHiddenDevicePickerOpen = false;
+      this._roomRoutinePickerOpen = false;
       this._localHiddenRoomPickerOpen = false;
       this._sharedHiddenRoomPickerOpen = false;
     });
 
+    if (this._activeRoomId) {
+      await this._persistActiveRoomSettingsIfNeeded();
+      return;
+    }
+
     await this._persistSharedSettingsIfNeeded();
+  }
+
+  async _persistActiveRoomSettingsIfNeeded() {
+    if (!this._sharedConfigEnabled || !this._activeRoomId || !this._hasActiveRoomSettingsChanges()) {
+      return;
+    }
+
+    this._savingSharedSettings = true;
+
+    try {
+      await store.updateRoomSettings(this._activeRoomId, this._draftActiveRoomSettings);
+    } catch {
+      this._draftActiveRoomSettings = createRoomSettingsDraft(this._homeConfig, this._activeRoomId);
+      toasts.show({
+        tone: 'error',
+        titleKey: 'home.toasts.roomSettingsErrorTitle',
+        descriptionKey: 'home.toasts.roomSettingsErrorDescription',
+      });
+    } finally {
+      this._savingSharedSettings = false;
+    }
   }
 
   async _persistSharedSettingsIfNeeded() {
@@ -1570,6 +1762,22 @@ export class HomeView extends LocalizedElement {
         descriptionKey: 'home.toasts.mainRoutineErrorDescription',
       });
     }
+  }
+
+  async _executeRoomRoutine(sceneId) {
+    try {
+      await store.executeRoomRoutine(sceneId);
+    } catch {
+      toasts.show({
+        tone: 'error',
+        titleKey: 'home.toasts.mainRoutineErrorTitle',
+        descriptionKey: 'home.toasts.mainRoutineErrorDescription',
+      });
+    }
+  }
+
+  _roomSettings(roomId) {
+    return createRoomSettingsDraft(this._homeConfig, roomId);
   }
 
   async _openRoom(e) {
@@ -1669,7 +1877,37 @@ export class HomeView extends LocalizedElement {
   }
 
   get _activeRoom() {
+    const room = this._visibleRooms.find(candidate => candidate.id === this._activeRoomId) ?? null;
+    if (!room) {
+      return null;
+    }
+
+    const hiddenLightIds = new Set(this._roomSettings(room.id).hiddenLightIds);
+    return {
+      ...room,
+      lights: room.lights.filter(light => !hiddenLightIds.has(light.id)),
+    };
+  }
+
+  get _activeRoomSource() {
     return this._visibleRooms.find(room => room.id === this._activeRoomId) ?? null;
+  }
+
+  get _availableActiveRoomLights() {
+    const room = this._activeRoomSource;
+    if (!room) {
+      return [];
+    }
+
+    const hiddenLightIds = new Set(this._draftActiveRoomSettings.hiddenLightIds);
+    return room.lights.filter(light => !hiddenLightIds.has(light.id));
+  }
+
+  get _availableActiveRoomRoutines() {
+    const selectedRoutineIds = new Set(this._draftActiveRoomSettings.routineSceneIds);
+    return this._scenes
+      .filter(scene => !selectedRoutineIds.has(scene.sceneId))
+      .map(scene => ({ id: scene.sceneId, name: scene.sceneName }));
   }
 
   _connectionCopyKey(baseKey) {
@@ -1712,6 +1950,7 @@ export class HomeView extends LocalizedElement {
       ${activeRoom
         ? html`
             <div class="room-detail">
+              ${this._renderActiveRoomActions(activeRoom)}
               <room-card
                 .room=${activeRoom}
                 detail-view
@@ -1774,6 +2013,40 @@ export class HomeView extends LocalizedElement {
     `;
   }
 
+  _renderActiveRoomActions(room) {
+    const sourceRoom = this._activeRoomSource;
+    const roomSettings = this._roomSettings(room.id);
+    const routineScenes = roomSettings.routineSceneIds
+      .map(sceneId => this._selectedScene(sceneId))
+      .filter(Boolean);
+
+    if (!sourceRoom) {
+      return html``;
+    }
+
+    const actions = routineScenes.map(scene => ({
+        id: scene.sceneId,
+        icon: 'auto_awesome',
+        label: scene.sceneName,
+        onClick: () => this._executeRoomRoutine(scene.sceneId),
+      }));
+
+    if (!actions.length) {
+      return html``;
+    }
+
+    return html`
+      <div class="room-actions" aria-label=${this.t('home.roomActionsLabel', { name: room.name })}>
+        ${actions.map(action => html`
+          <button class="room-action" type="button" @click=${action.onClick} aria-label=${action.label}>
+            <span class="material-symbols" aria-hidden="true">${action.icon}</span>
+            <span class="room-action-label">${action.label}</span>
+          </button>
+        `)}
+      </div>
+    `;
+  }
+
   _renderEmpty() {
     const hasRooms = this._rooms.length > 0;
     return html`
@@ -1788,6 +2061,10 @@ export class HomeView extends LocalizedElement {
   }
 
   _renderSettings() {
+    if (this._activeRoom && this._sharedConfigEnabled) {
+      return this._renderActiveRoomSettings();
+    }
+
     const turnOnSceneId = this._draftMainRoutines.turnOnSceneId ?? '';
     const turnOffSceneId = this._draftMainRoutines.turnOffSceneId ?? '';
     const localHiddenRooms = this._rooms.filter(room => this._hiddenRoomIds.includes(room.id));
@@ -1823,19 +2100,20 @@ export class HomeView extends LocalizedElement {
                             <p>${this.t('home.localHiddenRoomsDescription')}</p>
                           </div>
 
-                          ${this._renderHiddenRoomPicker({
+                          ${this._renderSettingsPicker({
                             label: this.t('home.addHiddenRoom'),
                             placeholder: this.t('home.searchHiddenRoomPlaceholder'),
-                            selectedRooms: localHiddenRooms,
+                            selectedItems: localHiddenRooms,
                             emptyText: this.t('home.localHiddenRoomsEmpty'),
                             query: this._localRoomSearch,
                             open: this._localHiddenRoomPickerOpen,
-                            rooms: availableLocalHiddenRooms,
+                            items: availableLocalHiddenRooms,
                             onToggle: this._toggleLocalHiddenRoomPicker,
                             onInput: this._onLocalRoomSearchInput,
                             onPick: this._onAddLocalHiddenRoom,
                             onRemove: roomId => this._onRemoveLocalHiddenRoom(roomId),
                             emptyKey: 'home.hiddenRoomSearchEmpty',
+                            removeLabel: room => this.t('home.removeHiddenRoom', { name: room.name }),
                           })}
                         </div>
                       </div>
@@ -1903,20 +2181,21 @@ export class HomeView extends LocalizedElement {
                       </div>
 
                       <div class="settings-group-body">
-                        ${this._renderHiddenRoomPicker({
+                        ${this._renderSettingsPicker({
                           label: this.t('home.addHiddenRoom'),
                           placeholder: this.t('home.searchHiddenRoomPlaceholder'),
-                          selectedRooms: sharedHiddenRooms,
+                          selectedItems: sharedHiddenRooms,
                           emptyText: this.t('home.sharedHiddenRoomsEmpty'),
                           query: this._sharedRoomSearch,
                           open: this._sharedHiddenRoomPickerOpen,
-                          rooms: availableSharedHiddenRooms,
+                          items: availableSharedHiddenRooms,
                           onToggle: this._toggleSharedHiddenRoomPicker,
                           onInput: this._onSharedRoomSearchInput,
                           onPick: this._onAddSharedHiddenRoom,
                           onRemove: roomId => this._onRemoveSharedHiddenRoom(roomId),
                           emptyKey: 'home.hiddenRoomSearchEmpty',
                           disabled: this._savingSharedSettings,
+                          removeLabel: room => this.t('home.removeHiddenRoom', { name: room.name }),
                         })}
                       </div>
                     </div>
@@ -1945,6 +2224,99 @@ export class HomeView extends LocalizedElement {
               <button class="primary-btn" @click=${this._toggleSettings}>${this.t('common.save')}</button>
             </div>
           ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderActiveRoomSettings() {
+    const activeRoom = this._activeRoomSource;
+    if (!activeRoom) {
+      return html``;
+    }
+
+    const hiddenLightIds = new Set(this._draftActiveRoomSettings.hiddenLightIds);
+    const hiddenLights = activeRoom.lights
+      .filter(light => hiddenLightIds.has(light.id))
+      .map(light => ({ id: light.id, name: light.name }));
+    const roomRoutines = this._draftActiveRoomSettings.routineSceneIds
+      .map(sceneId => this._selectedScene(sceneId))
+      .filter(Boolean)
+      .map(scene => ({ id: scene.sceneId, name: scene.sceneName }));
+
+    return html`
+      <div class="settings-backdrop" @click=${this._toggleSettings}>
+        <div
+          class="settings-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label=${this.t('home.roomSettingsTitle', { name: activeRoom.name })}
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onSettingsKeyDown}
+        >
+          <h2>${this.t('home.roomSettingsTitle', { name: activeRoom.name })}</h2>
+          <p>${this.t('home.roomSettingsDescription', { name: activeRoom.name })}</p>
+
+          <section class="settings-panel">
+            <div class="settings-group">
+              <div class="settings-section-copy">
+                <h3>${this.t('home.roomHiddenDevicesTitle')}</h3>
+                <p>${this.t('home.roomHiddenDevicesDescription')}</p>
+              </div>
+
+              <div class="settings-group-body">
+                ${this._renderSettingsPicker({
+                  label: this.t('home.addHiddenDevice'),
+                  placeholder: this.t('home.searchHiddenDevicePlaceholder'),
+                  selectedItems: hiddenLights,
+                  emptyText: this.t('home.roomHiddenDevicesEmpty'),
+                  query: this._roomHiddenDeviceSearch,
+                  open: this._roomHiddenDevicePickerOpen,
+                  items: this._availableActiveRoomLights.map(light => ({ id: light.id, name: light.name })),
+                  onToggle: this._toggleRoomHiddenDevicePicker,
+                  onInput: this._onRoomHiddenDeviceSearchInput,
+                  onPick: this._onAddRoomHiddenDevice,
+                  onRemove: lightId => this._onRemoveRoomHiddenDevice(lightId),
+                  emptyKey: 'home.hiddenDeviceSearchEmpty',
+                  disabled: this._savingSharedSettings,
+                  removeLabel: light => this.t('home.removeHiddenDevice', { name: light.name }),
+                })}
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="settings-section-copy">
+                <h3>${this.t('home.roomRoutinesTitle')}</h3>
+                <p>${this.t('home.roomRoutinesDescription')}</p>
+              </div>
+
+              <div class="settings-group-body">
+                ${this._scenes.length === 0
+                  ? html`<div class="settings-empty">${this.t('home.sharedSettingsEmpty')}</div>`
+                  : this._renderSettingsPicker({
+                    label: this.t('home.addRoomRoutine'),
+                    placeholder: this.t('home.searchRoomRoutinePlaceholder'),
+                    selectedItems: roomRoutines,
+                    emptyText: this.t('home.roomRoutinesEmpty'),
+                    query: this._roomRoutineSearch,
+                    open: this._roomRoutinePickerOpen,
+                    items: this._availableActiveRoomRoutines,
+                    onToggle: this._toggleRoomRoutinePicker,
+                    onInput: this._onRoomRoutineSearchInput,
+                    onPick: this._onAddRoomRoutine,
+                    onRemove: sceneId => this._onRemoveRoomRoutine(sceneId),
+                    emptyKey: 'home.roomRoutineSearchEmpty',
+                    disabled: this._savingSharedSettings,
+                    removeLabel: scene => this.t('home.removeRoomRoutine', { name: scene.name }),
+                  })}
+              </div>
+            </div>
+          </section>
+
+          <div class="settings-actions">
+            <button class="primary-btn" @click=${this._toggleSettings}>${this.t('common.save')}</button>
+          </div>
         </div>
       </div>
     `;

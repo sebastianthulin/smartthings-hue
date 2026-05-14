@@ -32,17 +32,37 @@ function createDefaultHomeConfig(locationId = null) {
   };
 }
 
-function normalizeHiddenRoomIds(hiddenRoomIds) {
-  if (!Array.isArray(hiddenRoomIds)) {
+function normalizeStringIds(values) {
+  if (!Array.isArray(values)) {
     return [];
   }
 
   return [...new Set(
-    hiddenRoomIds
-      .filter(roomId => typeof roomId === 'string')
-      .map(roomId => roomId.trim())
+    values
+      .filter(value => typeof value === 'string')
+      .map(value => value.trim())
       .filter(Boolean)
   )];
+}
+
+function normalizeHiddenRoomIds(hiddenRoomIds) {
+  return normalizeStringIds(hiddenRoomIds);
+}
+
+function normalizeRoomSettings(roomSettings) {
+  if (!roomSettings || typeof roomSettings !== 'object' || Array.isArray(roomSettings)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(roomSettings).map(([roomId, value]) => [
+      roomId,
+      {
+        hiddenLightIds: normalizeStringIds(value?.hiddenLightIds),
+        routineSceneIds: normalizeStringIds(value?.routineSceneIds),
+      },
+    ])
+  );
 }
 
 function normalizeHomeConfig(locationId, homeConfig) {
@@ -51,18 +71,7 @@ function normalizeHomeConfig(locationId, homeConfig) {
     : {};
   const fallback = createDefaultHomeConfig(locationId);
   const updatedAt = Number(config.updatedAt);
-  const roomSettings = config.roomSettings && typeof config.roomSettings === 'object' && !Array.isArray(config.roomSettings)
-    ? Object.fromEntries(
-      Object.entries(config.roomSettings).map(([roomId, value]) => [
-        roomId,
-        {
-          routineSceneIds: Array.isArray(value?.routineSceneIds)
-            ? [...new Set(value.routineSceneIds.filter(sceneId => typeof sceneId === 'string' && sceneId.trim()))]
-            : [],
-        },
-      ])
-    )
-    : {};
+  const roomSettings = normalizeRoomSettings(config.roomSettings);
 
   return {
     schemaVersion: 1,
@@ -380,6 +389,27 @@ class HomeStore extends EventTarget {
     );
   }
 
+  async setRoomPower(roomId, on) {
+    const room = this.#findRoom(roomId);
+    if (!room) return;
+
+    const target = Boolean(on);
+    if (room.lights.every(light => light.on === target)) {
+      return;
+    }
+
+    room.lights.forEach(light => {
+      light.on = target;
+    });
+    this.#emit();
+
+    await Promise.allSettled(
+      room.lights.map(light =>
+        target ? smartthings.switchOn(light.id) : smartthings.switchOff(light.id)
+      )
+    );
+  }
+
   /** Toggle a single light. */
   async toggleLight(lightId) {
     const light = this.#findLight(lightId);
@@ -450,7 +480,7 @@ class HomeStore extends EventTarget {
     return this.updateSharedSettings({ mainRoutines });
   }
 
-  async updateSharedSettings({ mainRoutines, hiddenRoomIds } = {}) {
+  async updateSharedSettings({ mainRoutines, hiddenRoomIds, roomSettings } = {}) {
     if (!this.#locationId || !this.#sharedConfigEnabled) {
       return this.#snapshotHomeConfig();
     }
@@ -462,12 +492,14 @@ class HomeStore extends EventTarget {
         ...mainRoutines,
       },
       hiddenRoomIds: hiddenRoomIds ?? this.#homeConfig.hiddenRoomIds,
+      roomSettings: roomSettings ?? this.#homeConfig.roomSettings,
     });
 
     if (
       nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
       && nextConfig.mainRoutines.turnOffSceneId === this.#homeConfig.mainRoutines.turnOffSceneId
       && JSON.stringify(nextConfig.hiddenRoomIds) === JSON.stringify(this.#homeConfig.hiddenRoomIds)
+      && JSON.stringify(nextConfig.roomSettings) === JSON.stringify(this.#homeConfig.roomSettings)
     ) {
       return this.#snapshotHomeConfig();
     }
@@ -490,6 +522,37 @@ class HomeStore extends EventTarget {
       : this.#homeConfig.mainRoutines.turnOffSceneId;
 
     if (!sceneId) {
+      return false;
+    }
+
+    await smartthings.executeScene(sceneId, this.#locationId);
+    void this.#syncOnce();
+    return true;
+  }
+
+  async updateRoomSettings(roomId, roomSettings) {
+    if (!roomId) {
+      return this.#snapshotHomeConfig();
+    }
+
+    const currentRoomSettings = this.#homeConfig.roomSettings?.[roomId] ?? {
+      hiddenLightIds: [],
+      routineSceneIds: [],
+    };
+
+    const nextRoomSettings = normalizeRoomSettings({
+      ...this.#homeConfig.roomSettings,
+      [roomId]: {
+        hiddenLightIds: roomSettings?.hiddenLightIds ?? currentRoomSettings.hiddenLightIds,
+        routineSceneIds: roomSettings?.routineSceneIds ?? currentRoomSettings.routineSceneIds,
+      },
+    });
+
+    return this.updateSharedSettings({ roomSettings: nextRoomSettings });
+  }
+
+  async executeRoomRoutine(sceneId) {
+    if (!this.#locationId || !sceneId) {
       return false;
     }
 
@@ -580,6 +643,7 @@ class HomeStore extends EventTarget {
         Object.entries(this.#homeConfig.roomSettings ?? {}).map(([roomId, value]) => [
           roomId,
           {
+            hiddenLightIds: [...(value.hiddenLightIds ?? [])],
             routineSceneIds: [...(value.routineSceneIds ?? [])],
           },
         ])

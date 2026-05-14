@@ -167,12 +167,23 @@ export function getMockHomeConfig(locationId) {
 }
 
 export function saveMockHomeConfig(locationId, config) {
+  const normalizedRoomSettings = Object.fromEntries(
+    Object.entries(config?.roomSettings ?? {}).map(([roomId, roomSetting]) => [
+      roomId,
+      {
+        hiddenLightIds: Array.isArray(roomSetting?.hiddenLightIds) ? [...new Set(roomSetting.hiddenLightIds)] : [],
+        routineSceneIds: Array.isArray(roomSetting?.routineSceneIds) ? [...new Set(roomSetting.routineSceneIds)] : [],
+      },
+    ])
+  );
+
   mockHomeConfigState[locationId] = clone({
     ...config,
     schemaVersion: 1,
     locationId,
     updatedAt: Date.now(),
     hiddenRoomIds: Array.isArray(config?.hiddenRoomIds) ? [...new Set(config.hiddenRoomIds)] : [],
+    roomSettings: normalizedRoomSettings,
   });
 
   return getMockHomeConfig(locationId);

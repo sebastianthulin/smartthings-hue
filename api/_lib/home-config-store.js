@@ -89,7 +89,14 @@ function sanitizeRoomSettings(roomSettings) {
       ? [...new Set(rawRoomSetting.routineSceneIds.map(sanitizeSceneId).filter(Boolean))]
       : [];
 
-    normalized[normalizedRoomId] = { routineSceneIds };
+    const hiddenLightIds = Array.isArray(rawRoomSetting?.hiddenLightIds)
+      ? [...new Set(rawRoomSetting.hiddenLightIds.map(sanitizeSceneId).filter(Boolean))]
+      : [];
+
+    normalized[normalizedRoomId] = {
+      hiddenLightIds,
+      routineSceneIds,
+    };
   }
 
   return normalized;
