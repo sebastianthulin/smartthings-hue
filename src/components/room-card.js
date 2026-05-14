@@ -88,6 +88,16 @@ export class RoomCard extends LocalizedElement {
       gap: var(--space-1);
     }
 
+    .detail-summary {
+      display: contents;
+    }
+
+    .card.detail-view .detail-summary {
+      display: block;
+      background: color-mix(in srgb, var(--color-surface) 86%, black 14%);
+      border-bottom: 1px solid var(--color-border-subtle);
+    }
+
     .top-row,
     .bottom-row {
       display: flex;
@@ -98,6 +108,11 @@ export class RoomCard extends LocalizedElement {
 
     .title-section,
     .status-section {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .summary-section {
       flex: 1;
       min-width: 0;
     }
@@ -242,6 +257,11 @@ export class RoomCard extends LocalizedElement {
       margin: 0 var(--space-5);
     }
 
+    .card.detail-view .divider {
+      margin: 0;
+      background: color-mix(in srgb, var(--color-border) 85%, transparent);
+    }
+
     .expand-content {
       padding: var(--space-4) var(--space-5) var(--space-5);
     }
@@ -375,61 +395,78 @@ export class RoomCard extends LocalizedElement {
       >
         <div class="glow"></div>
 
-        <div class="main">
-          <div class="top-row">
-            <div class="title-section">
-              <div class="room-name">${room.name}</div>
-              ${room.occupied
-                ? html`<span class="presence-icon" aria-label=${this.t('room.occupied')}>directions_run</span>`
-                : ''}
-            </div>
-            <div class="room-controls">
-              <button
-                type="button"
-                class="room-toggle ${lightsOn ? 'on' : ''}"
-                @pointerdown=${e => e.stopPropagation()}
-                @pointerup=${e => e.stopPropagation()}
-                @click=${this._toggleRoom}
-                aria-label=${lightsOn
-                  ? this.t('room.turnOffRoomLights', { name: room.name })
-                  : this.t('room.turnOnRoomLights', { name: room.name })}
-              >
-                <span class="room-toggle-thumb"></span>
-              </button>
-            </div>
-          </div>
-
-          <div class="bottom-row">
-            <div class="status-section">
-              <div class="status-line">
-                <div class="light-status">
-                  <span class="light-status-text">${this._lightStatusText}</span>
-                  <span class="light-status-value ${this._activeRoomBrightness != null && this._roomValueVisible ? 'visible' : ''}">${this._statusValueLabel}</span>
-                </div>
-                ${room.climate
-                  ? html`<climate-summary .climate=${room.climate}></climate-summary>`
-                  : ''}
+        <div class="detail-summary">
+          <div class="main">
+            <div class="top-row">
+              <div class=${this.detailView ? 'summary-section' : 'title-section'}>
+                ${this.detailView ? html`
+                  <div class="status-line">
+                    <div class="light-status">
+                      <span class="light-status-text">${this._lightStatusText}</span>
+                      <span class="light-status-value ${this._activeRoomBrightness != null && this._roomValueVisible ? 'visible' : ''}">${this._statusValueLabel}</span>
+                    </div>
+                    ${room.climate
+                      ? html`<climate-summary .climate=${room.climate}></climate-summary>`
+                      : ''}
+                  </div>
+                ` : html`
+                  <div class="room-name">${room.name}</div>
+                  ${room.occupied
+                    ? html`<span class="presence-icon" aria-label=${this.t('room.occupied')}>directions_run</span>`
+                    : ''}
+                `}
+              </div>
+              <div class="room-controls">
+                <button
+                  type="button"
+                  class="room-toggle ${lightsOn ? 'on' : ''}"
+                  @pointerdown=${e => e.stopPropagation()}
+                  @pointerup=${e => e.stopPropagation()}
+                  @click=${this._toggleRoom}
+                  aria-label=${lightsOn
+                    ? this.t('room.turnOffRoomLights', { name: room.name })
+                    : this.t('room.turnOnRoomLights', { name: room.name })}
+                >
+                  <span class="room-toggle-thumb"></span>
+                </button>
               </div>
             </div>
-          </div>
-        </div>
 
-        ${roomBrightnessValue != null ? html`
-          <div class="dim-section">
-            <dimmer-slider
-              .value=${roomBrightnessValue}
-              ?disabled=${!lightsOn}
-              @change=${this._onBrightnessChange}
-              @dimmer-interaction=${this._onBrightnessInteraction}
-              @click=${this._stopPropagation}
-              aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}
-            ></dimmer-slider>
+            ${this.detailView ? '' : html`
+              <div class="bottom-row">
+                <div class="status-section">
+                  <div class="status-line">
+                    <div class="light-status">
+                      <span class="light-status-text">${this._lightStatusText}</span>
+                      <span class="light-status-value ${this._activeRoomBrightness != null && this._roomValueVisible ? 'visible' : ''}">${this._statusValueLabel}</span>
+                    </div>
+                    ${room.climate
+                      ? html`<climate-summary .climate=${room.climate}></climate-summary>`
+                      : ''}
+                  </div>
+                </div>
+              </div>
+            `}
           </div>
-        ` : ''}
+
+          ${roomBrightnessValue != null ? html`
+            <div class="dim-section">
+              <dimmer-slider
+                .value=${roomBrightnessValue}
+                ?disabled=${!lightsOn}
+                @change=${this._onBrightnessChange}
+                @dimmer-interaction=${this._onBrightnessInteraction}
+                @click=${this._stopPropagation}
+                aria-label=${this.t('room.adjustRoomBrightness', { name: room.name })}
+              ></dimmer-slider>
+            </div>
+          ` : ''}
+
+          ${this.detailView ? html`<div class="divider"></div>` : ''}
+        </div>
 
         ${this.detailView ? html`
           <div class="expand-wrapper open">
-            <div class="divider"></div>
             <div class="expand-content">
               <light-group .lights=${room.lights} .roomId=${room.id}></light-group>
             </div>
