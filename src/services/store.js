@@ -16,6 +16,7 @@ const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms
 const HOME_CONFIG_SYNC_INTERVAL = 5 * 60_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
+const COLOR_DEBOUNCE_MS = 120;
 const MOCK_LOCATION_ID = 'mock-location';
 
 function createDefaultHomeConfig(locationId = null) {
@@ -166,6 +167,7 @@ class HomeStore extends EventTarget {
   #scenes      = [];
   #sharedConfigEnabled = smartthings.sharedConfigEnabled;
   #sharedConfigLastSync = 0;
+  #lightColorTimers = new Map();
   #lightLevelTimers = new Map();
   #roomLevelTimers  = new Map();
 
@@ -444,6 +446,27 @@ class HomeStore extends EventTarget {
     }, BRIGHTNESS_DEBOUNCE_MS));
   }
 
+  async setLightColor(lightId, hue, saturation) {
+    const light = this.#findLight(lightId);
+    if (!light) return;
+
+    const nextHue = Math.max(0, Math.min(100, Number(hue ?? 0)));
+    const nextSaturation = Math.max(0, Math.min(100, Number(saturation ?? light.color?.saturation ?? 100)));
+
+    light.color = {
+      hue: nextHue,
+      saturation: nextSaturation,
+    };
+    light.on = true;
+    this.#emit();
+
+    this.#clearLightColorTimer(lightId);
+    this.#lightColorTimers.set(lightId, setTimeout(async () => {
+      this.#lightColorTimers.delete(lightId);
+      await Promise.allSettled([smartthings.setColor(lightId, nextHue, nextSaturation)]);
+    }, COLOR_DEBOUNCE_MS));
+  }
+
   /** Set brightness for all lights in a room. */
   async setRoomBrightness(roomId, brightness) {
     const room = this.#findRoom(roomId);
@@ -612,6 +635,13 @@ class HomeStore extends EventTarget {
     if (!timer) return;
     clearTimeout(timer);
     this.#lightLevelTimers.delete(lightId);
+  }
+
+  #clearLightColorTimer(lightId) {
+    const timer = this.#lightColorTimers.get(lightId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.#lightColorTimers.delete(lightId);
   }
 
   #clearRoomLevelTimer(roomId) {
