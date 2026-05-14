@@ -209,6 +209,23 @@ export class LightGroup extends LocalizedElement {
       gap: var(--space-3);
     }
 
+    .color-controls-shell {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transition: grid-template-rows var(--transition-base), opacity var(--transition-base);
+    }
+
+    .color-controls-shell.open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+
+    .color-controls-shell-inner {
+      min-height: 0;
+      overflow: hidden;
+    }
+
     .color-controls {
       --color-controls-surface: var(--color-surface-elevated);
       --color-controls-border: color-mix(in srgb, var(--color-accent) 18%, var(--color-border));
@@ -220,6 +237,14 @@ export class LightGroup extends LocalizedElement {
       border: 1px solid var(--color-controls-border);
       border-radius: var(--radius-md);
       background: var(--color-controls-surface);
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity var(--transition-base), transform var(--transition-base);
+    }
+
+    .color-controls-shell.open .color-controls {
+      opacity: 1;
+      transform: translateY(0);
     }
 
     .color-controls::before {
@@ -312,28 +337,8 @@ export class LightGroup extends LocalizedElement {
     store.setLightColor(lightId, hue, saturation);
   }
 
-  async _toggleColorControls(lightId) {
-    await this._runColorControlsTransition(() => {
-      this._openColorLightId = this._openColorLightId === lightId ? null : lightId;
-    });
-  }
-
-  async _runColorControlsTransition(update) {
-    const startViewTransition = document.startViewTransition?.bind(document);
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (!startViewTransition || reducedMotion) {
-      update();
-      await this.updateComplete;
-      return;
-    }
-
-    const transition = startViewTransition(async () => {
-      update();
-      await this.updateComplete;
-    });
-
-    await transition.finished;
+  _toggleColorControls(lightId) {
+    this._openColorLightId = this._openColorLightId === lightId ? null : lightId;
   }
 
   _onDimmerInteraction(lightId, e) {
@@ -442,29 +447,33 @@ export class LightGroup extends LocalizedElement {
             </div>
 
             <div class="light-controls">
-              ${light.color && this._openColorLightId === light.id ? html`
-                <div class="color-controls">
-                  <div class="color-controls-header">
-                    <span>${this.t('room.lightColorControls')}</span>
+              ${light.color ? html`
+                <div class="color-controls-shell ${this._openColorLightId === light.id ? 'open' : ''}" aria-hidden=${String(this._openColorLightId !== light.id)}>
+                  <div class="color-controls-shell-inner">
+                    <div class="color-controls">
+                      <div class="color-controls-header">
+                        <span>${this.t('room.lightColorControls')}</span>
+                      </div>
+                      <div class="color-swatch-row">
+                        ${COLOR_PRESETS.map(preset => html`
+                          <button
+                            class="color-swatch ${this._isPresetSelected(light, preset) ? 'selected' : ''}"
+                            type="button"
+                            style=${`background: ${this._swatchColor(preset)};`}
+                            ?disabled=${!light.on || this._openColorLightId !== light.id}
+                            @click=${() => this._onColorChange(light.id, preset.hue, preset.saturation)}
+                            aria-label=${this.t(`room.colorPreset${preset.key.charAt(0).toUpperCase()}${preset.key.slice(1)}`, { name: light.name })}
+                          ></button>
+                        `)}
+                      </div>
+                      <hue-slider
+                        .value=${light.color.hue ?? 0}
+                        ?disabled=${!light.on || this._openColorLightId !== light.id}
+                        @change=${e => this._onColorChange(light.id, e.detail.value, light.color?.saturation ?? 100)}
+                        aria-label=${this.t('room.adjustLightHue', { name: light.name })}
+                      ></hue-slider>
+                    </div>
                   </div>
-                  <div class="color-swatch-row">
-                    ${COLOR_PRESETS.map(preset => html`
-                      <button
-                        class="color-swatch ${this._isPresetSelected(light, preset) ? 'selected' : ''}"
-                        type="button"
-                        style=${`background: ${this._swatchColor(preset)};`}
-                        ?disabled=${!light.on}
-                        @click=${() => this._onColorChange(light.id, preset.hue, preset.saturation)}
-                        aria-label=${this.t(`room.colorPreset${preset.key.charAt(0).toUpperCase()}${preset.key.slice(1)}`, { name: light.name })}
-                      ></button>
-                    `)}
-                  </div>
-                  <hue-slider
-                    .value=${light.color.hue ?? 0}
-                    ?disabled=${!light.on}
-                    @change=${e => this._onColorChange(light.id, e.detail.value, light.color?.saturation ?? 100)}
-                    aria-label=${this.t('room.adjustLightHue', { name: light.name })}
-                  ></hue-slider>
                 </div>
               ` : ''}
 
