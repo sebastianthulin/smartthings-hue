@@ -50,6 +50,7 @@ export class AppShell extends LitElement {
     this._authPending          = true;
     this._authPendingMode      = smartthings.pendingLoginMode;
     this._pageTransitionActive = false;
+    this._resumePendingOAuthPromise = null;
   }
 
   _describeError(error, fallbackKey = 'tokenSetup.errors.invalid') {
@@ -191,35 +192,49 @@ export class AppShell extends LitElement {
   }
 
   async _resumePendingOAuth() {
-    if (!smartthings.hasPendingLogin) {
-      this._authPendingMode = '';
-      return;
+    if (this._resumePendingOAuthPromise) {
+      return this._resumePendingOAuthPromise;
     }
 
-    this._authPending = true;
-    this._authPendingMode = smartthings.pendingLoginMode;
-
-    try {
-      const completed = await smartthings.resumePendingLogin({ forceRestart: true });
-
-      if (completed && smartthings.hasToken) {
-        this._hasToken = true;
-        this._authError = false;
-        this._authMessage = '';
+    this._resumePendingOAuthPromise = (async () => {
+      if (!smartthings.hasPendingLogin) {
         this._authPendingMode = '';
-        await this._boot();
-        this._showQueuedAuthToast();
-        return;
+        return false;
       }
 
-      await this._initializeAuth();
-    } catch (error) {
-      smartthings.clearToken();
-      this._hasToken = false;
-      this._authError = true;
-      this._authMessage = this._describeError(error);
-      this._authPendingMode = '';
-      this._authPending = false;
+      this._authPending = true;
+      this._authPendingMode = smartthings.pendingLoginMode;
+
+      try {
+        const completed = await smartthings.resumePendingLogin();
+
+        if (completed && smartthings.hasToken) {
+          this._hasToken = true;
+          this._authError = false;
+          this._authMessage = '';
+          this._authPendingMode = '';
+          await this._boot();
+          this._showQueuedAuthToast();
+          return true;
+        }
+
+        await this._initializeAuth();
+        return false;
+      } catch (error) {
+        smartthings.clearToken();
+        this._hasToken = false;
+        this._authError = true;
+        this._authMessage = this._describeError(error);
+        this._authPendingMode = '';
+        this._authPending = false;
+        return false;
+      }
+    })();
+
+    try {
+      return await this._resumePendingOAuthPromise;
+    } finally {
+      this._resumePendingOAuthPromise = null;
     }
   }
 
