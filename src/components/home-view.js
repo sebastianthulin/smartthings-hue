@@ -489,8 +489,6 @@ const homeViewStyles = css`
   ::view-transition-old(settings-sheet),
   ::view-transition-new(settings-sheet) {
     mix-blend-mode: normal;
-    border-radius: var(--radius-xl);
-    overflow: clip;
   }
 
   .settings-sheet h2 {
