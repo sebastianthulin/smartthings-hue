@@ -6,9 +6,11 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const SETTINGS_PASSWORD_KEY = 'st_settings_password';
 const SWIPE_BACK_EDGE_PX = 32;
 const SWIPE_BACK_TRIGGER_PX = 72;
 const SWIPE_BACK_LOCK_RATIO = 1.2;
+const settingsPasswordEncoder = new TextEncoder();
 
 function createMainRoutineDraft(homeConfig = null) {
   return {
@@ -53,6 +55,48 @@ function roomIdListsEqual(left, right) {
   }
 
   return left.every((roomId, index) => roomId === right[index]);
+}
+
+function readSettingsPasswordRecord() {
+  try {
+    const value = localStorage.getItem(SETTINGS_PASSWORD_KEY);
+    if (!value) {
+      return null;
+    }
+
+    const record = JSON.parse(value);
+    return typeof record?.hash === 'string' && record.hash
+      ? { hash: record.hash }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSettingsPasswordRecord(record) {
+  try {
+    if (record?.hash) {
+      localStorage.setItem(SETTINGS_PASSWORD_KEY, JSON.stringify(record));
+    } else {
+      localStorage.removeItem(SETTINGS_PASSWORD_KEY);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hashSettingsPassword(password) {
+  const value = typeof password === 'string' ? password : '';
+
+  if (!window.crypto?.subtle) {
+    return value;
+  }
+
+  const digest = await window.crypto.subtle.digest('SHA-256', settingsPasswordEncoder.encode(value));
+  return [...new Uint8Array(digest)]
+    .map(part => part.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 const homeViewStyles = css`
@@ -1060,6 +1104,83 @@ const homeViewStyles = css`
     cursor: pointer;
   }
 
+  .settings-lock-status {
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+  }
+
+  .settings-lock-form {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .settings-lock-field {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .settings-lock-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .settings-lock-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 12px 14px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-elevated);
+    color: var(--color-text-primary);
+    font: inherit;
+    outline: none;
+    transition: border-color var(--transition-base);
+  }
+
+  .settings-lock-input:focus {
+    border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+  }
+
+  .settings-lock-input::placeholder {
+    color: var(--color-text-dim);
+  }
+
+  .settings-lock-hidden-user {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .settings-lock-error {
+    margin: 0;
+    color: #ff9b9b;
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+  }
+
+  .settings-lock-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-3);
+  }
+
   .primary-btn {
     width: 100%;
     min-width: 0;
@@ -1130,6 +1251,10 @@ const homeViewStyles = css`
     padding: var(--space-3) 0;
   }
 
+  .confirm-actions .primary-btn {
+    width: auto;
+  }
+
   @media (min-width: 768px) {
     .settings-backdrop {
       align-items: center;
@@ -1166,6 +1291,14 @@ export class HomeView extends LocalizedElement {
     _settingsTab:           { state: true },
     _scenes:                { state: true },
     _settingsOpen:          { state: true },
+    _settingsPasswordConfigured: { state: true },
+    _settingsPasswordDraft: { state: true },
+    _settingsPasswordConfirmDraft: { state: true },
+    _settingsPasswordError: { state: true },
+    _settingsPasswordPromptOpen: { state: true },
+    _settingsPasswordPromptValue: { state: true },
+    _settingsPasswordPromptError: { state: true },
+    _settingsPasswordSaving: { state: true },
     _sharedHiddenRoomPickerOpen: { state: true },
     _sharedRoomSearch:      { state: true },
     _sharedConfigEnabled:   { state: true },
@@ -1205,6 +1338,14 @@ export class HomeView extends LocalizedElement {
     this._settingsTab           = 'device';
     this._scenes                = store.scenes;
     this._settingsOpen          = false;
+    this._settingsPasswordConfigured = Boolean(readSettingsPasswordRecord());
+    this._settingsPasswordDraft = '';
+    this._settingsPasswordConfirmDraft = '';
+    this._settingsPasswordError = '';
+    this._settingsPasswordPromptOpen = false;
+    this._settingsPasswordPromptValue = '';
+    this._settingsPasswordPromptError = '';
+    this._settingsPasswordSaving = false;
     this._sharedHiddenRoomPickerOpen = false;
     this._sharedRoomSearch      = '';
     this._sharedConfigEnabled   = store.sharedConfigEnabled;
@@ -1275,6 +1416,13 @@ export class HomeView extends LocalizedElement {
         confirmDialog.focus();
       }
     }
+
+    if (changed.has('_settingsPasswordPromptOpen') && this._settingsPasswordPromptOpen) {
+      const passwordInput = this.renderRoot.querySelector('.settings-lock-dialog .settings-lock-input');
+      if (passwordInput) {
+        passwordInput.focus();
+      }
+    }
   }
 
   _disconnect() {
@@ -1310,6 +1458,26 @@ export class HomeView extends LocalizedElement {
       return;
     }
 
+    if (this._settingsPasswordPromptOpen) {
+      this._closeSettingsPasswordPrompt();
+      return;
+    }
+
+    if (this._settingsPasswordConfigured) {
+      this._settingsPasswordPromptValue = '';
+      this._settingsPasswordPromptError = '';
+      this._settingsPasswordPromptOpen = true;
+      return;
+    }
+
+    await this._openSettings();
+  }
+
+  async _openSettings() {
+    this._settingsPasswordDraft = '';
+    this._settingsPasswordConfirmDraft = '';
+    this._settingsPasswordError = '';
+
     this._draftActiveRoomSettings = createRoomSettingsDraft(this._homeConfig, this._activeRoomId);
     this._draftMainRoutines = createMainRoutineDraft(this._homeConfig);
     this._mainTurnOnPickerOpen = false;
@@ -1338,6 +1506,116 @@ export class HomeView extends LocalizedElement {
         // Keep the settings sheet open even if the refresh fails.
       }
     }
+  }
+
+  _closeSettingsPasswordPrompt() {
+    this._settingsPasswordPromptOpen = false;
+    this._settingsPasswordPromptValue = '';
+    this._settingsPasswordPromptError = '';
+  }
+
+  _onSettingsPasswordDraftInput(e) {
+    this._settingsPasswordDraft = e.target.value;
+    this._settingsPasswordError = '';
+  }
+
+  _onSettingsPasswordConfirmDraftInput(e) {
+    this._settingsPasswordConfirmDraft = e.target.value;
+    this._settingsPasswordError = '';
+  }
+
+  _onSettingsPasswordPromptInput(e) {
+    this._settingsPasswordPromptValue = e.target.value;
+    this._settingsPasswordPromptError = '';
+  }
+
+  _onSettingsPasswordPromptKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._closeSettingsPasswordPrompt();
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void this._unlockSettings();
+    }
+  }
+
+  _onSettingsPasswordSubmit(e) {
+    e.preventDefault();
+    void this._saveSettingsPassword();
+  }
+
+  _onSettingsPasswordPromptSubmit(e) {
+    e.preventDefault();
+    void this._unlockSettings();
+  }
+
+  async _unlockSettings() {
+    const record = readSettingsPasswordRecord();
+    if (!record) {
+      this._settingsPasswordConfigured = false;
+      this._closeSettingsPasswordPrompt();
+      await this._openSettings();
+      return;
+    }
+
+    const matches = record.hash === await hashSettingsPassword(this._settingsPasswordPromptValue);
+    if (!matches) {
+      this._settingsPasswordPromptError = this.t('home.settingsLockErrors.invalid');
+      return;
+    }
+
+    this._closeSettingsPasswordPrompt();
+    await this._openSettings();
+  }
+
+  async _saveSettingsPassword() {
+    const password = this._settingsPasswordDraft;
+    const confirmation = this._settingsPasswordConfirmDraft;
+
+    if (!password || !confirmation) {
+      this._settingsPasswordError = this.t('home.settingsLockErrors.missing');
+      return;
+    }
+
+    if (password !== confirmation) {
+      this._settingsPasswordError = this.t('home.settingsLockErrors.mismatch');
+      return;
+    }
+
+    this._settingsPasswordSaving = true;
+    this._settingsPasswordError = '';
+
+    try {
+      const success = writeSettingsPasswordRecord({
+        hash: await hashSettingsPassword(password),
+      });
+
+      if (!success) {
+        this._settingsPasswordError = this.t('home.settingsLockErrors.unavailable');
+        return;
+      }
+
+      this._settingsPasswordConfigured = true;
+      this._settingsPasswordDraft = '';
+      this._settingsPasswordConfirmDraft = '';
+    } finally {
+      this._settingsPasswordSaving = false;
+    }
+  }
+
+  _removeSettingsPassword() {
+    const success = writeSettingsPasswordRecord(null);
+    if (!success) {
+      this._settingsPasswordError = this.t('home.settingsLockErrors.unavailable');
+      return;
+    }
+
+    this._settingsPasswordConfigured = false;
+    this._settingsPasswordDraft = '';
+    this._settingsPasswordConfirmDraft = '';
+    this._settingsPasswordError = '';
   }
 
   _onSettingsKeyDown(e) {
@@ -2150,6 +2428,7 @@ export class HomeView extends LocalizedElement {
           : this._renderEmpty()}
 
       ${this._settingsOpen ? this._renderSettings() : ''}
+      ${this._settingsPasswordPromptOpen ? this._renderSettingsPasswordPrompt() : ''}
       ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}
     `;
   }
@@ -2266,6 +2545,81 @@ export class HomeView extends LocalizedElement {
 
           ${this._settingsTab === 'device' ? html`
             <section class="settings-panel">
+              <div class="settings-group">
+                <div class="settings-group-body">
+                  <div class="settings-subsection">
+                    <div class="settings-section-copy">
+                      <h3>${this.t('home.settingsLockTitle')}</h3>
+                      <p>${this.t('home.settingsLockDescription')}</p>
+                    </div>
+
+                    <form class="settings-lock-form" @submit=${this._onSettingsPasswordSubmit}>
+                      <input
+                        class="settings-lock-hidden-user"
+                        type="text"
+                        tabindex="-1"
+                        autocomplete="username"
+                        .value=${this.t('app.title')}
+                        aria-hidden="true"
+                      />
+                      <p class="settings-lock-status">
+                        ${this.t(this._settingsPasswordConfigured
+                          ? 'home.settingsLockEnabled'
+                          : 'home.settingsLockDisabled')}
+                      </p>
+
+                      <label class="settings-lock-field">
+                        <span class="settings-lock-label">${this.t('home.settingsLockPasswordLabel')}</span>
+                        <input
+                          class="settings-lock-input"
+                          type="password"
+                          .value=${this._settingsPasswordDraft}
+                          autocomplete="new-password"
+                          @input=${this._onSettingsPasswordDraftInput}
+                        />
+                      </label>
+
+                      <label class="settings-lock-field">
+                        <span class="settings-lock-label">${this.t('home.settingsLockConfirmLabel')}</span>
+                        <input
+                          class="settings-lock-input"
+                          type="password"
+                          .value=${this._settingsPasswordConfirmDraft}
+                          autocomplete="new-password"
+                          @input=${this._onSettingsPasswordConfirmDraftInput}
+                        />
+                      </label>
+
+                      ${this._settingsPasswordError ? html`
+                        <p class="settings-lock-error" role="alert">${this._settingsPasswordError}</p>
+                      ` : ''}
+
+                      <div class="settings-lock-actions">
+                        ${this._settingsPasswordConfigured ? html`
+                          <button
+                            class="secondary-btn"
+                            type="button"
+                            ?disabled=${this._settingsPasswordSaving}
+                            @click=${this._removeSettingsPassword}
+                          >
+                            ${this.t('home.settingsLockRemoveAction')}
+                          </button>
+                        ` : ''}
+                        <button
+                          class="secondary-btn"
+                          type="submit"
+                          ?disabled=${this._settingsPasswordSaving}
+                        >
+                          ${this.t(this._settingsPasswordConfigured
+                            ? 'home.settingsLockUpdateAction'
+                            : 'home.settingsLockSaveAction')}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
               <div class="settings-group">
                 ${this._rooms.length === 0
                   ? html`<div class="settings-empty">${this.t('home.settingsEmpty')}</div>`
@@ -2533,6 +2887,55 @@ export class HomeView extends LocalizedElement {
             <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>${this.t('common.cancel')}</button>
             <button class="disconnect-btn" @click=${this._confirmDisconnect}>${this.t(this._connectionCopyKey('Disconnect'))}</button>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSettingsPasswordPrompt() {
+    return html`
+      <div class="confirm-backdrop" @click=${this._closeSettingsPasswordPrompt}>
+        <div
+          class="confirm-dialog settings-lock-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label=${this.t('home.settingsUnlockTitle')}
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onSettingsPasswordPromptKeyDown}
+        >
+          <h3>${this.t('home.settingsUnlockTitle')}</h3>
+          <p>${this.t('home.settingsUnlockDescription')}</p>
+
+          <form class="settings-lock-form" @submit=${this._onSettingsPasswordPromptSubmit}>
+            <input
+              class="settings-lock-hidden-user"
+              type="text"
+              tabindex="-1"
+              autocomplete="username"
+              .value=${this.t('app.title')}
+              aria-hidden="true"
+            />
+            <label class="settings-lock-field">
+              <span class="settings-lock-label">${this.t('home.settingsUnlockLabel')}</span>
+              <input
+                class="settings-lock-input"
+                type="password"
+                .value=${this._settingsPasswordPromptValue}
+                autocomplete="current-password"
+                @input=${this._onSettingsPasswordPromptInput}
+              />
+            </label>
+
+            ${this._settingsPasswordPromptError ? html`
+              <p class="settings-lock-error" role="alert">${this._settingsPasswordPromptError}</p>
+            ` : ''}
+
+            <div class="confirm-actions">
+              <button class="secondary-btn" type="button" @click=${this._closeSettingsPasswordPrompt}>${this.t('common.cancel')}</button>
+              <button class="primary-btn" type="submit">${this.t('home.settingsUnlockAction')}</button>
+            </div>
+          </form>
         </div>
       </div>
     `;
