@@ -237,8 +237,8 @@ function writeHomeConfigCache(locationId, value, storage = localStorage) {
 
 function clearHomeConfigCaches(storage = localStorage) {
   try {
-    for (let index = storage.length - 1; index >= 0; index -= 1) {
-      const key = storage.key(index);
+    for (let storageIndex = storage.length - 1; storageIndex >= 0; storageIndex -= 1) {
+      const key = storage.key(storageIndex);
 
       if (key?.startsWith(HOME_CONFIG_CACHE_KEY_PREFIX)) {
         storage.removeItem(key);
