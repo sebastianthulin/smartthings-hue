@@ -6,6 +6,8 @@ import './app-toasts.js';
 import './token-setup.js';
 import './home-view.js';
 
+const OPPORTUNISTIC_AUTH_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
 const appShellStyles = css`
   app-shell {
     display: block;
@@ -51,6 +53,8 @@ export class AppShell extends LitElement {
     this._authPendingMode      = smartthings.pendingLoginMode;
     this._pageTransitionActive = false;
     this._resumePendingOAuthPromise = null;
+    this._refreshOAuthSessionPromise = null;
+    this._authRefreshTimer = null;
   }
 
   _describeError(error, fallbackKey = 'tokenSetup.errors.invalid') {
@@ -85,24 +89,44 @@ export class AppShell extends LitElement {
     };
 
     this._onVisibilityChange = () => {
-      if (
-        document.visibilityState === 'visible'
-        && this._authMode === 'oauth'
-        && !this._hasToken
-      ) {
+      if (document.visibilityState !== 'visible' || this._authMode !== 'oauth') {
+        return;
+      }
+
+      if (this._hasToken) {
+        this._maybeRefreshOAuthSession();
+      } else {
         this._resumePendingOAuth();
       }
     };
 
     this._onWindowFocus = () => {
-      if (this._authMode === 'oauth' && !this._hasToken) {
+      if (this._authMode !== 'oauth') {
+        return;
+      }
+
+      if (this._hasToken) {
+        this._maybeRefreshOAuthSession();
+      } else {
         this._resumePendingOAuth();
       }
     };
 
     this._onPageShow = () => {
-      if (this._authMode === 'oauth' && !this._hasToken) {
+      if (this._authMode !== 'oauth') {
+        return;
+      }
+
+      if (this._hasToken) {
+        this._maybeRefreshOAuthSession();
+      } else {
         this._resumePendingOAuth();
+      }
+    };
+
+    this._onWindowOnline = () => {
+      if (this._authMode === 'oauth' && this._hasToken) {
+        this._maybeRefreshOAuthSession();
       }
     };
 
@@ -120,7 +144,9 @@ export class AppShell extends LitElement {
     document.addEventListener('visibilitychange', this._onVisibilityChange);
     window.addEventListener('focus', this._onWindowFocus);
     window.addEventListener('pageshow', this._onPageShow);
+    window.addEventListener('online', this._onWindowOnline);
     window.addEventListener('message', this._onAuthRelayMessage);
+    this._startAuthRefreshTimer();
     this._initializeAuth();
   }
 
@@ -130,13 +156,29 @@ export class AppShell extends LitElement {
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     window.removeEventListener('focus', this._onWindowFocus);
     window.removeEventListener('pageshow', this._onPageShow);
+    window.removeEventListener('online', this._onWindowOnline);
     window.removeEventListener('message', this._onAuthRelayMessage);
+    this._stopAuthRefreshTimer();
     store.stopSync();
   }
 
+  _startAuthRefreshTimer() {
+    this._stopAuthRefreshTimer();
+    this._authRefreshTimer = window.setInterval(() => {
+      this._maybeRefreshOAuthSession();
+    }, OPPORTUNISTIC_AUTH_REFRESH_INTERVAL_MS);
+  }
+
+  _stopAuthRefreshTimer() {
+    if (this._authRefreshTimer) {
+      window.clearInterval(this._authRefreshTimer);
+      this._authRefreshTimer = null;
+    }
+  }
+
   async _boot() {
-    store.rehydrate();   // render instantly from cache
-    store.startSync();   // then sync in background
+    store.rehydrate();
+    store.startSync();
   }
 
   _showQueuedAuthToast() {
@@ -175,6 +217,7 @@ export class AppShell extends LitElement {
         this._authMessage = '';
         this._authPendingMode = '';
         await this._boot();
+        this._maybeRefreshOAuthSession();
         this._showQueuedAuthToast();
       } else if (this._authMode === 'oauth') {
         this._authMessage = smartthings.authConfigError;
@@ -214,6 +257,7 @@ export class AppShell extends LitElement {
           this._authMessage = '';
           this._authPendingMode = '';
           await this._boot();
+          this._maybeRefreshOAuthSession();
           this._showQueuedAuthToast();
           return true;
         }
@@ -235,6 +279,32 @@ export class AppShell extends LitElement {
       return await this._resumePendingOAuthPromise;
     } finally {
       this._resumePendingOAuthPromise = null;
+    }
+  }
+
+  async _maybeRefreshOAuthSession() {
+    if (
+      this._refreshOAuthSessionPromise
+      || this._authMode !== 'oauth'
+      || !this._hasToken
+      || document.visibilityState !== 'visible'
+      || navigator.onLine === false
+    ) {
+      return false;
+    }
+
+    this._refreshOAuthSessionPromise = (async () => {
+      try {
+        return await smartthings.maybeRefreshSession();
+      } catch {
+        return false;
+      }
+    })();
+
+    try {
+      return await this._refreshOAuthSessionPromise;
+    } finally {
+      this._refreshOAuthSessionPromise = null;
     }
   }
 
@@ -274,6 +344,7 @@ export class AppShell extends LitElement {
         this._authMessage = '';
         this._authPendingMode = '';
         await this._boot();
+        this._maybeRefreshOAuthSession();
         this._showQueuedAuthToast();
       }
     } catch (error) {

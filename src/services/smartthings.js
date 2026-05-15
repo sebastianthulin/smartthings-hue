@@ -306,6 +306,7 @@ function writeAuthPopupPlaceholder(popup) {
 class SmartThingsAPI {
   #session = null;
   #pendingLoginPromise = null;
+  #refreshSessionPromise = null;
 
   constructor() {
     this.#session = this.#readSession();
@@ -526,21 +527,50 @@ class SmartThingsAPI {
   }
 
   async refreshSession() {
+    if (this.#refreshSessionPromise) {
+      return this.#refreshSessionPromise;
+    }
+
     if (!this.#session?.refreshToken) {
       throw new AuthError('SmartThings session has expired. Please sign in again.', {
         descriptor: createMessageDescriptor('tokenSetup.errors.expired'),
       });
     }
 
-    const response = await this.#brokerRequest('/smartthings/refresh', {
-      refreshToken: this.#session.refreshToken,
-    });
+    this.#refreshSessionPromise = (async () => {
+      const response = await this.#brokerRequest('/smartthings/refresh', {
+        refreshToken: this.#session.refreshToken,
+      });
 
-    this.#persistSession(this.#normalizeTokenResponse(response, {
-      fallbackRefreshToken: this.#session.refreshToken,
-    }));
+      this.#persistSession(this.#normalizeTokenResponse(response, {
+        fallbackRefreshToken: this.#session.refreshToken,
+      }));
 
-    return this.#session.accessToken;
+      return this.#session.accessToken;
+    })();
+
+    try {
+      return await this.#refreshSessionPromise;
+    } finally {
+      this.#refreshSessionPromise = null;
+    }
+  }
+
+  async maybeRefreshSession({ force = false } = {}) {
+    if (isMockSmartThingsEnabled() || this.authMode !== 'oauth' || !this.#session?.accessToken) {
+      return false;
+    }
+
+    if (!this.#session.expiresAt) {
+      return false;
+    }
+
+    if (!force && this.#session.expiresAt > Date.now() + REFRESH_LEEWAY_MS) {
+      return false;
+    }
+
+    await this.refreshSession();
+    return true;
   }
 
   async #request(path, options = {}, canRetryAuth = true) {
