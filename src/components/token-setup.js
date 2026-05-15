@@ -126,58 +126,6 @@ export class TokenSetup extends LocalizedElement {
       line-height: 1.6;
     }
 
-    .oauth-flow {
-      display: grid;
-      gap: var(--space-3);
-      padding: var(--space-4);
-      border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--color-surface-elevated) 92%, rgba(255, 255, 255, 0.02));
-      border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-    }
-
-    .oauth-flow-title {
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-medium);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--color-text-dim);
-    }
-
-    .oauth-steps {
-      display: grid;
-      gap: var(--space-3);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    .oauth-step {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: var(--space-3);
-      align-items: start;
-    }
-
-    .oauth-step-index {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.75rem;
-      height: 1.75rem;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-      color: var(--color-accent);
-      font-size: 0.82rem;
-      font-weight: var(--font-weight-semibold);
-      flex-shrink: 0;
-    }
-
-    .oauth-step-text {
-      color: var(--color-text-secondary);
-      font-size: var(--font-size-sm);
-      line-height: 1.55;
-    }
-
     .status-card {
       display: grid;
       gap: var(--space-4);
@@ -623,32 +571,6 @@ export class TokenSetup extends LocalizedElement {
     return this.authMode === 'token' ? 'key' : 'arrow_forward';
   }
 
-  _oauthStepsTemplate() {
-    if (this.authMode !== 'oauth') {
-      return '';
-    }
-
-    const steps = [
-      this.t('tokenSetup.oauthStepOpen'),
-      this.t('tokenSetup.oauthStepApprove'),
-      this.t('tokenSetup.oauthStepReturn'),
-    ];
-
-    return html`
-      <section class="oauth-flow" aria-label=${this.t('tokenSetup.oauthStepsTitle')}>
-        <span class="oauth-flow-title">${this.t('tokenSetup.oauthStepsTitle')}</span>
-        <ol class="oauth-steps">
-          ${steps.map((step, index) => html`
-            <li class="oauth-step">
-              <span class="oauth-step-index" aria-hidden="true">${index + 1}</span>
-              <span class="oauth-step-text">${step}</span>
-            </li>
-          `)}
-        </ol>
-      </section>
-    `;
-  }
-
   _statusTemplate() {
     if (this.authMode !== 'oauth') {
       return '';
@@ -706,8 +628,6 @@ export class TokenSetup extends LocalizedElement {
           <h1>${this.t('tokenSetup.title')}</h1>
           <p>${this._description()}</p>
         </div>
-
-        ${this._oauthStepsTemplate()}
         ${this._statusTemplate()}
 
         ${this._error ? html`
