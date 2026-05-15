@@ -2043,8 +2043,7 @@ export class HomeView extends LocalizedElement {
     return this._rooms.filter(room => !hidden.has(room.id));
   }
 
-  get _activeRoom() {
-    const room = this._visibleRooms.find(candidate => candidate.id === this._activeRoomId) ?? null;
+  _roomWithVisibleLights(room) {
     if (!room) {
       return null;
     }
@@ -2054,6 +2053,11 @@ export class HomeView extends LocalizedElement {
       ...room,
       lights: room.lights.filter(light => !hiddenLightIds.has(light.id)),
     };
+  }
+
+  get _activeRoom() {
+    const room = this._visibleRooms.find(candidate => candidate.id === this._activeRoomId) ?? null;
+    return this._roomWithVisibleLights(room);
   }
 
   get _activeRoomSource() {
@@ -2133,15 +2137,15 @@ export class HomeView extends LocalizedElement {
           `
         : visibleRooms.length > 0
           ? html`
-              <div class="rooms">
-                ${visibleRooms.map(room => html`
-                  <room-card
-                    .room=${room}
-                    .transitionName=${this._roomTransitionName(room.id)}
-                    @open-room=${this._openRoom}
-                  ></room-card>
-                `)}
-              </div>
+                <div class="rooms">
+                  ${visibleRooms.map(room => html`
+                    <room-card
+                      .room=${this._roomWithVisibleLights(room)}
+                      .transitionName=${this._roomTransitionName(room.id)}
+                      @open-room=${this._openRoom}
+                    ></room-card>
+                  `)}
+                </div>
             `
           : this._renderEmpty()}
 
