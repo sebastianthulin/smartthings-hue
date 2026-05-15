@@ -3,9 +3,10 @@ import { LitElement, html, css } from 'lit';
 const THUMB_SIZE = 20;
 const SEND_DEBOUNCE_MS = 40;
 
-export class HueSlider extends LitElement {
+export class SaturationSlider extends LitElement {
   static properties = {
     value: { type: Number },
+    hue: { type: Number },
     disabled: { type: Boolean, reflect: true },
     _dragging: { state: true },
   };
@@ -36,16 +37,6 @@ export class HueSlider extends LitElement {
       width: 100%;
       height: 6px;
       border-radius: var(--radius-full);
-      background: linear-gradient(
-        90deg,
-        hsl(0 100% 50%) 0%,
-        hsl(32 100% 50%) 16%,
-        hsl(58 100% 50%) 32%,
-        hsl(120 100% 42%) 48%,
-        hsl(200 100% 50%) 64%,
-        hsl(258 100% 58%) 82%,
-        hsl(320 100% 52%) 100%
-      );
       overflow: visible;
     }
 
@@ -70,7 +61,8 @@ export class HueSlider extends LitElement {
 
   constructor() {
     super();
-    this.value = 0;
+    this.value = 100;
+    this.hue = 0;
     this.disabled = false;
     this._dragging = false;
     this._sendTimer = null;
@@ -162,12 +154,17 @@ export class HueSlider extends LitElement {
     return `calc(${pct}% - ${(pct / 100) * THUMB_SIZE}px)`;
   }
 
-  _thumbBackground(pct) {
-    return `hsl(${Math.round(pct * 3.6)}deg 100% 50%)`;
+  _trackBackground(hue) {
+    return `linear-gradient(90deg, hsl(${Math.round(hue * 3.6)}deg 0% 92%) 0%, hsl(${Math.round(hue * 3.6)}deg 100% 50%) 100%)`;
+  }
+
+  _thumbBackground(hue, saturation) {
+    return `hsl(${Math.round(hue * 3.6)}deg ${Math.round(saturation)}% 50%)`;
   }
 
   render() {
     const pct = Math.max(0, Math.min(100, this.value ?? 0));
+    const hue = Math.max(0, Math.min(100, this.hue ?? 0));
 
     return html`
       <div
@@ -178,12 +175,12 @@ export class HueSlider extends LitElement {
         @pointercancel=${this._onPointerUp}
         aria-disabled=${this.disabled ? 'true' : 'false'}
       >
-        <div class="track">
-          <div class="thumb" style=${`left: ${this._thumbLeft(pct)}; background: ${this._thumbBackground(pct)};`}></div>
+        <div class="track" style=${`background: ${this._trackBackground(hue)};`}>
+          <div class="thumb" style=${`left: ${this._thumbLeft(pct)}; background: ${this._thumbBackground(hue, pct)};`}></div>
         </div>
       </div>
     `;
   }
 }
 
-customElements.define('hue-slider', HueSlider);
+customElements.define('saturation-slider', SaturationSlider);

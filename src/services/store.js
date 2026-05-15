@@ -168,6 +168,7 @@ class HomeStore extends EventTarget {
   #sharedConfigEnabled = smartthings.sharedConfigEnabled;
   #sharedConfigLastSync = 0;
   #lightColorTimers = new Map();
+  #lightColorTemperatureTimers = new Map();
   #lightLevelTimers = new Map();
   #roomLevelTimers  = new Map();
 
@@ -467,6 +468,23 @@ class HomeStore extends EventTarget {
     }, COLOR_DEBOUNCE_MS));
   }
 
+  async setLightColorTemperature(lightId, kelvin) {
+    const light = this.#findLight(lightId);
+    if (!light) return;
+
+    const nextKelvin = Math.max(1500, Math.min(6500, Number(kelvin ?? light.colorTemp ?? 2700)));
+
+    light.colorTemp = nextKelvin;
+    light.on = true;
+    this.#emit();
+
+    this.#clearLightColorTemperatureTimer(lightId);
+    this.#lightColorTemperatureTimers.set(lightId, setTimeout(async () => {
+      this.#lightColorTemperatureTimers.delete(lightId);
+      await Promise.allSettled([smartthings.setColorTemperature(lightId, nextKelvin)]);
+    }, COLOR_DEBOUNCE_MS));
+  }
+
   /** Set brightness for all lights in a room. */
   async setRoomBrightness(roomId, brightness) {
     const room = this.#findRoom(roomId);
@@ -642,6 +660,13 @@ class HomeStore extends EventTarget {
     if (!timer) return;
     clearTimeout(timer);
     this.#lightColorTimers.delete(lightId);
+  }
+
+  #clearLightColorTemperatureTimer(lightId) {
+    const timer = this.#lightColorTemperatureTimers.get(lightId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.#lightColorTemperatureTimers.delete(lightId);
   }
 
   #clearRoomLevelTimer(roomId) {

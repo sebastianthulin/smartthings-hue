@@ -3,8 +3,14 @@ import { store } from '../services/store.js';
 import { LocalizedElement } from './localized-element.js';
 import './dimmer-slider.js';
 import './hue-slider.js';
+import './saturation-slider.js';
+import './temperature-slider.js';
 
-const COLOR_PRESETS = [
+const LIGHT_PRESETS = [
+  { key: 'coolWhite', kelvin: 4000, hue: 58, saturation: 8 },
+  { key: 'warmWhite', kelvin: 2700, hue: 12, saturation: 18 },
+  { key: 'warmGlow', kelvin: 2200, hue: 10, saturation: 34 },
+  { key: 'candlelight', kelvin: 1780, hue: 8, saturation: 48 },
   { key: 'red', hue: 0, saturation: 100 },
   { key: 'amber', hue: 10, saturation: 100 },
   { key: 'yellow', hue: 17, saturation: 100 },
@@ -25,6 +31,8 @@ export class LightGroup extends LocalizedElement {
     roomId: { type: String },
     _activeLightId: { state: true },
     _activeLightBrightness: { state: true },
+    _colorPreviews: { state: true },
+    _temperaturePreviews: { state: true },
     _lightValueVisible: { state: true },
     _openColorLightId: { state: true },
   };
@@ -204,6 +212,14 @@ export class LightGroup extends LocalizedElement {
       width: 100%;
     }
 
+    saturation-slider {
+      width: 100%;
+    }
+
+    temperature-slider {
+      width: 100%;
+    }
+
     .light-controls {
       display: grid;
       gap: var(--space-3);
@@ -274,6 +290,20 @@ export class LightGroup extends LocalizedElement {
       font-size: var(--font-size-sm);
     }
 
+    .color-control-group {
+      display: grid;
+      gap: var(--space-2);
+      position: relative;
+      z-index: 1;
+    }
+
+    .color-control-group-title {
+      color: var(--color-text-dim);
+      font-size: var(--font-size-xs, 11px);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
     .color-swatch-row {
       display: flex;
       flex-wrap: wrap;
@@ -306,15 +336,27 @@ export class LightGroup extends LocalizedElement {
       cursor: default;
       opacity: 0.4;
     }
+
   `;
 
   constructor() {
     super();
     this._activeLightId = null;
     this._activeLightBrightness = null;
+    this._colorPreviews = {};
+    this._temperaturePreviews = {};
     this._lightValueVisible = false;
     this._openColorLightId = null;
     this._clearLightValueTimer = null;
+  }
+
+  updated(changedProperties) {
+    super.updated?.(changedProperties);
+
+    if (changedProperties.has('lights')) {
+      this._pruneColorPreviews();
+      this._pruneTemperaturePreviews();
+    }
   }
 
   disconnectedCallback() {
@@ -334,11 +376,128 @@ export class LightGroup extends LocalizedElement {
   }
 
   _onColorChange(lightId, hue, saturation = 100) {
+    this._setColorPreview(lightId, { hue, saturation });
     store.setLightColor(lightId, hue, saturation);
+  }
+
+  _onColorTemperatureChange(lightId, kelvin) {
+    this._setTemperaturePreview(lightId, kelvin);
+    store.setLightColorTemperature(lightId, kelvin);
+  }
+
+  _supportsPreset(light, preset) {
+    return (light.color && preset.hue != null)
+      || (light.colorTemp != null && preset.kelvin != null);
+  }
+
+  _applyPreset(light, preset) {
+    if (light.color && preset.hue != null) {
+      this._onColorChange(light.id, preset.hue, preset.saturation ?? 100);
+    }
+
+    if (light.colorTemp != null && preset.kelvin != null) {
+      this._onColorTemperatureChange(light.id, preset.kelvin);
+    }
   }
 
   _toggleColorControls(lightId) {
     this._openColorLightId = this._openColorLightId === lightId ? null : lightId;
+  }
+
+  _setColorPreview(lightId, patch) {
+    this._colorPreviews = {
+      ...this._colorPreviews,
+      [lightId]: {
+        ...(this._colorPreviews[lightId] ?? {}),
+        ...patch,
+      },
+    };
+  }
+
+  _setTemperaturePreview(lightId, kelvin) {
+    this._temperaturePreviews = {
+      ...this._temperaturePreviews,
+      [lightId]: kelvin,
+    };
+  }
+
+  _pruneColorPreviews() {
+    if (!Object.keys(this._colorPreviews).length) {
+      return;
+    }
+
+    const nextPreviews = { ...this._colorPreviews };
+    let changed = false;
+
+    for (const [lightId, preview] of Object.entries(this._colorPreviews)) {
+      const light = this.lights?.find(candidate => candidate.id === lightId);
+      if (!light?.color) {
+        delete nextPreviews[lightId];
+        changed = true;
+        continue;
+      }
+
+      const previewHue = preview.hue ?? light.color.hue ?? 0;
+      const previewSaturation = preview.saturation ?? light.color.saturation ?? 100;
+      const lightHue = light.color.hue ?? 0;
+      const lightSaturation = light.color.saturation ?? 100;
+
+      if (Math.abs(previewHue - lightHue) <= 0.5 && Math.abs(previewSaturation - lightSaturation) <= 0.5) {
+        delete nextPreviews[lightId];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this._colorPreviews = nextPreviews;
+    }
+  }
+
+  _pruneTemperaturePreviews() {
+    if (!Object.keys(this._temperaturePreviews).length) {
+      return;
+    }
+
+    const nextPreviews = { ...this._temperaturePreviews };
+    let changed = false;
+
+    for (const [lightId, previewKelvin] of Object.entries(this._temperaturePreviews)) {
+      const light = this.lights?.find(candidate => candidate.id === lightId);
+      if (light?.colorTemp == null) {
+        delete nextPreviews[lightId];
+        changed = true;
+        continue;
+      }
+
+      if (Math.abs(Number(previewKelvin) - Number(light.colorTemp)) <= 8) {
+        delete nextPreviews[lightId];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this._temperaturePreviews = nextPreviews;
+    }
+  }
+
+  _getDisplayColor(light) {
+    if (!light.color) {
+      return null;
+    }
+
+    const preview = this._colorPreviews[light.id];
+    return {
+      ...light.color,
+      ...preview,
+    };
+  }
+
+  _getDisplayTemperature(light) {
+    if (light.colorTemp == null) {
+      return null;
+    }
+
+    return this._temperaturePreviews[light.id] ?? light.colorTemp;
   }
 
   _onDimmerInteraction(lightId, e) {
@@ -377,12 +536,42 @@ export class LightGroup extends LocalizedElement {
   }
 
   _isPresetSelected(light, preset) {
-    if (!light.color) {
+    const displayColor = this._getDisplayColor(light);
+    if (!displayColor) {
       return false;
     }
 
-    return Math.abs((light.color.hue ?? 0) - preset.hue) <= 3
-      && Math.abs((light.color.saturation ?? 100) - preset.saturation) <= 18;
+    return Math.abs((displayColor.hue ?? 0) - preset.hue) <= 3
+      && Math.abs((displayColor.saturation ?? 100) - preset.saturation) <= 18;
+  }
+
+  _isTemperaturePresetSelected(light, preset) {
+    const displayTemperature = this._getDisplayTemperature(light);
+    if (displayTemperature == null) {
+      return false;
+    }
+
+    return Math.abs(displayTemperature - preset.kelvin) <= 180;
+  }
+
+  _isUnifiedPresetSelected(light, preset) {
+    if (!this._supportsPreset(light, preset)) {
+      return false;
+    }
+
+    if (light.color && light.colorTemp != null && preset.hue != null && preset.kelvin != null) {
+      return this._isPresetSelected(light, preset) && this._isTemperaturePresetSelected(light, preset);
+    }
+
+    if (light.color && preset.hue != null) {
+      return this._isPresetSelected(light, preset);
+    }
+
+    if (light.colorTemp != null && preset.kelvin != null) {
+      return this._isTemperaturePresetSelected(light, preset);
+    }
+
+    return false;
   }
 
   get _sortedLights() {
@@ -413,6 +602,11 @@ export class LightGroup extends LocalizedElement {
         @pointercancel=${this._stopPropagation}
       >
         ${this._sortedLights.map(light => html`
+          ${(() => {
+            const hasColorControls = Boolean(light.color || light.colorTemp != null);
+            const displayColor = this._getDisplayColor(light);
+            const displayTemperature = this._getDisplayTemperature(light);
+            return html`
           <div class="light-item">
             <div class="light-row">
               <span class="light-name ${light.on ? '' : 'off'}">
@@ -420,7 +614,7 @@ export class LightGroup extends LocalizedElement {
                 <span class="light-value ${this._activeLightId === light.id && this._activeLightBrightness != null && this._lightValueVisible ? 'visible' : ''}">${this._lightValueLabel(light)}</span>
               </span>
               <div class="light-actions">
-                ${light.color ? html`
+                ${hasColorControls ? html`
                   <button
                     class="icon-action ${this._openColorLightId === light.id ? 'active' : ''}"
                     type="button"
@@ -447,31 +641,63 @@ export class LightGroup extends LocalizedElement {
             </div>
 
             <div class="light-controls">
-              ${light.color ? html`
+              ${hasColorControls ? html`
                 <div class="color-controls-shell ${this._openColorLightId === light.id ? 'open' : ''}" aria-hidden=${String(this._openColorLightId !== light.id)}>
                   <div class="color-controls-shell-inner">
                     <div class="color-controls">
                       <div class="color-controls-header">
                         <span>${this.t('room.lightColorControls')}</span>
                       </div>
-                      <div class="color-swatch-row">
-                        ${COLOR_PRESETS.map(preset => html`
-                          <button
-                            class="color-swatch ${this._isPresetSelected(light, preset) ? 'selected' : ''}"
-                            type="button"
-                            style=${`background: ${this._swatchColor(preset)};`}
-                            ?disabled=${!light.on || this._openColorLightId !== light.id}
-                            @click=${() => this._onColorChange(light.id, preset.hue, preset.saturation)}
-                            aria-label=${this.t(`room.colorPreset${preset.key.charAt(0).toUpperCase()}${preset.key.slice(1)}`, { name: light.name })}
-                          ></button>
-                        `)}
+                      <div class="color-control-group">
+                        <span class="color-control-group-title">${this.t('room.lightPresetSection')}</span>
+                        <div class="color-swatch-row">
+                          ${LIGHT_PRESETS.filter(preset => this._supportsPreset(light, preset)).map(preset => html`
+                            <button
+                              class="color-swatch ${this._isUnifiedPresetSelected(light, preset) ? 'selected' : ''}"
+                              type="button"
+                              style=${`background: ${this._swatchColor({ hue: preset.hue ?? 10, saturation: preset.saturation ?? 0 })};`}
+                              ?disabled=${!light.on || this._openColorLightId !== light.id}
+                              @click=${() => this._applyPreset(light, preset)}
+                              aria-label=${this.t(`room.${preset.kelvin != null ? 'temperaturePreset' : 'colorPreset'}${preset.key.charAt(0).toUpperCase()}${preset.key.slice(1)}`, { name: light.name })}
+                              title=${this.t(`room.${preset.kelvin != null ? 'whitePreset' : 'colorName'}${preset.key.charAt(0).toUpperCase()}${preset.key.slice(1)}`)}
+                            ></button>
+                          `)}
+                        </div>
                       </div>
-                      <hue-slider
-                        .value=${light.color.hue ?? 0}
-                        ?disabled=${!light.on || this._openColorLightId !== light.id}
-                        @change=${e => this._onColorChange(light.id, e.detail.value, light.color?.saturation ?? 100)}
-                        aria-label=${this.t('room.adjustLightHue', { name: light.name })}
-                      ></hue-slider>
+
+                      ${light.color ? html`
+                        <div class="color-control-group">
+                          <span class="color-control-group-title">${this.t('room.lightColorSection')}</span>
+                          <hue-slider
+                            .value=${displayColor?.hue ?? light.color.hue ?? 0}
+                            ?disabled=${!light.on || this._openColorLightId !== light.id}
+                            @preview=${e => this._setColorPreview(light.id, { hue: e.detail.value })}
+                            @change=${e => this._onColorChange(light.id, e.detail.value, this._getDisplayColor(light)?.saturation ?? light.color?.saturation ?? 100)}
+                            aria-label=${this.t('room.adjustLightHue', { name: light.name })}
+                          ></hue-slider>
+                          <saturation-slider
+                            .value=${displayColor?.saturation ?? light.color.saturation ?? 100}
+                            .hue=${displayColor?.hue ?? light.color.hue ?? 0}
+                            ?disabled=${!light.on || this._openColorLightId !== light.id}
+                            @preview=${e => this._setColorPreview(light.id, { saturation: e.detail.value })}
+                            @change=${e => this._onColorChange(light.id, this._getDisplayColor(light)?.hue ?? light.color?.hue ?? 0, e.detail.value)}
+                            aria-label=${this.t('room.adjustLightSaturation', { name: light.name })}
+                          ></saturation-slider>
+                        </div>
+                      ` : ''}
+
+                      ${light.colorTemp != null ? html`
+                        <div class="color-control-group">
+                          <span class="color-control-group-title">${this.t('room.lightWhiteSection')}</span>
+                          <temperature-slider
+                            .value=${displayTemperature ?? light.colorTemp ?? 2700}
+                            ?disabled=${!light.on || this._openColorLightId !== light.id}
+                            @preview=${e => this._setTemperaturePreview(light.id, e.detail.value)}
+                            @change=${e => this._onColorTemperatureChange(light.id, e.detail.value)}
+                            aria-label=${this.t('room.adjustLightTemperature', { name: light.name })}
+                          ></temperature-slider>
+                        </div>
+                      ` : ''}
                     </div>
                   </div>
                 </div>
@@ -487,6 +713,8 @@ export class LightGroup extends LocalizedElement {
               ` : ''}
             </div>
           </div>
+            `;
+          })()}
         `)}
       </div>
     `;

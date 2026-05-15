@@ -2,8 +2,10 @@ import { LitElement, html, css } from 'lit';
 
 const THUMB_SIZE = 20;
 const SEND_DEBOUNCE_MS = 40;
+const MIN_KELVIN = 1500;
+const MAX_KELVIN = 6500;
 
-export class HueSlider extends LitElement {
+export class TemperatureSlider extends LitElement {
   static properties = {
     value: { type: Number },
     disabled: { type: Boolean, reflect: true },
@@ -38,13 +40,11 @@ export class HueSlider extends LitElement {
       border-radius: var(--radius-full);
       background: linear-gradient(
         90deg,
-        hsl(0 100% 50%) 0%,
-        hsl(32 100% 50%) 16%,
-        hsl(58 100% 50%) 32%,
-        hsl(120 100% 42%) 48%,
-        hsl(200 100% 50%) 64%,
-        hsl(258 100% 58%) 82%,
-        hsl(320 100% 52%) 100%
+        hsl(26 100% 58%) 0%,
+        hsl(34 100% 62%) 22%,
+        hsl(42 100% 76%) 48%,
+        hsl(48 32% 92%) 72%,
+        hsl(204 62% 88%) 100%
       );
       overflow: visible;
     }
@@ -70,7 +70,7 @@ export class HueSlider extends LitElement {
 
   constructor() {
     super();
-    this.value = 0;
+    this.value = 2700;
     this.disabled = false;
     this._dragging = false;
     this._sendTimer = null;
@@ -85,19 +85,24 @@ export class HueSlider extends LitElement {
   _getPercent(e) {
     const rect = this.shadowRoot.querySelector('.track').getBoundingClientRect();
     const x = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
-    return Math.max(0, Math.min(100, (x / rect.width) * 100));
+    return Math.max(0, Math.min(1, x / rect.width));
   }
 
-  _emit(value) {
-    this.dispatchEvent(new CustomEvent('change', {
-      detail: { value: Math.round(value) },
-      bubbles: false,
-    }));
+  _clampKelvin(value) {
+    return Math.max(MIN_KELVIN, Math.min(MAX_KELVIN, Math.round(Number(value) || MIN_KELVIN)));
   }
 
-  _emitPreview(value) {
-    this.dispatchEvent(new CustomEvent('preview', {
-      detail: { value: Math.round(value) },
+  _kelvinFromPercent(percent) {
+    return this._clampKelvin(MIN_KELVIN + (MAX_KELVIN - MIN_KELVIN) * percent);
+  }
+
+  _percentFromKelvin(kelvin) {
+    return (this._clampKelvin(kelvin) - MIN_KELVIN) / (MAX_KELVIN - MIN_KELVIN);
+  }
+
+  _emit(type, value) {
+    this.dispatchEvent(new CustomEvent(type, {
+      detail: { value: this._clampKelvin(value) },
       bubbles: false,
     }));
   }
@@ -111,7 +116,7 @@ export class HueSlider extends LitElement {
     this._sendTimer = setTimeout(() => {
       const nextValue = this._pendingValue;
       this._clearPendingEmit();
-      this._emit(nextValue);
+      this._emit('change', nextValue);
     }, SEND_DEBOUNCE_MS);
   }
 
@@ -122,7 +127,7 @@ export class HueSlider extends LitElement {
 
     const nextValue = this._pendingValue;
     this._clearPendingEmit();
-    this._emit(nextValue);
+    this._emit('change', nextValue);
   }
 
   _clearPendingEmit() {
@@ -139,18 +144,18 @@ export class HueSlider extends LitElement {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     this._dragging = true;
-    const pct = this._getPercent(e);
-    this.value = pct;
-    this._emitPreview(pct);
-    this._emit(pct);
+    const kelvin = this._kelvinFromPercent(this._getPercent(e));
+    this.value = kelvin;
+    this._emit('preview', kelvin);
+    this._emit('change', kelvin);
   }
 
   _onPointerMove(e) {
     if (this.disabled || !this._dragging) return;
-    const pct = this._getPercent(e);
-    this.value = pct;
-    this._emitPreview(pct);
-    this._queueEmit(pct);
+    const kelvin = this._kelvinFromPercent(this._getPercent(e));
+    this.value = kelvin;
+    this._emit('preview', kelvin);
+    this._queueEmit(kelvin);
   }
 
   _onPointerUp() {
@@ -158,16 +163,21 @@ export class HueSlider extends LitElement {
     this._dragging = false;
   }
 
-  _thumbLeft(pct) {
-    return `calc(${pct}% - ${(pct / 100) * THUMB_SIZE}px)`;
+  _thumbLeft(kelvin) {
+    const percent = this._percentFromKelvin(kelvin);
+    return `calc(${percent * 100}% - ${percent * THUMB_SIZE}px)`;
   }
 
-  _thumbBackground(pct) {
-    return `hsl(${Math.round(pct * 3.6)}deg 100% 50%)`;
+  _thumbBackground(kelvin) {
+    const percent = this._percentFromKelvin(kelvin);
+    const hue = 26 + percent * 178;
+    const saturation = 100 - percent * 52;
+    const lightness = 58 + percent * 24;
+    return `hsl(${Math.round(hue)}deg ${Math.round(saturation)}% ${Math.round(lightness)}%)`;
   }
 
   render() {
-    const pct = Math.max(0, Math.min(100, this.value ?? 0));
+    const kelvin = this._clampKelvin(this.value ?? 2700);
 
     return html`
       <div
@@ -179,11 +189,11 @@ export class HueSlider extends LitElement {
         aria-disabled=${this.disabled ? 'true' : 'false'}
       >
         <div class="track">
-          <div class="thumb" style=${`left: ${this._thumbLeft(pct)}; background: ${this._thumbBackground(pct)};`}></div>
+          <div class="thumb" style=${`left: ${this._thumbLeft(kelvin)}; background: ${this._thumbBackground(kelvin)};`}></div>
         </div>
       </div>
     `;
   }
 }
 
-customElements.define('hue-slider', HueSlider);
+customElements.define('temperature-slider', TemperatureSlider);

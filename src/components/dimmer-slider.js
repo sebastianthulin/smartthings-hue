@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 
 const THUMB_SIZE = 20;
+const SEND_DEBOUNCE_MS = 40;
 
 /**
  * <dimmer-slider> — a touch-friendly brightness slider.
@@ -101,6 +102,13 @@ export class DimmerSlider extends LitElement {
     this.value    = 50;
     this.disabled = false;
     this._dragging = false;
+    this._sendTimer = null;
+    this._pendingValue = null;
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._clearPendingEmit();
   }
 
   _getPercent(e) {
@@ -114,6 +122,38 @@ export class DimmerSlider extends LitElement {
       detail: { value: Math.round(value) },
       bubbles: false,
     }));
+  }
+
+  _queueEmit(value) {
+    this._pendingValue = value;
+    if (this._sendTimer) {
+      clearTimeout(this._sendTimer);
+    }
+
+    this._sendTimer = setTimeout(() => {
+      const nextValue = this._pendingValue;
+      this._clearPendingEmit();
+      this._emit(nextValue);
+    }, SEND_DEBOUNCE_MS);
+  }
+
+  _flushPendingEmit() {
+    if (this._pendingValue == null) {
+      return;
+    }
+
+    const nextValue = this._pendingValue;
+    this._clearPendingEmit();
+    this._emit(nextValue);
+  }
+
+  _clearPendingEmit() {
+    if (this._sendTimer) {
+      clearTimeout(this._sendTimer);
+      this._sendTimer = null;
+    }
+
+    this._pendingValue = null;
   }
 
   _emitInteraction(active, value = this.value ?? 0) {
@@ -142,11 +182,12 @@ export class DimmerSlider extends LitElement {
     if (!this._dragging) return;
     const pct = this._getPercent(e);
     this.value = pct;
-    this._emit(pct);
+    this._queueEmit(pct);
     this._emitInteraction(true, pct);
   }
 
   _onPointerUp() {
+    this._flushPendingEmit();
     if (this._dragging) {
       this._emitInteraction(false);
     }
