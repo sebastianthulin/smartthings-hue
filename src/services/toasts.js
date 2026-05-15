@@ -33,7 +33,8 @@ class ToastService extends EventTarget {
     return item.id;
   }
 
-  dismiss(id) {
+  dismiss(id, reason = 'dismiss') {
+    const item = this.#items.find((entry) => entry.id === id);
     const timer = this.#timers.get(id);
 
     if (timer) {
@@ -49,21 +50,20 @@ class ToastService extends EventTarget {
 
     this.#items = nextItems;
     this.#emit();
+
+    try {
+      item?.onDismiss?.(reason, item);
+    } catch {
+      // Ignore toast cleanup errors.
+    }
   }
 
   clear() {
-    for (const timer of this.#timers.values()) {
-      window.clearTimeout(timer);
+    const ids = this.#items.map((item) => item.id);
+
+    for (const id of ids) {
+      this.dismiss(id, 'clear');
     }
-
-    this.#timers.clear();
-
-    if (!this.#items.length) {
-      return;
-    }
-
-    this.#items = [];
-    this.#emit();
   }
 
   #emit() {
