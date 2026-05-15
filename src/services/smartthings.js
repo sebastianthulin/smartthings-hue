@@ -33,6 +33,8 @@ const AUTH_NOTICE_KEY = 'st_auth_notice';
 const REFRESH_LEEWAY_MS = 60_000;
 const AUTH_RELAY_TTL_MS = 5 * 60 * 1000;
 const AUTH_RELAY_POLL_INTERVAL_MS = 2_000;
+const HOME_CONFIG_CACHE_KEY_PREFIX = 'st_home_config_cache:';
+const HOME_CONFIG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!AUTH_BASE_URL;
 
@@ -192,6 +194,61 @@ function writeStorage(key, value, storage = localStorage) {
   }
 }
 
+function getHomeConfigCacheKey(locationId) {
+  return `${HOME_CONFIG_CACHE_KEY_PREFIX}${locationId}`;
+}
+
+function readHomeConfigCache(locationId, storage = localStorage) {
+  if (!locationId) {
+    return { hit: false, value: null };
+  }
+
+  const rawValue = readStorage(getHomeConfigCacheKey(locationId), storage);
+
+  if (!rawValue) {
+    return { hit: false, value: null };
+  }
+
+  try {
+    const payload = JSON.parse(rawValue);
+
+    if (!payload || payload.expiresAt <= Date.now()) {
+      writeStorage(getHomeConfigCacheKey(locationId), null, storage);
+      return { hit: false, value: null };
+    }
+
+    return { hit: true, value: payload.value ?? null };
+  } catch {
+    writeStorage(getHomeConfigCacheKey(locationId), null, storage);
+    return { hit: false, value: null };
+  }
+}
+
+function writeHomeConfigCache(locationId, value, storage = localStorage) {
+  if (!locationId) {
+    return;
+  }
+
+  writeStorage(getHomeConfigCacheKey(locationId), JSON.stringify({
+    expiresAt: Date.now() + HOME_CONFIG_CACHE_TTL_MS,
+    value: value ?? null,
+  }), storage);
+}
+
+function clearHomeConfigCaches(storage = localStorage) {
+  try {
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+
+      if (key?.startsWith(HOME_CONFIG_CACHE_KEY_PREFIX)) {
+        storage.removeItem(key);
+      }
+    }
+  } catch {
+    // Ignore browsers that block storage.
+  }
+}
+
 function createStateToken() {
   return globalThis.crypto?.randomUUID?.()
     ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -307,6 +364,7 @@ class SmartThingsAPI {
   #session = null;
   #pendingLoginPromise = null;
   #refreshSessionPromise = null;
+  #homeConfigRequests = new Map();
 
   constructor() {
     this.#session = this.#readSession();
@@ -382,6 +440,7 @@ class SmartThingsAPI {
     writeStorage(LEGACY_TOKEN_KEY, null);
     writeStorage(STATE_KEY, null);
     writeStorage(AUTH_NOTICE_KEY, null);
+    clearHomeConfigCaches();
     this.#clearPendingAuth();
   }
 
@@ -671,15 +730,36 @@ class SmartThingsAPI {
       return getMockHomeConfig(locationId);
     }
 
-    if (!SERVICE_BASE_URL) {
+    if (!SERVICE_BASE_URL || !locationId) {
       return null;
     }
 
-    const response = await this.#serviceFetch(`/home-config/${encodeURIComponent(locationId)}`, {
-      method: 'GET',
-    });
+    const cached = readHomeConfigCache(locationId);
+    if (cached.hit) {
+      return cached.value;
+    }
 
-    return response.config ?? null;
+    const pendingRequest = this.#homeConfigRequests.get(locationId);
+    if (pendingRequest) {
+      return pendingRequest;
+    }
+
+    const request = (async () => {
+      const response = await this.#serviceFetch(`/home-config/${encodeURIComponent(locationId)}`, {
+        method: 'GET',
+      });
+      const config = response.config ?? null;
+      writeHomeConfigCache(locationId, config);
+      return config;
+    })();
+
+    this.#homeConfigRequests.set(locationId, request);
+
+    try {
+      return await request;
+    } finally {
+      this.#homeConfigRequests.delete(locationId);
+    }
   }
 
   /** Persist the shared home config for a location through the broker service. */
@@ -696,7 +776,9 @@ class SmartThingsAPI {
       body: JSON.stringify({ config }),
     });
 
-    return response.config ?? null;
+    const nextConfig = response.config ?? null;
+    writeHomeConfigCache(locationId, nextConfig);
+    return nextConfig;
   }
 
   /** Fetch full status for one device. */
