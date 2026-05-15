@@ -1155,6 +1155,18 @@ const homeViewStyles = css`
     color: var(--color-text-dim);
   }
 
+  .settings-lock-hidden-user {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .settings-lock-error {
     margin: 0;
     color: #ff9b9b;
@@ -1527,6 +1539,16 @@ export class HomeView extends LocalizedElement {
       e.preventDefault();
       void this._unlockSettings();
     }
+  }
+
+  _onSettingsPasswordSubmit(e) {
+    e.preventDefault();
+    void this._saveSettingsPassword();
+  }
+
+  _onSettingsPasswordPromptSubmit(e) {
+    e.preventDefault();
+    void this._unlockSettings();
   }
 
   async _unlockSettings() {
@@ -2531,7 +2553,15 @@ export class HomeView extends LocalizedElement {
                       <p>${this.t('home.settingsLockDescription')}</p>
                     </div>
 
-                    <div class="settings-lock-form">
+                    <form class="settings-lock-form" @submit=${this._onSettingsPasswordSubmit}>
+                      <input
+                        class="settings-lock-hidden-user"
+                        type="text"
+                        tabindex="-1"
+                        autocomplete="username"
+                        .value=${this.t('app.title')}
+                        aria-hidden="true"
+                      />
                       <p class="settings-lock-status">
                         ${this.t(this._settingsPasswordConfigured
                           ? 'home.settingsLockEnabled'
@@ -2577,16 +2607,15 @@ export class HomeView extends LocalizedElement {
                         ` : ''}
                         <button
                           class="secondary-btn"
-                          type="button"
+                          type="submit"
                           ?disabled=${this._settingsPasswordSaving}
-                          @click=${this._saveSettingsPassword}
                         >
                           ${this.t(this._settingsPasswordConfigured
                             ? 'home.settingsLockUpdateAction'
                             : 'home.settingsLockSaveAction')}
                         </button>
                       </div>
-                    </div>
+                    </form>
                   </div>
                 </div>
               </div>
@@ -2878,25 +2907,35 @@ export class HomeView extends LocalizedElement {
           <h3>${this.t('home.settingsUnlockTitle')}</h3>
           <p>${this.t('home.settingsUnlockDescription')}</p>
 
-          <label class="settings-lock-field">
-            <span class="settings-lock-label">${this.t('home.settingsUnlockLabel')}</span>
+          <form class="settings-lock-form" @submit=${this._onSettingsPasswordPromptSubmit}>
             <input
-              class="settings-lock-input"
-              type="password"
-              .value=${this._settingsPasswordPromptValue}
-              autocomplete="current-password"
-              @input=${this._onSettingsPasswordPromptInput}
+              class="settings-lock-hidden-user"
+              type="text"
+              tabindex="-1"
+              autocomplete="username"
+              .value=${this.t('app.title')}
+              aria-hidden="true"
             />
-          </label>
+            <label class="settings-lock-field">
+              <span class="settings-lock-label">${this.t('home.settingsUnlockLabel')}</span>
+              <input
+                class="settings-lock-input"
+                type="password"
+                .value=${this._settingsPasswordPromptValue}
+                autocomplete="current-password"
+                @input=${this._onSettingsPasswordPromptInput}
+              />
+            </label>
 
-          ${this._settingsPasswordPromptError ? html`
-            <p class="settings-lock-error" role="alert">${this._settingsPasswordPromptError}</p>
-          ` : ''}
+            ${this._settingsPasswordPromptError ? html`
+              <p class="settings-lock-error" role="alert">${this._settingsPasswordPromptError}</p>
+            ` : ''}
 
-          <div class="confirm-actions">
-            <button class="secondary-btn" @click=${this._closeSettingsPasswordPrompt}>${this.t('common.cancel')}</button>
-            <button class="primary-btn" @click=${this._unlockSettings}>${this.t('home.settingsUnlockAction')}</button>
-          </div>
+            <div class="confirm-actions">
+              <button class="secondary-btn" type="button" @click=${this._closeSettingsPasswordPrompt}>${this.t('common.cancel')}</button>
+              <button class="primary-btn" type="submit">${this.t('home.settingsUnlockAction')}</button>
+            </div>
+          </form>
         </div>
       </div>
     `;
