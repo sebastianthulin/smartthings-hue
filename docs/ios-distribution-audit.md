@@ -12,9 +12,9 @@ SmartHue is already closest to production on iPhone as a PWA:
 
 The repo is now also scaffolded for a future native wrapper with Capacitor:
 
-- `@capacitor/core`, `@capacitor/cli`, and `@capacitor/ios` are installed
+- `@capacitor/core`, `@capacitor/cli`, `@capacitor/ios`, and `@capacitor/android` are installed
 - `capacitor.config.json` is present
-- package scripts exist for `cap:add:ios`, `cap:sync`, and `cap:open:ios`
+- package scripts exist for `cap:add:android`, `cap:add:ios`, `cap:sync`, `cap:open:android`, and `cap:open:ios`
 
 ## What is ready now
 
