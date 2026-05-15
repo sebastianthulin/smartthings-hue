@@ -147,6 +147,30 @@ npm run build
 
 For a manual client-side reset after this change is deployed, open the app with `?reset-pwa=1` once.
 
+## Install on iPhone
+
+SmartHue is already configured as an installable PWA. On iPhone, open the app in Safari and use `Share` -> `Add to Home Screen`.
+
+The setup screen now shows an iPhone-specific install hint in Safari when the app is not already running in standalone mode. That path is currently the only realistic no-Apple-fee option for a "real app" feeling on iOS.
+
+## Capacitor iOS wrapper scaffold
+
+This repo now includes Capacitor dependencies and config so you can wrap the web app as a native iOS shell later.
+
+Available scripts:
+
+- `npm run build:native` builds the web app and syncs Capacitor assets
+- `npm run cap:add:ios` creates the iOS project
+- `npm run cap:sync` syncs web assets and plugin config into the native project
+- `npm run cap:open:ios` opens the native project in Xcode
+
+Important constraints:
+
+- `npm run cap:add:ios` and `npm run cap:open:ios` are intended for macOS with Xcode installed
+- this Linux dev container can prepare the repo, but it cannot complete the native iOS build/signing steps
+
+See [docs/ios-distribution-audit.md](./docs/ios-distribution-audit.md) for the current submission blockers and marketplace notes.
+
 ## Run in a devcontainer
 
 Open the repository in the included devcontainer to get a ready-to-use Node development environment inside VS Code. The container forwards the Vite dev server on port `5174` and installs dependencies automatically.

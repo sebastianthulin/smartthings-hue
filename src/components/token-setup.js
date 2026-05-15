@@ -1,6 +1,34 @@
 import { html, css } from 'lit';
 import { LocalizedElement } from './localized-element.js';
 
+const IOS_INSTALL_HINT_DISMISSED_KEY = 'smarthue:ios-install-hint-dismissed';
+
+function isIosSafariInstallable() {
+  const userAgent = window.navigator.userAgent ?? '';
+  const isIos = /iPhone|iPad|iPod/i.test(userAgent);
+  const isStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches
+    || window.navigator.standalone === true;
+  const isSafari = /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS/i.test(userAgent);
+
+  return isIos && isSafari && !isStandalone;
+}
+
+function readInstallHintDismissed() {
+  try {
+    return localStorage.getItem(IOS_INSTALL_HINT_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeInstallHintDismissed() {
+  try {
+    localStorage.setItem(IOS_INSTALL_HINT_DISMISSED_KEY, '1');
+  } catch {
+    // Ignore browsers that block localStorage.
+  }
+}
+
 export class TokenSetup extends LocalizedElement {
   static properties = {
     authMode:     { type: String, attribute: 'auth-mode' },
@@ -12,6 +40,7 @@ export class TokenSetup extends LocalizedElement {
     _error:       { state: true },
     _errorDetail: { state: true },
     _showErrorDetail: { state: true },
+    _showIosInstallHint: { state: true },
   };
 
   static styles = css`
@@ -155,6 +184,62 @@ export class TokenSetup extends LocalizedElement {
       border-radius: var(--radius-lg);
       background: color-mix(in srgb, #5bc0ff 10%, var(--color-surface));
       border: 1px solid color-mix(in srgb, #5bc0ff 24%, transparent);
+    }
+
+    .install-card {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+      border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+    }
+
+    .install-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: var(--space-3);
+    }
+
+    .install-copy {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .install-title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+    }
+
+    .install-description,
+    .install-steps {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      line-height: 1.55;
+    }
+
+    .install-steps {
+      margin: 0;
+      padding-left: 1.1rem;
+      display: grid;
+      gap: 0.3rem;
+    }
+
+    .install-dismiss {
+      width: auto;
+      min-width: 2rem;
+      min-height: 2rem;
+      padding: 0;
+      justify-content: center;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+    }
+
+    .install-dismiss:hover {
+      color: var(--color-text-primary);
     }
 
     .status-card.is-processing {
@@ -424,6 +509,7 @@ export class TokenSetup extends LocalizedElement {
     this._error = '';
     this._errorDetail = '';
     this._showErrorDetail = false;
+    this._showIosInstallHint = isIosSafariInstallable() && !readInstallHintDismissed();
   }
 
   _resolveErrorNotice(error) {
@@ -497,6 +583,11 @@ export class TokenSetup extends LocalizedElement {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  _dismissIosInstallHint() {
+    writeInstallHintDismissed();
+    this._showIosInstallHint = false;
   }
 
   _connect() {
@@ -605,6 +696,37 @@ export class TokenSetup extends LocalizedElement {
     `;
   }
 
+  _iosInstallTemplate() {
+    if (!this._showIosInstallHint) {
+      return '';
+    }
+
+    return html`
+      <section class="install-card" aria-label=${this.t('tokenSetup.installIosTitle')}>
+        <div class="install-header">
+          <div class="install-copy">
+            <span class="install-title">${this.t('tokenSetup.installIosTitle')}</span>
+            <span class="install-description">${this.t('tokenSetup.installIosDescription')}</span>
+          </div>
+          <button
+            class="secondary-button install-dismiss"
+            type="button"
+            @click=${this._dismissIosInstallHint}
+            aria-label=${this.t('tokenSetup.installIosDismiss')}
+            title=${this.t('tokenSetup.installIosDismiss')}
+          >
+            <span class="button-icon" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <ol class="install-steps">
+          <li>${this.t('tokenSetup.installIosStepShare')}</li>
+          <li>${this.t('tokenSetup.installIosStepAdd')}</li>
+          <li>${this.t('tokenSetup.installIosStepLaunch')}</li>
+        </ol>
+      </section>
+    `;
+  }
+
   _hintTemplate() {
     if (this.authMode === 'token') {
       return html`
@@ -633,6 +755,8 @@ export class TokenSetup extends LocalizedElement {
         </div>
 
         ${this._oauthStepsTemplate()}
+
+        ${this._iosInstallTemplate()}
 
         ${this._statusTemplate()}
 

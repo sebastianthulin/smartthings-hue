@@ -1,0 +1,9 @@
+{
+  "appId": "se.sebastianthulin.smarthue",
+  "appName": "SmartHue",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
