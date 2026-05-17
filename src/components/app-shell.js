@@ -6,8 +6,6 @@ import './app-toasts.js';
 import './token-setup.js';
 import './home-view.js';
 
-const OPPORTUNISTIC_AUTH_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-
 const appShellStyles = css`
   app-shell {
     display: block;
@@ -54,7 +52,6 @@ export class AppShell extends LitElement {
     this._pageTransitionActive = false;
     this._resumePendingOAuthPromise = null;
     this._refreshOAuthSessionPromise = null;
-    this._authRefreshTimer = null;
   }
 
   _describeError(error, fallbackKey = 'tokenSetup.errors.invalid') {
@@ -146,7 +143,6 @@ export class AppShell extends LitElement {
     window.addEventListener('pageshow', this._onPageShow);
     window.addEventListener('online', this._onWindowOnline);
     window.addEventListener('message', this._onAuthRelayMessage);
-    this._startAuthRefreshTimer();
     this._initializeAuth();
   }
 
@@ -158,22 +154,7 @@ export class AppShell extends LitElement {
     window.removeEventListener('pageshow', this._onPageShow);
     window.removeEventListener('online', this._onWindowOnline);
     window.removeEventListener('message', this._onAuthRelayMessage);
-    this._stopAuthRefreshTimer();
     store.stopSync();
-  }
-
-  _startAuthRefreshTimer() {
-    this._stopAuthRefreshTimer();
-    this._authRefreshTimer = window.setInterval(() => {
-      this._maybeRefreshOAuthSession();
-    }, OPPORTUNISTIC_AUTH_REFRESH_INTERVAL_MS);
-  }
-
-  _stopAuthRefreshTimer() {
-    if (this._authRefreshTimer) {
-      window.clearInterval(this._authRefreshTimer);
-      this._authRefreshTimer = null;
-    }
   }
 
   async _boot() {
