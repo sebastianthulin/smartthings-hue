@@ -2619,7 +2619,7 @@ export class HomeView extends LocalizedElement {
                             inputmode="numeric"
                             pattern="[0-9]*"
                             maxlength="4"
-                            placeholder="0000"
+                            placeholder="••••"
                             .value=${this._settingsPasswordDraft}
                             autocomplete="new-password"
                             @input=${this._onSettingsPasswordDraftInput}
@@ -2634,7 +2634,7 @@ export class HomeView extends LocalizedElement {
                             inputmode="numeric"
                             pattern="[0-9]*"
                             maxlength="4"
-                            placeholder="0000"
+                            placeholder="••••"
                             .value=${this._settingsPasswordConfirmDraft}
                             autocomplete="new-password"
                             @input=${this._onSettingsPasswordConfirmDraftInput}
@@ -2976,7 +2976,7 @@ export class HomeView extends LocalizedElement {
                 inputmode="numeric"
                 pattern="[0-9]*"
                 maxlength="4"
-                placeholder="0000"
+                placeholder="••••"
                 .value=${this._settingsPasswordPromptValue}
                 autocomplete="current-password"
                 @input=${this._onSettingsPasswordPromptInput}
