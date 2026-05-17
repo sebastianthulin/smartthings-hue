@@ -69,7 +69,7 @@ Non-goals, at least for now:
 - SmartThings OAuth login with a broker-backed code exchange.
 - Refresh-token-based session renewal.
 - Installed-PWA-safe login resume flow using a relay session.
-- Opportunistic foreground refresh for OAuth sessions on focus, visibility return, pageshow, online, and periodic checks.
+- Opportunistic foreground refresh for OAuth sessions on focus, visibility return, pageshow, and online once the stored session has expired.
 
 ### Packaging and runtime
 

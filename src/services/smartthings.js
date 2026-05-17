@@ -30,7 +30,6 @@ const SESSION_KEY = 'st_oauth_session';
 const STATE_KEY = 'st_oauth_state';
 const PENDING_AUTH_KEY = 'st_oauth_pending';
 const AUTH_NOTICE_KEY = 'st_auth_notice';
-const REFRESH_LEEWAY_MS = 60_000;
 const AUTH_RELAY_TTL_MS = 5 * 60 * 1000;
 const AUTH_RELAY_POLL_INTERVAL_MS = 2_000;
 const HOME_CONFIG_CACHE_KEY_PREFIX = 'st_home_config_cache:';
@@ -624,7 +623,7 @@ class SmartThingsAPI {
       return false;
     }
 
-    if (!force && this.#session.expiresAt > Date.now() + REFRESH_LEEWAY_MS) {
+    if (!force && this.#session.expiresAt > Date.now()) {
       return false;
     }
 
@@ -995,7 +994,7 @@ class SmartThingsAPI {
       return this.#session.accessToken;
     }
 
-    if (this.#session.expiresAt > Date.now() + REFRESH_LEEWAY_MS) {
+    if (this.#session.expiresAt > Date.now()) {
       return this.#session.accessToken;
     }
 
