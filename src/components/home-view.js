@@ -6,15 +6,20 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
+const NIGHTTIME_END_TIME = '07:00';
 const SETTINGS_PASSWORD_KEY = 'st_settings_password';
 const SETTINGS_PIN_PATTERN = /^\d{4}$/;
 const SWIPE_BACK_EDGE_PX = 32;
 const SWIPE_BACK_TRIGGER_PX = 72;
 const SWIPE_BACK_LOCK_RATIO = 1.2;
+const TIME_VALUE_PATTERN = /^\d{2}:\d{2}$/;
 const settingsPasswordEncoder = new TextEncoder();
 
 function createMainRoutineDraft(homeConfig = null) {
   return {
+    turnOnConfirmEnabled: homeConfig?.mainRoutines?.turnOnConfirmEnabled ?? true,
+    turnOnConfirmTime: homeConfig?.mainRoutines?.turnOnConfirmTime ?? DEFAULT_TURN_ON_CONFIRM_TIME,
     turnOnSceneId: homeConfig?.mainRoutines?.turnOnSceneId ?? null,
     turnOffSceneId: homeConfig?.mainRoutines?.turnOffSceneId ?? null,
   };
@@ -52,6 +57,56 @@ function createRoomSettingsDraft(homeConfig = null, roomId = null) {
     hiddenLightIds: normalizeStringIds(roomSettings?.hiddenLightIds ?? []),
     routineSceneIds: normalizeStringIds(roomSettings?.routineSceneIds ?? []),
   };
+}
+
+function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : '';
+  if (isValidTimeValue(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const normalizedFallback = typeof fallback === 'string' ? fallback.trim() : '';
+  return isValidTimeValue(normalizedFallback)
+    ? normalizedFallback
+    : DEFAULT_TURN_ON_CONFIRM_TIME;
+}
+
+function isValidTimeValue(value) {
+  if (!TIME_VALUE_PATTERN.test(value)) {
+    return false;
+  }
+
+  const parts = value.split(':');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return false;
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
+}
+
+function timeToMinutes(value) {
+  const parts = normalizeTimeValue(value).split(':');
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  return (hours * 60) + minutes;
+}
+
+function isNighttime({
+  date = new Date(),
+  startTime = DEFAULT_TURN_ON_CONFIRM_TIME,
+  endTime = NIGHTTIME_END_TIME,
+} = {}) {
+  const currentMinutes = (date.getHours() * 60) + date.getMinutes();
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+
+  if (startMinutes < endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+
+  return currentMinutes >= startMinutes || currentMinutes < endMinutes;
 }
 
 function roomIdListsEqual(left, right) {
@@ -1137,6 +1192,28 @@ const homeViewStyles = css`
     min-width: 0;
   }
 
+  .settings-inline-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: end;
+  }
+
+  .settings-checkbox-field {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 44px;
+    color: var(--color-text-primary);
+  }
+
+  .settings-checkbox-field input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--color-accent);
+  }
+
   .settings-lock-label {
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
@@ -1299,6 +1376,7 @@ export class HomeView extends LocalizedElement {
   static properties = {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
+    _mainTurnOnConfirmOpen: { state: true },
     _activeRoomId:          { state: true },
     _draftActiveRoomSettings: { state: true },
     _draftMainRoutines:     { state: true },
@@ -1346,6 +1424,7 @@ export class HomeView extends LocalizedElement {
     this._authMode              = smartthings.authMode;
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
+    this._mainTurnOnConfirmOpen = false;
     this._activeRoomId          = null;
     this._draftActiveRoomSettings = createRoomSettingsDraft(store.homeConfig);
     this._draftMainRoutines     = createMainRoutineDraft(store.homeConfig);
@@ -1439,7 +1518,10 @@ export class HomeView extends LocalizedElement {
       }
     }
 
-    if (changed.has('_disconnectConfirmOpen') && this._disconnectConfirmOpen) {
+    if (
+      (changed.has('_disconnectConfirmOpen') && this._disconnectConfirmOpen)
+      || (changed.has('_mainTurnOnConfirmOpen') && this._mainTurnOnConfirmOpen)
+    ) {
       const confirmDialog = this.renderRoot.querySelector('.confirm-dialog');
       if (confirmDialog) {
         confirmDialog.focus();
@@ -1687,6 +1769,21 @@ export class HomeView extends LocalizedElement {
   _confirmDisconnect() {
     this._disconnectConfirmOpen = false;
     this._disconnect();
+  }
+
+  _onMainTurnOnConfirmKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._mainTurnOnConfirmOpen = false;
+    }
+  }
+
+  _closeMainTurnOnConfirm() {
+    this._mainTurnOnConfirmOpen = false;
+  }
+
+  _confirmMainTurnOn() {
+    this._mainTurnOnConfirmOpen = false;
+    void this._runMainRoutine('turnOn');
   }
 
   _toggleRoomVisibility(e) {
@@ -2059,7 +2156,9 @@ export class HomeView extends LocalizedElement {
 
   _hasSharedSettingsChanges() {
     const current = createMainRoutineDraft(this._homeConfig);
-    return current.turnOnSceneId !== this._draftMainRoutines.turnOnSceneId
+    return current.turnOnConfirmEnabled !== this._draftMainRoutines.turnOnConfirmEnabled
+      || current.turnOnConfirmTime !== this._draftMainRoutines.turnOnConfirmTime
+      || current.turnOnSceneId !== this._draftMainRoutines.turnOnSceneId
       || current.turnOffSceneId !== this._draftMainRoutines.turnOffSceneId
       || !roomIdListsEqual(this._globalHiddenRoomIds, this._draftSharedHiddenRoomIds);
   }
@@ -2144,13 +2243,24 @@ export class HomeView extends LocalizedElement {
   _onMainRoutineChange(e) {
     const field = e.target.name;
 
-    if (!['turnOnSceneId', 'turnOffSceneId'].includes(field)) {
+    if (!['turnOnSceneId', 'turnOffSceneId', 'turnOnConfirmTime'].includes(field)) {
       return;
     }
 
+    const nextValue = field === 'turnOnConfirmTime'
+      ? normalizeTimeValue(e.target.value, this._draftMainRoutines.turnOnConfirmTime)
+      : (e.target.value || null);
+
     this._draftMainRoutines = {
       ...this._draftMainRoutines,
-      [field]: e.target.value || null,
+      [field]: nextValue,
+    };
+  }
+
+  _onMainTurnOnConfirmEnabledChange(e) {
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      turnOnConfirmEnabled: e.target.checked,
     };
   }
 
@@ -2159,6 +2269,19 @@ export class HomeView extends LocalizedElement {
   }
 
   async _executeMainRoutine(type) {
+    if (
+      type === 'turnOn'
+      && this._homeConfig?.mainRoutines?.turnOnConfirmEnabled !== false
+      && isNighttime({ startTime: this._homeConfig?.mainRoutines?.turnOnConfirmTime })
+    ) {
+      this._mainTurnOnConfirmOpen = true;
+      return;
+    }
+
+    await this._runMainRoutine(type);
+  }
+
+  async _runMainRoutine(type) {
     try {
       await store.executeMainRoutine(type);
     } catch {
@@ -2472,6 +2595,7 @@ export class HomeView extends LocalizedElement {
       ${this._settingsOpen ? this._renderSettings() : ''}
       ${this._settingsPasswordPromptOpen ? this._renderSettingsPasswordPrompt() : ''}
       ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}
+      ${this._mainTurnOnConfirmOpen ? this._renderMainTurnOnConfirm() : ''}
     `;
   }
 
@@ -2563,6 +2687,8 @@ export class HomeView extends LocalizedElement {
       return this._renderActiveRoomSettings();
     }
 
+    const turnOnConfirmEnabled = this._draftMainRoutines.turnOnConfirmEnabled !== false;
+    const turnOnConfirmTime = normalizeTimeValue(this._draftMainRoutines.turnOnConfirmTime);
     const turnOnScene = this._selectedScene(this._draftMainRoutines.turnOnSceneId);
     const turnOffScene = this._selectedScene(this._draftMainRoutines.turnOffSceneId);
     const localHiddenRooms = this._rooms.filter(room => this._hiddenRoomIds.includes(room.id));
@@ -2740,6 +2866,29 @@ export class HomeView extends LocalizedElement {
                               disabled: this._savingSharedSettings,
                               removeLabel: scene => this.t('home.removeAssignedRoutine', { name: scene.name }),
                             })}
+                            <div class="settings-inline-row">
+                              <label class="settings-checkbox-field">
+                                <input
+                                  type="checkbox"
+                                  .checked=${turnOnConfirmEnabled}
+                                  ?disabled=${this._savingSharedSettings}
+                                  @change=${this._onMainTurnOnConfirmEnabledChange}
+                                />
+                                <span>${this.t('home.mainTurnOnConfirmEnabledLabel')}</span>
+                              </label>
+                              <label class="settings-lock-field">
+                                <span class="settings-lock-label">${this.t('home.mainTurnOnConfirmTimeLabel')}</span>
+                                <input
+                                  class="settings-lock-input"
+                                  type="time"
+                                  name="turnOnConfirmTime"
+                                  .value=${turnOnConfirmTime}
+                                  ?disabled=${this._savingSharedSettings || !turnOnConfirmEnabled}
+                                  @change=${this._onMainRoutineChange}
+                                />
+                              </label>
+                            </div>
+                            <p class="settings-lock-status">${this.t('home.mainTurnOnConfirmDescription')}</p>
                           </div>
 
                           <div class="settings-subsection">
@@ -2938,6 +3087,29 @@ export class HomeView extends LocalizedElement {
           <div class="confirm-actions">
             <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>${this.t('common.cancel')}</button>
             <button class="disconnect-btn" @click=${this._confirmDisconnect}>${this.t(this._connectionCopyKey('Disconnect'))}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderMainTurnOnConfirm() {
+    return html`
+      <div class="confirm-backdrop" @click=${this._closeMainTurnOnConfirm}>
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label=${this.t('home.confirmNightTurnOnLabel')}
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onMainTurnOnConfirmKeyDown}
+        >
+          <h3>${this.t('home.confirmNightTurnOnTitle')}</h3>
+          <p>${this.t('home.confirmNightTurnOnDescription')}</p>
+          <div class="confirm-actions">
+            <button class="secondary-btn" @click=${this._closeMainTurnOnConfirm}>${this.t('common.cancel')}</button>
+            <button class="primary-btn" @click=${this._confirmMainTurnOn}>${this.t('home.mainTurnOnAction')}</button>
           </div>
         </div>
       </div>

@@ -17,7 +17,9 @@ const SYNC_INTERVAL = 30_000; // ms
 const HOME_CONFIG_SYNC_INTERVAL = 5 * 60_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
 const COLOR_DEBOUNCE_MS = 120;
+const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
 const MOCK_LOCATION_ID = 'mock-location';
+const TIME_VALUE_PATTERN = /^\d{2}:\d{2}$/;
 
 function createDefaultHomeConfig(locationId = null) {
   return {
@@ -25,6 +27,8 @@ function createDefaultHomeConfig(locationId = null) {
     locationId,
     updatedAt: null,
     mainRoutines: {
+      turnOnConfirmEnabled: true,
+      turnOnConfirmTime: DEFAULT_TURN_ON_CONFIRM_TIME,
       turnOnSceneId: null,
       turnOffSceneId: null,
     },
@@ -48,6 +52,33 @@ function normalizeStringIds(values) {
 
 function normalizeHiddenRoomIds(hiddenRoomIds) {
   return normalizeStringIds(hiddenRoomIds);
+}
+
+function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : '';
+  if (isValidTimeValue(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const normalizedFallback = typeof fallback === 'string' ? fallback.trim() : '';
+  return isValidTimeValue(normalizedFallback)
+    ? normalizedFallback
+    : DEFAULT_TURN_ON_CONFIRM_TIME;
+}
+
+function isValidTimeValue(value) {
+  if (!TIME_VALUE_PATTERN.test(value)) {
+    return false;
+  }
+
+  const parts = value.split(':');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return false;
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
 }
 
 function normalizeRoomSettings(roomSettings) {
@@ -79,6 +110,13 @@ function normalizeHomeConfig(locationId, homeConfig) {
     locationId,
     updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : fallback.updatedAt,
     mainRoutines: {
+      turnOnConfirmEnabled: typeof config.mainRoutines?.turnOnConfirmEnabled === 'boolean'
+        ? config.mainRoutines.turnOnConfirmEnabled
+        : fallback.mainRoutines.turnOnConfirmEnabled,
+      turnOnConfirmTime: normalizeTimeValue(
+        config.mainRoutines?.turnOnConfirmTime,
+        fallback.mainRoutines.turnOnConfirmTime
+      ),
       turnOnSceneId: typeof config.mainRoutines?.turnOnSceneId === 'string' && config.mainRoutines.turnOnSceneId.trim()
         ? config.mainRoutines.turnOnSceneId.trim()
         : null,
@@ -537,7 +575,9 @@ class HomeStore extends EventTarget {
     });
 
     if (
-      nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
+      nextConfig.mainRoutines.turnOnConfirmEnabled === this.#homeConfig.mainRoutines.turnOnConfirmEnabled
+      && nextConfig.mainRoutines.turnOnConfirmTime === this.#homeConfig.mainRoutines.turnOnConfirmTime
+      && nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
       && nextConfig.mainRoutines.turnOffSceneId === this.#homeConfig.mainRoutines.turnOffSceneId
       && JSON.stringify(nextConfig.hiddenRoomIds) === JSON.stringify(this.#homeConfig.hiddenRoomIds)
       && JSON.stringify(nextConfig.roomSettings) === JSON.stringify(this.#homeConfig.roomSettings)

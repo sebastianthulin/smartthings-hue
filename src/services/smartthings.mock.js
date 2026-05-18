@@ -83,6 +83,8 @@ const mockHomeConfigState = {
     locationId: MOCK_LOCATION_ID,
     updatedAt: Date.now(),
     mainRoutines: {
+      turnOnConfirmEnabled: true,
+      turnOnConfirmTime: '21:00',
       turnOnSceneId: 'all-lights-on',
       turnOffSceneId: 'all-lights-off',
     },
@@ -158,6 +160,8 @@ export function getMockHomeConfig(locationId) {
     locationId,
     updatedAt: null,
     mainRoutines: {
+      turnOnConfirmEnabled: true,
+      turnOnConfirmTime: '21:00',
       turnOnSceneId: null,
       turnOffSceneId: null,
     },
