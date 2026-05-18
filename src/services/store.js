@@ -19,6 +19,7 @@ const BRIGHTNESS_DEBOUNCE_MS = 180;
 const COLOR_DEBOUNCE_MS = 120;
 const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
 const MOCK_LOCATION_ID = 'mock-location';
+const TIME_VALUE_PATTERN = /^\d{2}:\d{2}$/;
 
 function createDefaultHomeConfig(locationId = null) {
   return {
@@ -55,7 +56,14 @@ function normalizeHiddenRoomIds(hiddenRoomIds) {
 
 function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
   const normalizedValue = typeof value === 'string' ? value.trim() : '';
-  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : fallback;
+  if (TIME_VALUE_PATTERN.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const normalizedFallback = typeof fallback === 'string' ? fallback.trim() : '';
+  return TIME_VALUE_PATTERN.test(normalizedFallback)
+    ? normalizedFallback
+    : DEFAULT_TURN_ON_CONFIRM_TIME;
 }
 
 function normalizeRoomSettings(roomSettings) {

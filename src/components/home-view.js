@@ -12,6 +12,7 @@ const SETTINGS_PASSWORD_KEY = 'st_settings_password';
 const SWIPE_BACK_EDGE_PX = 32;
 const SWIPE_BACK_TRIGGER_PX = 72;
 const SWIPE_BACK_LOCK_RATIO = 1.2;
+const TIME_VALUE_PATTERN = /^\d{2}:\d{2}$/;
 const settingsPasswordEncoder = new TextEncoder();
 
 function createMainRoutineDraft(homeConfig = null) {
@@ -55,7 +56,14 @@ function createRoomSettingsDraft(homeConfig = null, roomId = null) {
 
 function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
   const normalizedValue = typeof value === 'string' ? value.trim() : '';
-  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : fallback;
+  if (TIME_VALUE_PATTERN.test(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const normalizedFallback = typeof fallback === 'string' ? fallback.trim() : '';
+  return TIME_VALUE_PATTERN.test(normalizedFallback)
+    ? normalizedFallback
+    : DEFAULT_TURN_ON_CONFIRM_TIME;
 }
 
 function timeToMinutes(value) {
