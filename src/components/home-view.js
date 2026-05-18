@@ -67,7 +67,7 @@ function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
 }
 
 function timeToMinutes(value) {
-  const [hours, minutes] = normalizeTimeValue(value).split(':').map(Number);
+  const [hours = 0, minutes = 0] = normalizeTimeValue(value).split(':').map(Number);
   return (hours * 60) + minutes;
 }
 
@@ -2191,7 +2191,7 @@ export class HomeView extends LocalizedElement {
     this._draftMainRoutines = {
       ...this._draftMainRoutines,
       [field]: field === 'turnOnConfirmTime'
-        ? normalizeTimeValue(e.target.value)
+        ? normalizeTimeValue(e.target.value, this._draftMainRoutines.turnOnConfirmTime)
         : (e.target.value || null),
     };
   }
