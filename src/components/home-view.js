@@ -71,12 +71,20 @@ function isValidTimeValue(value) {
     return false;
   }
 
-  const [hours = Number.NaN, minutes = Number.NaN] = value.split(':').map(Number);
+  const parts = value.split(':');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return false;
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
   return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
 }
 
 function timeToMinutes(value) {
-  const [hours = 0, minutes = 0] = normalizeTimeValue(value).split(':').map(Number);
+  const parts = normalizeTimeValue(value).split(':');
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
   return (hours * 60) + minutes;
 }
 
