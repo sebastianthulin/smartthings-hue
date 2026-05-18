@@ -17,6 +17,7 @@ const SYNC_INTERVAL = 30_000; // ms
 const HOME_CONFIG_SYNC_INTERVAL = 5 * 60_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
 const COLOR_DEBOUNCE_MS = 120;
+const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
 const MOCK_LOCATION_ID = 'mock-location';
 
 function createDefaultHomeConfig(locationId = null) {
@@ -25,6 +26,8 @@ function createDefaultHomeConfig(locationId = null) {
     locationId,
     updatedAt: null,
     mainRoutines: {
+      turnOnConfirmEnabled: true,
+      turnOnConfirmTime: DEFAULT_TURN_ON_CONFIRM_TIME,
       turnOnSceneId: null,
       turnOffSceneId: null,
     },
@@ -48,6 +51,11 @@ function normalizeStringIds(values) {
 
 function normalizeHiddenRoomIds(hiddenRoomIds) {
   return normalizeStringIds(hiddenRoomIds);
+}
+
+function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : '';
+  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : fallback;
 }
 
 function normalizeRoomSettings(roomSettings) {
@@ -79,6 +87,13 @@ function normalizeHomeConfig(locationId, homeConfig) {
     locationId,
     updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : fallback.updatedAt,
     mainRoutines: {
+      turnOnConfirmEnabled: typeof config.mainRoutines?.turnOnConfirmEnabled === 'boolean'
+        ? config.mainRoutines.turnOnConfirmEnabled
+        : fallback.mainRoutines.turnOnConfirmEnabled,
+      turnOnConfirmTime: normalizeTimeValue(
+        config.mainRoutines?.turnOnConfirmTime,
+        fallback.mainRoutines.turnOnConfirmTime
+      ),
       turnOnSceneId: typeof config.mainRoutines?.turnOnSceneId === 'string' && config.mainRoutines.turnOnSceneId.trim()
         ? config.mainRoutines.turnOnSceneId.trim()
         : null,
@@ -537,7 +552,9 @@ class HomeStore extends EventTarget {
     });
 
     if (
-      nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
+      nextConfig.mainRoutines.turnOnConfirmEnabled === this.#homeConfig.mainRoutines.turnOnConfirmEnabled
+      && nextConfig.mainRoutines.turnOnConfirmTime === this.#homeConfig.mainRoutines.turnOnConfirmTime
+      && nextConfig.mainRoutines.turnOnSceneId === this.#homeConfig.mainRoutines.turnOnSceneId
       && nextConfig.mainRoutines.turnOffSceneId === this.#homeConfig.mainRoutines.turnOffSceneId
       && JSON.stringify(nextConfig.hiddenRoomIds) === JSON.stringify(this.#homeConfig.hiddenRoomIds)
       && JSON.stringify(nextConfig.roomSettings) === JSON.stringify(this.#homeConfig.roomSettings)

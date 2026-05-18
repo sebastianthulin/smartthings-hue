@@ -6,8 +6,8 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
-const NIGHTTIME_END_HOUR = 7;
-const NIGHTTIME_START_HOUR = 21;
+const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
+const NIGHTTIME_END_TIME = '07:00';
 const SETTINGS_PASSWORD_KEY = 'st_settings_password';
 const SWIPE_BACK_EDGE_PX = 32;
 const SWIPE_BACK_TRIGGER_PX = 72;
@@ -16,6 +16,8 @@ const settingsPasswordEncoder = new TextEncoder();
 
 function createMainRoutineDraft(homeConfig = null) {
   return {
+    turnOnConfirmEnabled: homeConfig?.mainRoutines?.turnOnConfirmEnabled ?? true,
+    turnOnConfirmTime: homeConfig?.mainRoutines?.turnOnConfirmTime ?? DEFAULT_TURN_ON_CONFIRM_TIME,
     turnOnSceneId: homeConfig?.mainRoutines?.turnOnSceneId ?? null,
     turnOffSceneId: homeConfig?.mainRoutines?.turnOffSceneId ?? null,
   };
@@ -51,9 +53,30 @@ function createRoomSettingsDraft(homeConfig = null, roomId = null) {
   };
 }
 
-function isNighttime(date = new Date()) {
-  const hour = date.getHours();
-  return hour >= NIGHTTIME_START_HOUR || hour < NIGHTTIME_END_HOUR;
+function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : '';
+  return /^\d{2}:\d{2}$/.test(normalizedValue) ? normalizedValue : fallback;
+}
+
+function timeToMinutes(value) {
+  const [hours, minutes] = normalizeTimeValue(value).split(':').map(Number);
+  return (hours * 60) + minutes;
+}
+
+function isNighttime({
+  date = new Date(),
+  startTime = DEFAULT_TURN_ON_CONFIRM_TIME,
+  endTime = NIGHTTIME_END_TIME,
+} = {}) {
+  const currentMinutes = (date.getHours() * 60) + date.getMinutes();
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+
+  if (startMinutes < endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+
+  return currentMinutes >= startMinutes || currentMinutes < endMinutes;
 }
 
 function roomIdListsEqual(left, right) {
@@ -1132,6 +1155,28 @@ const homeViewStyles = css`
     gap: var(--space-2);
   }
 
+  .settings-inline-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: end;
+  }
+
+  .settings-checkbox-field {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 44px;
+    color: var(--color-text-primary);
+  }
+
+  .settings-checkbox-field input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--color-accent);
+  }
+
   .settings-lock-label {
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
@@ -2044,7 +2089,9 @@ export class HomeView extends LocalizedElement {
 
   _hasSharedSettingsChanges() {
     const current = createMainRoutineDraft(this._homeConfig);
-    return current.turnOnSceneId !== this._draftMainRoutines.turnOnSceneId
+    return current.turnOnConfirmEnabled !== this._draftMainRoutines.turnOnConfirmEnabled
+      || current.turnOnConfirmTime !== this._draftMainRoutines.turnOnConfirmTime
+      || current.turnOnSceneId !== this._draftMainRoutines.turnOnSceneId
       || current.turnOffSceneId !== this._draftMainRoutines.turnOffSceneId
       || !roomIdListsEqual(this._globalHiddenRoomIds, this._draftSharedHiddenRoomIds);
   }
@@ -2129,13 +2176,22 @@ export class HomeView extends LocalizedElement {
   _onMainRoutineChange(e) {
     const field = e.target.name;
 
-    if (!['turnOnSceneId', 'turnOffSceneId'].includes(field)) {
+    if (!['turnOnSceneId', 'turnOffSceneId', 'turnOnConfirmTime'].includes(field)) {
       return;
     }
 
     this._draftMainRoutines = {
       ...this._draftMainRoutines,
-      [field]: e.target.value || null,
+      [field]: field === 'turnOnConfirmTime'
+        ? normalizeTimeValue(e.target.value)
+        : (e.target.value || null),
+    };
+  }
+
+  _onMainTurnOnConfirmEnabledChange(e) {
+    this._draftMainRoutines = {
+      ...this._draftMainRoutines,
+      turnOnConfirmEnabled: e.target.checked,
     };
   }
 
@@ -2144,7 +2200,11 @@ export class HomeView extends LocalizedElement {
   }
 
   async _executeMainRoutine(type) {
-    if (type === 'turnOn' && isNighttime()) {
+    if (
+      type === 'turnOn'
+      && this._homeConfig?.mainRoutines?.turnOnConfirmEnabled !== false
+      && isNighttime({ startTime: this._homeConfig?.mainRoutines?.turnOnConfirmTime })
+    ) {
       this._mainTurnOnConfirmOpen = true;
       return;
     }
@@ -2558,6 +2618,8 @@ export class HomeView extends LocalizedElement {
       return this._renderActiveRoomSettings();
     }
 
+    const turnOnConfirmEnabled = this._draftMainRoutines.turnOnConfirmEnabled !== false;
+    const turnOnConfirmTime = normalizeTimeValue(this._draftMainRoutines.turnOnConfirmTime);
     const turnOnScene = this._selectedScene(this._draftMainRoutines.turnOnSceneId);
     const turnOffScene = this._selectedScene(this._draftMainRoutines.turnOffSceneId);
     const localHiddenRooms = this._rooms.filter(room => this._hiddenRoomIds.includes(room.id));
@@ -2725,6 +2787,29 @@ export class HomeView extends LocalizedElement {
                               disabled: this._savingSharedSettings,
                               removeLabel: scene => this.t('home.removeAssignedRoutine', { name: scene.name }),
                             })}
+                            <div class="settings-inline-row">
+                              <label class="settings-checkbox-field">
+                                <input
+                                  type="checkbox"
+                                  .checked=${turnOnConfirmEnabled}
+                                  ?disabled=${this._savingSharedSettings}
+                                  @change=${this._onMainTurnOnConfirmEnabledChange}
+                                />
+                                <span>${this.t('home.mainTurnOnConfirmEnabledLabel')}</span>
+                              </label>
+                              <label class="settings-lock-field">
+                                <span class="settings-lock-label">${this.t('home.mainTurnOnConfirmTimeLabel')}</span>
+                                <input
+                                  class="settings-lock-input"
+                                  type="time"
+                                  name="turnOnConfirmTime"
+                                  .value=${turnOnConfirmTime}
+                                  ?disabled=${this._savingSharedSettings || !turnOnConfirmEnabled}
+                                  @change=${this._onMainRoutineChange}
+                                />
+                              </label>
+                            </div>
+                            <p class="settings-lock-status">${this.t('home.mainTurnOnConfirmDescription')}</p>
                           </div>
 
                           <div class="settings-subsection">
