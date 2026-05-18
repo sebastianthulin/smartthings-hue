@@ -6,6 +6,8 @@ import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
+const NIGHTTIME_END_HOUR = 7;
+const NIGHTTIME_START_HOUR = 21;
 const SETTINGS_PASSWORD_KEY = 'st_settings_password';
 const SWIPE_BACK_EDGE_PX = 32;
 const SWIPE_BACK_TRIGGER_PX = 72;
@@ -47,6 +49,11 @@ function createRoomSettingsDraft(homeConfig = null, roomId = null) {
     hiddenLightIds: normalizeStringIds(roomSettings?.hiddenLightIds ?? []),
     routineSceneIds: normalizeStringIds(roomSettings?.routineSceneIds ?? []),
   };
+}
+
+function isNighttime(date = new Date()) {
+  const hour = date.getHours();
+  return hour >= NIGHTTIME_START_HOUR || hour < NIGHTTIME_END_HOUR;
 }
 
 function roomIdListsEqual(left, right) {
@@ -1270,6 +1277,7 @@ export class HomeView extends LocalizedElement {
   static properties = {
     _connectionMenuOpen:    { state: true },
     _disconnectConfirmOpen: { state: true },
+    _mainTurnOnConfirmOpen: { state: true },
     _activeRoomId:          { state: true },
     _draftActiveRoomSettings: { state: true },
     _draftMainRoutines:     { state: true },
@@ -1317,6 +1325,7 @@ export class HomeView extends LocalizedElement {
     this._authMode              = smartthings.authMode;
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
+    this._mainTurnOnConfirmOpen = false;
     this._activeRoomId          = null;
     this._draftActiveRoomSettings = createRoomSettingsDraft(store.homeConfig);
     this._draftMainRoutines     = createMainRoutineDraft(store.homeConfig);
@@ -1410,7 +1419,10 @@ export class HomeView extends LocalizedElement {
       }
     }
 
-    if (changed.has('_disconnectConfirmOpen') && this._disconnectConfirmOpen) {
+    if (
+      (changed.has('_disconnectConfirmOpen') && this._disconnectConfirmOpen)
+      || (changed.has('_mainTurnOnConfirmOpen') && this._mainTurnOnConfirmOpen)
+    ) {
       const confirmDialog = this.renderRoot.querySelector('.confirm-dialog');
       if (confirmDialog) {
         confirmDialog.focus();
@@ -1645,6 +1657,21 @@ export class HomeView extends LocalizedElement {
   _confirmDisconnect() {
     this._disconnectConfirmOpen = false;
     this._disconnect();
+  }
+
+  _onMainTurnOnConfirmKeyDown(e) {
+    if (e.key === 'Escape') {
+      this._mainTurnOnConfirmOpen = false;
+    }
+  }
+
+  _closeMainTurnOnConfirm() {
+    this._mainTurnOnConfirmOpen = false;
+  }
+
+  _confirmMainTurnOn() {
+    this._mainTurnOnConfirmOpen = false;
+    void this._runMainRoutine('turnOn');
   }
 
   _toggleRoomVisibility(e) {
@@ -2117,6 +2144,15 @@ export class HomeView extends LocalizedElement {
   }
 
   async _executeMainRoutine(type) {
+    if (type === 'turnOn' && isNighttime()) {
+      this._mainTurnOnConfirmOpen = true;
+      return;
+    }
+
+    await this._runMainRoutine(type);
+  }
+
+  async _runMainRoutine(type) {
     try {
       await store.executeMainRoutine(type);
     } catch {
@@ -2430,6 +2466,7 @@ export class HomeView extends LocalizedElement {
       ${this._settingsOpen ? this._renderSettings() : ''}
       ${this._settingsPasswordPromptOpen ? this._renderSettingsPasswordPrompt() : ''}
       ${this._disconnectConfirmOpen ? this._renderDisconnectConfirm() : ''}
+      ${this._mainTurnOnConfirmOpen ? this._renderMainTurnOnConfirm() : ''}
     `;
   }
 
@@ -2886,6 +2923,29 @@ export class HomeView extends LocalizedElement {
           <div class="confirm-actions">
             <button class="secondary-btn" @click=${this._closeDisconnectConfirm}>${this.t('common.cancel')}</button>
             <button class="disconnect-btn" @click=${this._confirmDisconnect}>${this.t(this._connectionCopyKey('Disconnect'))}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderMainTurnOnConfirm() {
+    return html`
+      <div class="confirm-backdrop" @click=${this._closeMainTurnOnConfirm}>
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label=${this.t('home.confirmNightTurnOnLabel')}
+          tabindex="-1"
+          @click=${e => e.stopPropagation()}
+          @keydown=${this._onMainTurnOnConfirmKeyDown}
+        >
+          <h3>${this.t('home.confirmNightTurnOnTitle')}</h3>
+          <p>${this.t('home.confirmNightTurnOnDescription')}</p>
+          <div class="confirm-actions">
+            <button class="secondary-btn" @click=${this._closeMainTurnOnConfirm}>${this.t('common.cancel')}</button>
+            <button class="primary-btn" @click=${this._confirmMainTurnOn}>${this.t('home.mainTurnOnAction')}</button>
           </div>
         </div>
       </div>
