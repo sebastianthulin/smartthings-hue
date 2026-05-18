@@ -7,6 +7,7 @@ import './room-card.js';
 
 const HIDDEN_ROOMS_KEY = 'st_hidden_rooms';
 const SETTINGS_PASSWORD_KEY = 'st_settings_password';
+const SETTINGS_PIN_PATTERN = /^\d{4}$/;
 const SWIPE_BACK_EDGE_PX = 32;
 const SWIPE_BACK_TRIGGER_PX = 72;
 const SWIPE_BACK_LOCK_RATIO = 1.2;
@@ -34,6 +35,10 @@ function normalizeStringIds(values) {
 
 function normalizeRoomIds(roomIds) {
   return normalizeStringIds(roomIds);
+}
+
+function normalizeSettingsPin(value = '') {
+  return value.replace(/\D+/g, '').slice(0, 4);
 }
 
 function createSharedHiddenRoomDraft(homeConfig = null) {
@@ -1106,7 +1111,7 @@ const homeViewStyles = css`
 
   .settings-lock-status {
     margin: 0;
-    padding: 12px 14px;
+    padding: 10px 12px;
     border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
@@ -1117,12 +1122,19 @@ const homeViewStyles = css`
 
   .settings-lock-form {
     display: grid;
+    gap: var(--space-2);
+  }
+
+  .settings-lock-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
     gap: var(--space-3);
   }
 
   .settings-lock-field {
     display: grid;
     gap: var(--space-2);
+    min-width: 0;
   }
 
   .settings-lock-label {
@@ -1135,14 +1147,17 @@ const homeViewStyles = css`
 
   .settings-lock-input {
     width: 100%;
-    min-height: 44px;
-    padding: 12px 14px;
+    min-height: 40px;
+    padding: 10px 12px;
     box-sizing: border-box;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-surface-elevated);
     color: var(--color-text-primary);
     font: inherit;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.18em;
+    text-align: center;
     outline: none;
     transition: border-color var(--transition-base);
   }
@@ -1179,6 +1194,20 @@ const homeViewStyles = css`
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--space-3);
+  }
+
+  .settings-lock-action-btn {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  .settings-lock-action-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
   .primary-btn {
@@ -1515,17 +1544,20 @@ export class HomeView extends LocalizedElement {
   }
 
   _onSettingsPasswordDraftInput(e) {
-    this._settingsPasswordDraft = e.target.value;
+    this._settingsPasswordDraft = normalizeSettingsPin(e.target.value);
+    e.target.value = this._settingsPasswordDraft;
     this._settingsPasswordError = '';
   }
 
   _onSettingsPasswordConfirmDraftInput(e) {
-    this._settingsPasswordConfirmDraft = e.target.value;
+    this._settingsPasswordConfirmDraft = normalizeSettingsPin(e.target.value);
+    e.target.value = this._settingsPasswordConfirmDraft;
     this._settingsPasswordError = '';
   }
 
   _onSettingsPasswordPromptInput(e) {
-    this._settingsPasswordPromptValue = e.target.value;
+    this._settingsPasswordPromptValue = normalizeSettingsPin(e.target.value);
+    e.target.value = this._settingsPasswordPromptValue;
     this._settingsPasswordPromptError = '';
   }
 
@@ -1560,6 +1592,11 @@ export class HomeView extends LocalizedElement {
       return;
     }
 
+    if (!SETTINGS_PIN_PATTERN.test(this._settingsPasswordPromptValue)) {
+      this._settingsPasswordPromptError = this.t('home.settingsLockErrors.format');
+      return;
+    }
+
     const matches = record.hash === await hashSettingsPassword(this._settingsPasswordPromptValue);
     if (!matches) {
       this._settingsPasswordPromptError = this.t('home.settingsLockErrors.invalid');
@@ -1576,6 +1613,11 @@ export class HomeView extends LocalizedElement {
 
     if (!password || !confirmation) {
       this._settingsPasswordError = this.t('home.settingsLockErrors.missing');
+      return;
+    }
+
+    if (!SETTINGS_PIN_PATTERN.test(password) || !SETTINGS_PIN_PATTERN.test(confirmation)) {
+      this._settingsPasswordError = this.t('home.settingsLockErrors.format');
       return;
     }
 
@@ -2568,27 +2610,37 @@ export class HomeView extends LocalizedElement {
                           : 'home.settingsLockDisabled')}
                       </p>
 
-                      <label class="settings-lock-field">
-                        <span class="settings-lock-label">${this.t('home.settingsLockPasswordLabel')}</span>
-                        <input
-                          class="settings-lock-input"
-                          type="password"
-                          .value=${this._settingsPasswordDraft}
-                          autocomplete="new-password"
-                          @input=${this._onSettingsPasswordDraftInput}
-                        />
-                      </label>
+                      <div class="settings-lock-fields">
+                        <label class="settings-lock-field">
+                          <span class="settings-lock-label">${this.t('home.settingsLockPasswordLabel')}</span>
+                          <input
+                            class="settings-lock-input"
+                            type="password"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            maxlength="4"
+                            placeholder="••••"
+                            .value=${this._settingsPasswordDraft}
+                            autocomplete="new-password"
+                            @input=${this._onSettingsPasswordDraftInput}
+                          />
+                        </label>
 
-                      <label class="settings-lock-field">
-                        <span class="settings-lock-label">${this.t('home.settingsLockConfirmLabel')}</span>
-                        <input
-                          class="settings-lock-input"
-                          type="password"
-                          .value=${this._settingsPasswordConfirmDraft}
-                          autocomplete="new-password"
-                          @input=${this._onSettingsPasswordConfirmDraftInput}
-                        />
-                      </label>
+                        <label class="settings-lock-field">
+                          <span class="settings-lock-label">${this.t('home.settingsLockConfirmLabel')}</span>
+                          <input
+                            class="settings-lock-input"
+                            type="password"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            maxlength="4"
+                            placeholder="••••"
+                            .value=${this._settingsPasswordConfirmDraft}
+                            autocomplete="new-password"
+                            @input=${this._onSettingsPasswordConfirmDraftInput}
+                          />
+                        </label>
+                      </div>
 
                       ${this._settingsPasswordError ? html`
                         <p class="settings-lock-error" role="alert">${this._settingsPasswordError}</p>
@@ -2597,7 +2649,7 @@ export class HomeView extends LocalizedElement {
                       <div class="settings-lock-actions">
                         ${this._settingsPasswordConfigured ? html`
                           <button
-                            class="secondary-btn"
+                            class="secondary-btn settings-lock-action-btn"
                             type="button"
                             ?disabled=${this._settingsPasswordSaving}
                             @click=${this._removeSettingsPassword}
@@ -2606,7 +2658,7 @@ export class HomeView extends LocalizedElement {
                           </button>
                         ` : ''}
                         <button
-                          class="secondary-btn"
+                          class="secondary-btn settings-lock-action-btn"
                           type="submit"
                           ?disabled=${this._settingsPasswordSaving}
                         >
@@ -2921,6 +2973,10 @@ export class HomeView extends LocalizedElement {
               <input
                 class="settings-lock-input"
                 type="password"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="4"
+                placeholder="••••"
                 .value=${this._settingsPasswordPromptValue}
                 autocomplete="current-password"
                 @input=${this._onSettingsPasswordPromptInput}
