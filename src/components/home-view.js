@@ -56,14 +56,23 @@ function createRoomSettingsDraft(homeConfig = null, roomId = null) {
 
 function normalizeTimeValue(value, fallback = DEFAULT_TURN_ON_CONFIRM_TIME) {
   const normalizedValue = typeof value === 'string' ? value.trim() : '';
-  if (TIME_VALUE_PATTERN.test(normalizedValue)) {
+  if (isValidTimeValue(normalizedValue)) {
     return normalizedValue;
   }
 
   const normalizedFallback = typeof fallback === 'string' ? fallback.trim() : '';
-  return TIME_VALUE_PATTERN.test(normalizedFallback)
+  return isValidTimeValue(normalizedFallback)
     ? normalizedFallback
     : DEFAULT_TURN_ON_CONFIRM_TIME;
+}
+
+function isValidTimeValue(value) {
+  if (!TIME_VALUE_PATTERN.test(value)) {
+    return false;
+  }
+
+  const [hours = Number.NaN, minutes = Number.NaN] = value.split(':').map(Number);
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60;
 }
 
 function timeToMinutes(value) {
@@ -2188,11 +2197,13 @@ export class HomeView extends LocalizedElement {
       return;
     }
 
+    const nextValue = field === 'turnOnConfirmTime'
+      ? normalizeTimeValue(e.target.value, this._draftMainRoutines.turnOnConfirmTime)
+      : (e.target.value || null);
+
     this._draftMainRoutines = {
       ...this._draftMainRoutines,
-      [field]: field === 'turnOnConfirmTime'
-        ? normalizeTimeValue(e.target.value, this._draftMainRoutines.turnOnConfirmTime)
-        : (e.target.value || null),
+      [field]: nextValue,
     };
   }
 
