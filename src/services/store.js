@@ -10,7 +10,7 @@
  */
 
 import { smartthings, AuthError } from './smartthings.js';
-import { normalizeHome, sortHome } from './normalizer.js';
+import { normalizeHome, sortHome } from './normalizer.ts';
 
 const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms

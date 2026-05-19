@@ -1,23 +1,35 @@
-function createToastId() {
+export type ToastDismissReason = 'dismiss' | 'clear' | (string & {});
+
+export type ToastItem = {
+  id: string;
+  tone: string;
+  duration: number;
+  onDismiss?: (reason: ToastDismissReason, item: ToastItem) => void;
+  [key: string]: unknown;
+};
+
+export type ToastInput = Partial<ToastItem>;
+
+function createToastId(): string {
   return globalThis.crypto?.randomUUID?.()
     ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-class ToastService extends EventTarget {
-  #items = [];
-  #timers = new Map();
+export class ToastService extends EventTarget {
+  #items: ToastItem[] = [];
+  #timers = new Map<string, number>();
 
-  get items() {
+  get items(): ToastItem[] {
     return [...this.#items];
   }
 
-  show(toast) {
+  show(toast: ToastInput = {}): string {
     const item = {
-      id: toast?.id ?? createToastId(),
-      tone: toast?.tone ?? 'info',
-      duration: Number.isFinite(Number(toast?.duration)) ? Number(toast.duration) : 5000,
       ...toast,
-    };
+      id: toast.id ?? createToastId(),
+      tone: toast.tone ?? 'info',
+      duration: Number.isFinite(Number(toast.duration)) ? Number(toast.duration) : 5000,
+    } as ToastItem;
 
     this.#items = [...this.#items, item];
     this.#emit();
@@ -33,7 +45,7 @@ class ToastService extends EventTarget {
     return item.id;
   }
 
-  dismiss(id, reason = 'dismiss') {
+  dismiss(id: string, reason: ToastDismissReason = 'dismiss'): void {
     const item = this.#items.find((entry) => entry.id === id);
     const timer = this.#timers.get(id);
 
@@ -58,7 +70,7 @@ class ToastService extends EventTarget {
     }
   }
 
-  clear() {
+  clear(): void {
     const ids = this.#items.map((item) => item.id);
 
     for (const id of ids) {
@@ -66,7 +78,7 @@ class ToastService extends EventTarget {
     }
   }
 
-  #emit() {
+  #emit(): void {
     this.dispatchEvent(new CustomEvent('change', {
       detail: { items: this.items },
     }));

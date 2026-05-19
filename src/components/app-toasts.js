@@ -1,6 +1,6 @@
 import { html, css } from 'lit';
 import { LocalizedElement } from './localized-element.js';
-import { toasts } from '../services/toasts.js';
+import { toasts } from '../services/toasts.ts';
 
 export class AppToasts extends LocalizedElement {
   static properties = {

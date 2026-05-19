@@ -10,8 +10,9 @@
     "build:native": "npm run build && npx cap sync",
     "build:pwa-reset": "PWA_SELF_DESTROY=1 vite build && npm run deploy:check:reset",
     "preview": "vite preview",
-    "test": "node --import ./test/setup.js --test",
+    "test": "node --import tsx --import ./test/setup.js --test",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
     "cap:copy": "npx cap copy",
@@ -33,6 +34,8 @@
     "eslint": "^10.3.0",
     "globals": "^17.6.0",
     "sass": "^1.70.0",
+    "tsx": "^4.22.2",
+    "typescript": "^6.0.3",
     "vite": "^5.0.0",
     "vite-plugin-pwa": "^0.19.0"
   }
