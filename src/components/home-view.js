@@ -1,7 +1,7 @@
 import { html, css } from 'lit';
 import { store } from '../services/store.js';
 import { smartthings } from '../services/smartthings.js';
-import { toasts } from '../services/toasts.js';
+import { toasts } from '../services/toasts.ts';
 import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
 

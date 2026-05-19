@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { smartthings } from '../services/smartthings.js';
 import { store } from '../services/store.js';
-import { toasts } from '../services/toasts.js';
+import { toasts } from '../services/toasts.ts';
 import './app-toasts.js';
 import './token-setup.js';
 import './home-view.js';

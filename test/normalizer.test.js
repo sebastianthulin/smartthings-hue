@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { normalizeHome, sortHome } from '../src/services/normalizer.js';
+import { normalizeHome, sortHome } from '../src/services/normalizer.ts';
 
 test('normalizeHome keeps supported devices, aggregates climate, and sorts output', () => {
   const rooms = [

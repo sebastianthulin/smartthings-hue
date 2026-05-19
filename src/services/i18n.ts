@@ -3,30 +3,35 @@ import { sv } from '../lang/sv.js';
 
 export const DEFAULT_LANGUAGE = 'en';
 
-const LANGUAGES = {
+type TranslationValues = Record<string, unknown>;
+type TranslationTree = {
+  [key: string]: string | TranslationTree;
+};
+
+const LANGUAGES: Record<string, TranslationTree> = {
   en,
   sv,
 };
 
-function getDeviceLanguages() {
+function getDeviceLanguages(): string[] {
   const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
   return languages.filter(Boolean);
 }
 
-function resolveLanguage(language) {
+function resolveLanguage(language?: string): string {
   const baseLanguage = language?.toLowerCase().split('-')[0];
   return baseLanguage && LANGUAGES[baseLanguage] ? baseLanguage : DEFAULT_LANGUAGE;
 }
 
-function getMessage(messages, key) {
+function getMessage(messages: TranslationTree, key: string): string | TranslationTree | undefined {
   return key.split('.').reduce((value, segment) => value?.[segment], messages);
 }
 
-function interpolate(message, values) {
+function interpolate(message: string, values: TranslationValues): string {
   return message.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
 }
 
-class I18nService extends EventTarget {
+export class I18nService extends EventTarget {
   #language = DEFAULT_LANGUAGE;
 
   constructor() {
@@ -35,18 +40,18 @@ class I18nService extends EventTarget {
     window.addEventListener('languagechange', () => this.#updateLanguage(true));
   }
 
-  get language() {
+  get language(): string {
     return this.#language;
   }
 
-  t(key, values = {}) {
+  t(key: string, values: TranslationValues = {}): string {
     const messages = LANGUAGES[this.#language] ?? LANGUAGES[DEFAULT_LANGUAGE];
     const fallback = LANGUAGES[DEFAULT_LANGUAGE];
     const message = getMessage(messages, key) ?? getMessage(fallback, key) ?? key;
     return typeof message === 'string' ? interpolate(message, values) : key;
   }
 
-  #updateLanguage(emitChange) {
+  #updateLanguage(emitChange: boolean): void {
     const nextLanguage = getDeviceLanguages()
       .map(resolveLanguage)
       .find(Boolean) ?? DEFAULT_LANGUAGE;
@@ -66,7 +71,7 @@ class I18nService extends EventTarget {
     }
   }
 
-  #applyDocumentLanguage() {
+  #applyDocumentLanguage(): void {
     document.documentElement.lang = this.#language;
     document.title = this.t('app.title');
   }

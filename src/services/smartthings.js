@@ -10,7 +10,9 @@ import {
   isMockSmartThingsEnabled,
   saveMockHomeConfig,
 } from './smartthings.mock.js';
-import { i18n } from './i18n.js';
+import { i18n } from './i18n.ts';
+
+export { SUPPORTED_CAPABILITIES } from './capabilities.ts';
 
 const API_BASE = 'https://api.smartthings.com/v1';
 const ENV = import.meta.env ?? {};
@@ -158,20 +160,6 @@ function formatDebugDetail(value) {
     return String(value);
   }
 }
-
-export const SUPPORTED_CAPABILITIES = new Set([
-  'switch',
-  'switchLevel',
-  'colorControl',
-  'colorTemperature',
-  'temperatureMeasurement',
-  'relativeHumidityMeasurement',
-  'occupancySensor',
-  'motionSensor',
-  'presenceSensor',
-  'movementSensor',
-  'multipleZonePresence',
-]);
 
 function readStorage(key, storage = localStorage) {
   try {

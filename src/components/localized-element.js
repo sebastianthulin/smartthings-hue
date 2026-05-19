@@ -1,5 +1,5 @@
 import { LitElement } from 'lit';
-import { i18n } from '../services/i18n.js';
+import { i18n } from '../services/i18n.ts';
 
 export class LocalizedElement extends LitElement {
   connectedCallback() {

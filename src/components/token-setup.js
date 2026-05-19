@@ -1,6 +1,6 @@
 import { html, css } from 'lit';
 import { LocalizedElement } from './localized-element.js';
-import { toasts } from '../services/toasts.js';
+import { toasts } from '../services/toasts.ts';
 
 const IOS_INSTALL_HINT_DISMISSED_KEY = 'smarthue:ios-install-hint-dismissed';
 const IOS_INSTALL_TOAST_ID = 'ios-install-hint';
