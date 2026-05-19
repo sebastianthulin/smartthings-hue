@@ -35,7 +35,7 @@ type ClimateKey = keyof Climate;
 type ClimateAccum = Partial<Record<ClimateKey, { sum: number; count: number }>>;
 
 type RoomAccumulator = Room & {
-  _climateAccum: ClimateAccum;
+  _climateAccum?: ClimateAccum;
 };
 
 type RawCapability = {
@@ -122,9 +122,7 @@ export function normalizeHome(
     finalizeClimate(room);
   }
 
-  return sortHome(allRooms
-    .filter((room) => room.lights.length > 0 || hasClimate(room))
-    .map(({ _climateAccum: _ignored, ...room }) => room));
+  return sortHome(allRooms.filter((room) => room.lights.length > 0 || hasClimate(room)));
 }
 
 export function sortHome(rooms: Room[]): Room[] {
@@ -168,8 +166,9 @@ function aggregateClimate(room: RoomAccumulator, key: ClimateKey, value: number)
 
 function finalizeClimate(room: RoomAccumulator): void {
   const accum = room._climateAccum;
+  delete room._climateAccum;
 
-  if (!Object.keys(accum).length) {
+  if (!accum || !Object.keys(accum).length) {
     room.climate = null;
     return;
   }
