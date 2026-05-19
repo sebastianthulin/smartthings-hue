@@ -604,6 +604,7 @@ export class LightGroup extends LocalizedElement {
         ${this._sortedLights.map(light => html`
           ${(() => {
             const hasColorControls = Boolean(light.color || light.colorTemp != null);
+            const showTemperatureSlider = light.colorTemp != null && !light.color;
             const displayColor = this._getDisplayColor(light);
             const displayTemperature = this._getDisplayTemperature(light);
             return html`
@@ -686,7 +687,7 @@ export class LightGroup extends LocalizedElement {
                         </div>
                       ` : ''}
 
-                      ${light.colorTemp != null ? html`
+                      ${showTemperatureSlider ? html`
                         <div class="color-control-group">
                           <span class="color-control-group-title">${this.t('room.lightWhiteSection')}</span>
                           <temperature-slider

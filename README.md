@@ -49,7 +49,7 @@ Non-goals, at least for now:
 - Palette-driven color controls for supported lights.
 - Hue slider.
 - Saturation slider.
-- White temperature slider for `colorTemperature` lights.
+- White temperature slider for temperature-only lights.
 - Unified presets that can apply hue, saturation, and Kelvin together where supported.
 - Immediate local preview during slider interaction with debounced command sending.
 
