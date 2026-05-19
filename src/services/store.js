@@ -9,7 +9,8 @@
  *  - Emit 'update' events so components can react
  */
 
-import { smartthings, AuthError } from './smartthings.js';
+import { backend } from './backend.js';
+import { AuthError } from './smartthings.js';
 import { normalizeHome, sortHome } from './normalizer.ts';
 
 const CACHE_KEY    = 'st_home_state';
@@ -183,7 +184,7 @@ function readEmbeddedDeviceHealth(device) {
 }
 
 function getCurrentCacheMode() {
-  return smartthings.authMode === 'mock' ? 'mock' : 'live';
+  return backend.authMode === 'mock' ? 'mock' : 'live';
 }
 
 function inferCachedMode({ mode, locationId }) {
@@ -203,7 +204,7 @@ class HomeStore extends EventTarget {
   #authError   = false;
   #homeConfig  = createDefaultHomeConfig();
   #scenes      = [];
-  #sharedConfigEnabled = smartthings.sharedConfigEnabled;
+  #sharedConfigEnabled = backend.sharedConfigEnabled;
   #sharedConfigLastSync = 0;
   #lightColorTimers = new Map();
   #lightColorTemperatureTimers = new Map();
@@ -242,7 +243,7 @@ class HomeStore extends EventTarget {
       this.#rooms      = sortHome(rooms ?? []);
       this.#lastSync   = lastSync   ?? null;
       this.#locationId = locationId ?? null;
-      this.#sharedConfigEnabled = smartthings.sharedConfigEnabled;
+      this.#sharedConfigEnabled = backend.sharedConfigEnabled;
       this.#homeConfig = normalizeHomeConfig(this.#locationId, homeConfig);
       this.#scenes = normalizeScenes(scenes);
       this.#sharedConfigLastSync = Number(sharedConfigLastSync) || 0;
@@ -275,7 +276,7 @@ class HomeStore extends EventTarget {
     this.#homeConfig = createDefaultHomeConfig();
     this.#scenes = [];
     this.#sharedConfigLastSync = 0;
-    this.#sharedConfigEnabled = smartthings.sharedConfigEnabled;
+    this.#sharedConfigEnabled = backend.sharedConfigEnabled;
   }
 
   // ── Sync ───────────────────────────────────────────────────────────────────
@@ -305,7 +306,7 @@ class HomeStore extends EventTarget {
     this.dispatchEvent(new CustomEvent('syncing'));
 
     try {
-      this.#sharedConfigEnabled = smartthings.sharedConfigEnabled;
+      this.#sharedConfigEnabled = backend.sharedConfigEnabled;
 
       if (getCurrentCacheMode() === 'live' && this.#locationId === MOCK_LOCATION_ID) {
         this.#locationId = null;
@@ -315,7 +316,7 @@ class HomeStore extends EventTarget {
 
       // Discover location on first sync
       if (!this.#locationId) {
-        const locations = await smartthings.fetchLocations();
+        const locations = await backend.fetchLocations();
         if (!locations.length) throw new Error('No SmartThings locations found.');
         this.#locationId = locations[0].locationId;
       }
@@ -334,8 +335,8 @@ class HomeStore extends EventTarget {
         });
 
       const [rawRooms, rawDevices] = await Promise.all([
-        smartthings.fetchRooms(this.#locationId),
-        smartthings.fetchDevices(this.#locationId, {
+        backend.fetchRooms(this.#locationId),
+        backend.fetchDevices(this.#locationId, {
           includeStatus: true,
           includeHealth: true,
         }),
@@ -366,12 +367,12 @@ class HomeStore extends EventTarget {
         const [statusSettled, healthSettled] = await Promise.all([
           Promise.allSettled(
             missingStatusIds.map(deviceId =>
-              smartthings.fetchDeviceStatus(deviceId).then(status => [deviceId, status])
+              backend.fetchDeviceStatus(deviceId).then(status => [deviceId, status])
             )
           ),
           Promise.allSettled(
             missingHealthIds.map(deviceId =>
-              smartthings.fetchDeviceHealth(deviceId).then(health => [deviceId, health])
+              backend.fetchDeviceHealth(deviceId).then(health => [deviceId, health])
             )
           ),
         ]);
@@ -425,7 +426,7 @@ class HomeStore extends EventTarget {
     // Actual API — fire and forget
     await Promise.allSettled(
       room.lights.map(l =>
-        target ? smartthings.switchOn(l.id) : smartthings.switchOff(l.id)
+        target ? backend.switchOn(l.id) : backend.switchOff(l.id)
       )
     );
   }
@@ -446,7 +447,7 @@ class HomeStore extends EventTarget {
 
     await Promise.allSettled(
       room.lights.map(light =>
-        target ? smartthings.switchOn(light.id) : smartthings.switchOff(light.id)
+        target ? backend.switchOn(light.id) : backend.switchOff(light.id)
       )
     );
   }
@@ -460,7 +461,7 @@ class HomeStore extends EventTarget {
     this.#emit();
 
     await Promise.allSettled([
-      light.on ? smartthings.switchOn(lightId) : smartthings.switchOff(lightId),
+      light.on ? backend.switchOn(lightId) : backend.switchOff(lightId),
     ]);
   }
 
@@ -481,7 +482,7 @@ class HomeStore extends EventTarget {
     this.#clearLightLevelTimer(lightId);
     this.#lightLevelTimers.set(lightId, setTimeout(async () => {
       this.#lightLevelTimers.delete(lightId);
-      await Promise.allSettled([smartthings.setLevel(lightId, brightness)]);
+      await Promise.allSettled([backend.setLevel(lightId, brightness)]);
     }, BRIGHTNESS_DEBOUNCE_MS));
   }
 
@@ -502,7 +503,7 @@ class HomeStore extends EventTarget {
     this.#clearLightColorTimer(lightId);
     this.#lightColorTimers.set(lightId, setTimeout(async () => {
       this.#lightColorTimers.delete(lightId);
-      await Promise.allSettled([smartthings.setColor(lightId, nextHue, nextSaturation)]);
+      await Promise.allSettled([backend.setColor(lightId, nextHue, nextSaturation)]);
     }, COLOR_DEBOUNCE_MS));
   }
 
@@ -519,7 +520,7 @@ class HomeStore extends EventTarget {
     this.#clearLightColorTemperatureTimer(lightId);
     this.#lightColorTemperatureTimers.set(lightId, setTimeout(async () => {
       this.#lightColorTemperatureTimers.delete(lightId);
-      await Promise.allSettled([smartthings.setColorTemperature(lightId, nextKelvin)]);
+      await Promise.allSettled([backend.setColorTemperature(lightId, nextKelvin)]);
     }, COLOR_DEBOUNCE_MS));
   }
 
@@ -542,7 +543,7 @@ class HomeStore extends EventTarget {
     this.#roomLevelTimers.set(roomId, setTimeout(async () => {
       this.#roomLevelTimers.delete(roomId);
       await Promise.allSettled(
-        activeLights.map(light => smartthings.setLevel(light.id, brightness))
+        activeLights.map(light => backend.setLevel(light.id, brightness))
       );
     }, BRIGHTNESS_DEBOUNCE_MS));
   }
@@ -585,7 +586,7 @@ class HomeStore extends EventTarget {
       return this.#snapshotHomeConfig();
     }
 
-    const savedConfig = await smartthings.saveHomeConfig(this.#locationId, nextConfig);
+    const savedConfig = await backend.saveHomeConfig(this.#locationId, nextConfig);
     this.#homeConfig = normalizeHomeConfig(this.#locationId, savedConfig);
     this.#sharedConfigLastSync = Date.now();
     this.#save();
@@ -606,7 +607,7 @@ class HomeStore extends EventTarget {
       return false;
     }
 
-    await smartthings.executeScene(sceneId, this.#locationId);
+    await backend.executeScene(sceneId, this.#locationId);
     void this.#syncOnce();
     return true;
   }
@@ -637,7 +638,7 @@ class HomeStore extends EventTarget {
       return false;
     }
 
-    await smartthings.executeScene(sceneId, this.#locationId);
+    await backend.executeScene(sceneId, this.#locationId);
     void this.#syncOnce();
     return true;
   }
@@ -655,8 +656,8 @@ class HomeStore extends EventTarget {
     }
 
     const [scenes, homeConfig] = await Promise.all([
-      smartthings.fetchScenes(this.#locationId),
-      smartthings.fetchHomeConfig(this.#locationId),
+      backend.fetchScenes(this.#locationId),
+      backend.fetchHomeConfig(this.#locationId),
     ]);
 
     this.#scenes = normalizeScenes(scenes);

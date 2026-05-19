@@ -117,6 +117,7 @@ The main frontend lives under `src/` and is built as a single-page app.
 
 Important areas:
 
+- `src/services/backend.js`: injectable backend provider facade that keeps the UI and store decoupled from a specific smart home adapter
 - `src/components/app-shell.js`: app bootstrap, auth handoff, app-level transitions
 - `src/components/home-view.js`: home view, room detail, settings surfaces, routines, swipe-back behavior
 - `src/components/light-group.js`: per-light controls including dimming, color, saturation, and white temperature
@@ -136,6 +137,12 @@ This repo includes a broker that handles:
 - shared home config endpoints
 
 The broker code lives in `api/` and can be run locally or deployed separately.
+
+### Backend providers
+
+The app now resolves backend behavior through `src/services/backend.js`.
+
+That keeps login, token/session handling, and device operations injectable so additional smart home adapters can register themselves without rewriting app-shell or store logic. SmartThings remains the default registered provider.
 
 ### Shared home config model
 

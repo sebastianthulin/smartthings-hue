@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { smartthings } from '../services/smartthings.js';
+import { backend } from '../services/backend.js';
 import { store } from '../services/store.js';
 import { toasts } from '../services/toasts.ts';
 import './app-toasts.js';
@@ -43,12 +43,12 @@ export class AppShell extends LitElement {
 
   constructor() {
     super();
-    this._hasToken             = smartthings.hasToken;
-    this._authMode             = smartthings.authMode;
+    this._hasToken             = backend.hasToken;
+    this._authMode             = backend.authMode;
     this._authError            = false;
     this._authMessage          = '';
     this._authPending          = true;
-    this._authPendingMode      = smartthings.pendingLoginMode;
+    this._authPendingMode      = backend.pendingLoginMode;
     this._pageTransitionActive = false;
     this._resumePendingOAuthPromise = null;
     this._refreshOAuthSessionPromise = null;
@@ -163,7 +163,7 @@ export class AppShell extends LitElement {
   }
 
   _showQueuedAuthToast() {
-    const notice = smartthings.consumeAuthNotice();
+    const notice = backend.consumeAuthNotice();
 
     if (notice?.type !== 'oauth-standalone-complete') {
       return;
@@ -179,19 +179,19 @@ export class AppShell extends LitElement {
 
   async _initializeAuth() {
     this._authPending = true;
-    this._authMode = smartthings.authMode;
-    this._authPendingMode = smartthings.pendingLoginMode;
+    this._authMode = backend.authMode;
+    this._authPendingMode = backend.pendingLoginMode;
 
     try {
       if (this._authMode === 'oauth') {
-        await smartthings.resumePendingLogin();
+        await backend.resumePendingLogin();
 
-        if (!smartthings.hasToken) {
-          await smartthings.maybeCompleteLoginFromRedirect();
+        if (!backend.hasToken) {
+          await backend.maybeCompleteLoginFromRedirect();
         }
       }
 
-      this._hasToken = smartthings.hasToken;
+      this._hasToken = backend.hasToken;
 
       if (this._hasToken) {
         this._authError = false;
@@ -201,11 +201,11 @@ export class AppShell extends LitElement {
         this._maybeRefreshOAuthSession();
         this._showQueuedAuthToast();
       } else if (this._authMode === 'oauth') {
-        this._authMessage = smartthings.authConfigError;
-        this._authPendingMode = smartthings.pendingLoginMode;
+        this._authMessage = backend.authConfigError;
+        this._authPendingMode = backend.pendingLoginMode;
       }
     } catch (error) {
-      smartthings.clearToken();
+      backend.clearToken();
       this._hasToken = false;
       this._authError = true;
       this._authMessage = this._describeError(error);
@@ -221,18 +221,18 @@ export class AppShell extends LitElement {
     }
 
     this._resumePendingOAuthPromise = (async () => {
-      if (!smartthings.hasPendingLogin) {
+      if (!backend.hasPendingLogin) {
         this._authPendingMode = '';
         return false;
       }
 
       this._authPending = true;
-      this._authPendingMode = smartthings.pendingLoginMode;
+      this._authPendingMode = backend.pendingLoginMode;
 
       try {
-        const completed = await smartthings.resumePendingLogin();
+        const completed = await backend.resumePendingLogin();
 
-        if (completed && smartthings.hasToken) {
+        if (completed && backend.hasToken) {
           this._hasToken = true;
           this._authError = false;
           this._authMessage = '';
@@ -246,7 +246,7 @@ export class AppShell extends LitElement {
         await this._initializeAuth();
         return false;
       } catch (error) {
-        smartthings.clearToken();
+        backend.clearToken();
         this._hasToken = false;
         this._authError = true;
         this._authMessage = this._describeError(error);
@@ -276,7 +276,7 @@ export class AppShell extends LitElement {
 
     this._refreshOAuthSessionPromise = (async () => {
       try {
-        return await smartthings.maybeRefreshSession();
+        return await backend.maybeRefreshSession();
       } catch {
         return false;
       }
@@ -291,7 +291,7 @@ export class AppShell extends LitElement {
 
   async _handleTokenSet(e) {
     const { token } = e.detail;
-    smartthings.setToken(token);
+    backend.setToken(token);
     await this._runAppViewTransition(() => {
       this._hasToken = true;
       this._authError = false;
@@ -302,7 +302,7 @@ export class AppShell extends LitElement {
 
   async _handleLoginStart() {
     this._authError = false;
-    this._authMessage = smartthings.authConfigError;
+    this._authMessage = backend.authConfigError;
     this._authPendingMode = '';
 
     if (this._authMessage) {
@@ -312,14 +312,14 @@ export class AppShell extends LitElement {
     this._authPending = true;
 
     try {
-      const completed = await smartthings.startLogin();
+      const completed = await backend.startLogin();
 
       if (completed?.pending) {
         this._authPendingMode = completed.handoff === 'standalone' ? 'standalone' : 'browser';
         return;
       }
 
-      if (completed && smartthings.hasToken) {
+      if (completed && backend.hasToken) {
         this._hasToken = true;
         this._authError = false;
         this._authMessage = '';

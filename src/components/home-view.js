@@ -1,6 +1,6 @@
 import { html, css } from 'lit';
 import { store } from '../services/store.js';
-import { smartthings } from '../services/smartthings.js';
+import { backend } from '../services/backend.js';
 import { toasts } from '../services/toasts.ts';
 import { LocalizedElement } from './localized-element.js';
 import './room-card.js';
@@ -1421,7 +1421,7 @@ export class HomeView extends LocalizedElement {
 
   constructor() {
     super();
-    this._authMode              = smartthings.authMode;
+    this._authMode              = backend.authMode;
     this._connectionMenuOpen    = false;
     this._disconnectConfirmOpen = false;
     this._mainTurnOnConfirmOpen = false;
@@ -1539,7 +1539,7 @@ export class HomeView extends LocalizedElement {
   _disconnect() {
     store.stopSync();
     store.clearCache();
-    smartthings.clearToken();
+    backend.clearToken();
     window.location.reload();
   }
 
