@@ -13,17 +13,18 @@ import {
 import { i18n } from './i18n.js';
 
 const API_BASE = 'https://api.smartthings.com/v1';
-const LEGACY_BROKER_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_SMARTTHINGS_BROKER_URL ?? '');
-const EXPLICIT_AUTH_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_SMARTTHINGS_AUTH_URL ?? '');
-const EXPLICIT_SERVICE_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_SMARTTHINGS_SERVICE_URL ?? '');
+const ENV = import.meta.env ?? {};
+const LEGACY_BROKER_BASE_URL = normalizeBaseUrl(ENV.VITE_SMARTTHINGS_BROKER_URL ?? '');
+const EXPLICIT_AUTH_BASE_URL = normalizeBaseUrl(ENV.VITE_SMARTTHINGS_AUTH_URL ?? '');
+const EXPLICIT_SERVICE_BASE_URL = normalizeBaseUrl(ENV.VITE_SMARTTHINGS_SERVICE_URL ?? '');
 const AUTH_BASE_URL = EXPLICIT_AUTH_BASE_URL
   || swapSubdomain(EXPLICIT_SERVICE_BASE_URL, 'service', 'auth')
   || LEGACY_BROKER_BASE_URL;
 const SERVICE_BASE_URL = EXPLICIT_SERVICE_BASE_URL
   || swapSubdomain(EXPLICIT_AUTH_BASE_URL || LEGACY_BROKER_BASE_URL, 'auth', 'service')
   || AUTH_BASE_URL;
-const OAUTH_CLIENT_ID = import.meta.env.VITE_SMARTTHINGS_CLIENT_ID ?? '';
-const OAUTH_SCOPE = import.meta.env.VITE_SMARTTHINGS_SCOPES
+const OAUTH_CLIENT_ID = ENV.VITE_SMARTTHINGS_CLIENT_ID ?? '';
+const OAUTH_SCOPE = ENV.VITE_SMARTTHINGS_SCOPES
   ?? 'r:locations:* r:devices:* x:devices:* r:scenes:* x:scenes:*';
 const LEGACY_TOKEN_KEY = 'st_token';
 const SESSION_KEY = 'st_oauth_session';
@@ -1139,3 +1140,17 @@ export class ConfigError extends Error {
 }
 
 export const smartthings = new SmartThingsAPI();
+
+export {
+  clearHomeConfigCaches,
+  createMessageDescriptor,
+  describeBrokerError,
+  describeOAuthRedirectError,
+  describeRelayError,
+  formatDebugDetail,
+  getHomeConfigCacheKey,
+  normalizeBaseUrl,
+  readHomeConfigCache,
+  swapSubdomain,
+  writeHomeConfigCache,
+};

@@ -58,7 +58,7 @@ export function normalizeHome(rawDevices, rawRooms, statusMap, healthMap = {}) {
 
   // Finalize climate averages
   const allRooms = [...roomMap.values()];
-  if (unassigned.lights.length > 0 || hasClimate(unassigned)) {
+  if (unassigned.lights.length > 0 || Object.keys(unassigned._climateAccum).length > 0) {
     allRooms.push(unassigned);
   }
 
