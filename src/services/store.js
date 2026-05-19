@@ -764,3 +764,14 @@ class HomeStore extends EventTarget {
 
 /** Singleton store — import and use everywhere. */
 export const store = new HomeStore();
+
+export {
+  createDefaultHomeConfig,
+  inferCachedMode,
+  isValidTimeValue,
+  normalizeHomeConfig,
+  normalizeRoomSettings,
+  normalizeScenes,
+  normalizeStringIds,
+  normalizeTimeValue,
+};

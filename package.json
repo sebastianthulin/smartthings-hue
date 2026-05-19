@@ -10,6 +10,7 @@
     "build:native": "npm run build && npx cap sync",
     "build:pwa-reset": "PWA_SELF_DESTROY=1 vite build && npm run deploy:check:reset",
     "preview": "vite preview",
+    "test": "node --import ./test/setup.js --test",
     "lint": "eslint .",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
