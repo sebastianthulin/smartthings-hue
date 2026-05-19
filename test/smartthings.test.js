@@ -11,30 +11,7 @@ import {
   swapSubdomain,
   writeHomeConfigCache,
 } from '../src/services/smartthings.js';
-
-class MemoryStorage {
-  #values = new Map();
-
-  get length() {
-    return this.#values.size;
-  }
-
-  getItem(key) {
-    return this.#values.has(key) ? this.#values.get(key) : null;
-  }
-
-  key(index) {
-    return [...this.#values.keys()][index] ?? null;
-  }
-
-  removeItem(key) {
-    this.#values.delete(key);
-  }
-
-  setItem(key, value) {
-    this.#values.set(String(key), String(value));
-  }
-}
+import { MemoryStorage } from './setup.js';
 
 test('base URL helpers normalize and swap expected SmartThings broker hosts', () => {
   assert.equal(normalizeBaseUrl(' https://auth.example.com/ '), 'https://auth.example.com');

@@ -1,4 +1,4 @@
-class MemoryStorage {
+export class MemoryStorage {
   #values = new Map();
 
   get length() {
