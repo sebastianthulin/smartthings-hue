@@ -348,7 +348,7 @@ function writeAuthPopupPlaceholder(popup) {
   }
 }
 
-class SmartThingsAPI {
+export class SmartThingsAPI {
   #session = null;
   #pendingLoginPromise = null;
   #refreshSessionPromise = null;
