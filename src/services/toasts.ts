@@ -3,7 +3,7 @@ export type ToastDismissReason = 'dismiss' | 'clear' | (string & {});
 export type ToastItem = {
   id: string;
   tone: string;
-  duration: number;
+  duration: unknown;
   onDismiss?: (reason: ToastDismissReason, item: ToastItem) => void;
   [key: string]: unknown;
 };
@@ -24,20 +24,21 @@ export class ToastService extends EventTarget {
   }
 
   show(toast: ToastInput = {}): string {
+    const duration = Number.isFinite(Number(toast.duration)) ? Number(toast.duration) : 5000;
     const item = {
-      ...toast,
       id: toast.id ?? createToastId(),
       tone: toast.tone ?? 'info',
-      duration: Number.isFinite(Number(toast.duration)) ? Number(toast.duration) : 5000,
+      duration,
+      ...toast,
     } as ToastItem;
 
     this.#items = [...this.#items, item];
     this.#emit();
 
-    if (item.duration > 0) {
+    if (duration > 0) {
       const timer = window.setTimeout(() => {
         this.dismiss(item.id);
-      }, item.duration);
+      }, duration);
 
       this.#timers.set(item.id, timer);
     }

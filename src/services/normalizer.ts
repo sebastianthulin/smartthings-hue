@@ -184,7 +184,7 @@ function finalizeClimate(room: RoomAccumulator): void {
 }
 
 function getDeviceCaps(device: RawDevice): Set<SupportedCapability> {
-    const caps = new Set<SupportedCapability>();
+  const caps = new Set<SupportedCapability>();
   for (const comp of device.components ?? []) {
     for (const cap of comp.capabilities ?? []) {
       if (isSupportedCapability(cap.id)) caps.add(cap.id);
