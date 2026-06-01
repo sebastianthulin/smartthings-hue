@@ -205,6 +205,9 @@ export const sv = {
       roomSettingsErrorDescription: 'Försök igen om en liten stund. Rummet behåller sina tidigare delade inställningar tills sparningen lyckas.',
       mainRoutineErrorTitle: 'Det gick inte att köra rutinen',
       mainRoutineErrorDescription: 'Försök igen när SmartThings har synkat klart.',
+      mainRoutineCheckTitle: 'Vissa lampor behöver kollas',
+      mainRoutineTurnOnCheckDescription: 'Vissa lampor tändes inte efter att rutinen kördes.',
+      mainRoutineTurnOffCheckDescription: 'Vissa lampor släcktes inte efter att rutinen kördes.',
     },
   },
   room: {

@@ -12,6 +12,7 @@
 import { backend } from './backend.js';
 import { AuthError } from './smartthings.js';
 import { normalizeHome, sortHome } from './normalizer.ts';
+import { toasts } from './toasts.ts';
 
 const CACHE_KEY    = 'st_home_state';
 const SYNC_INTERVAL = 30_000; // ms
@@ -607,8 +608,40 @@ class HomeStore extends EventTarget {
       return false;
     }
 
-    await backend.executeScene(sceneId, this.#locationId);
-    void this.#syncOnce();
+    const target = type === 'turnOn';
+    let didChange = false;
+
+    for (const room of this.#rooms) {
+      for (const light of room.lights) {
+        if (light.on !== target) {
+          light.on = target;
+          didChange = true;
+        }
+      }
+    }
+
+    if (didChange) {
+      this.#emit();
+    }
+
+    try {
+      await backend.executeScene(sceneId, this.#locationId);
+      await this.#syncOnce();
+    } catch (error) {
+      void this.#syncOnce();
+      throw error;
+    }
+
+    if (this.#rooms.some(room => room.lights.some(light => light.on !== target))) {
+      toasts.show({
+        tone: 'info',
+        titleKey: 'home.toasts.mainRoutineCheckTitle',
+        descriptionKey: target
+          ? 'home.toasts.mainRoutineTurnOnCheckDescription'
+          : 'home.toasts.mainRoutineTurnOffCheckDescription',
+      });
+    }
+
     return true;
   }
 
