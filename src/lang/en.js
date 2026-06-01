@@ -206,6 +206,9 @@ export const en = {
       roomSettingsErrorDescription: 'Try again in a moment. The room keeps its previous shared settings until the save succeeds.',
       mainRoutineErrorTitle: 'Could not run the routine',
       mainRoutineErrorDescription: 'Try again after SmartThings finishes syncing.',
+      mainRoutineCheckTitle: 'Some lights need attention',
+      mainRoutineTurnOnCheckDescription: 'Some lights did not turn on after the routine finished.',
+      mainRoutineTurnOffCheckDescription: 'Some lights did not turn off after the routine finished.',
     },
   },
   room: {

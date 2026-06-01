@@ -7,7 +7,84 @@ import {
   isValidTimeValue,
   normalizeHomeConfig,
   normalizeScenes,
+  store,
 } from '../src/services/store.js';
+import { resetBackendProvider, setBackendProvider } from '../src/services/backend.js';
+import { toasts } from '../src/services/toasts.ts';
+
+function createTestBackendProvider(overrides = {}) {
+  return {
+    hasToken: false,
+    authMode: 'oauth',
+    authConfigError: '',
+    pendingLoginMode: 'browser',
+    hasPendingLogin: false,
+    sharedConfigEnabled: true,
+    setToken() {},
+    clearToken() {},
+    consumeAuthNotice() {
+      return null;
+    },
+    async resumePendingLogin() {
+      return false;
+    },
+    async maybeCompleteLoginFromRedirect() {
+      return false;
+    },
+    async maybeRefreshSession() {
+      return true;
+    },
+    async startLogin() {
+      return null;
+    },
+    async fetchLocations() {
+      return [{ locationId: 'test-location' }];
+    },
+    async fetchRooms() {
+      return [];
+    },
+    async fetchDevices() {
+      return [];
+    },
+    async fetchHomeConfig() {
+      return null;
+    },
+    async saveHomeConfig(_locationId, config) {
+      return config;
+    },
+    async fetchDeviceStatus() {
+      return {};
+    },
+    async fetchDeviceHealth() {
+      return {};
+    },
+    async sendCommand() {
+      return { ok: true };
+    },
+    async switchOn() {
+      return { ok: true };
+    },
+    async switchOff() {
+      return { ok: true };
+    },
+    async setLevel() {
+      return { ok: true };
+    },
+    async setColor() {
+      return { ok: true };
+    },
+    async setColorTemperature() {
+      return { ok: true };
+    },
+    async fetchScenes() {
+      return [];
+    },
+    async executeScene() {
+      return { ok: true };
+    },
+    ...overrides,
+  };
+}
 
 test('normalizeHomeConfig falls back to defaults and sanitizes identifiers', () => {
   assert.deepEqual(normalizeHomeConfig('living-room', {
@@ -95,4 +172,106 @@ test('time validation and cached mode inference handle legacy values', () => {
   assert.equal(inferCachedMode({ mode: 'live', locationId: 'mock-location' }), 'live');
   assert.equal(inferCachedMode({ locationId: 'mock-location' }), 'mock');
   assert.equal(inferCachedMode({ locationId: 'real-location' }), 'live');
+});
+
+test('executeMainRoutine updates lights optimistically and shows a toast if the sync disagrees', async () => {
+  let resolveScene = null;
+  const executeScenePromise = new Promise((resolve) => {
+    resolveScene = resolve;
+  });
+
+  try {
+    setBackendProvider(createTestBackendProvider({
+      async executeScene(sceneId, locationId) {
+        assert.equal(sceneId, 'scene-off');
+        assert.equal(locationId, 'test-location');
+        await executeScenePromise;
+        return { ok: true };
+      },
+      async fetchRooms() {
+        return [{ roomId: 'living', name: 'Living Room' }];
+      },
+      async fetchDevices() {
+        return [{
+          deviceId: 'light-1',
+          label: 'Ceiling',
+          roomId: 'living',
+          components: [{ capabilities: [{ id: 'switch' }] }],
+          status: {
+            components: {
+              main: {
+                switch: {
+                  switch: { value: 'on' },
+                },
+              },
+            },
+          },
+        }];
+      },
+      async fetchHomeConfig() {
+        return {
+          mainRoutines: {
+            turnOffSceneId: 'scene-off',
+          },
+        };
+      },
+    }));
+
+    toasts.clear();
+    localStorage.clear();
+    store.clearCache();
+
+    localStorage.setItem('st_home_state', JSON.stringify({
+      rooms: [{
+        id: 'living',
+        name: 'Living Room',
+        occupied: false,
+        climate: null,
+        lights: [{
+          id: 'light-1',
+          name: 'Ceiling',
+          on: true,
+        }],
+      }],
+      lastSync: Date.now(),
+      locationId: 'test-location',
+      mode: 'live',
+      homeConfig: {
+        mainRoutines: {
+          turnOnConfirmEnabled: true,
+          turnOnConfirmTime: '21:00',
+          turnOnSceneId: null,
+          turnOffSceneId: 'scene-off',
+        },
+        hiddenRoomIds: [],
+        roomSettings: {},
+      },
+      scenes: [{
+        sceneId: 'scene-off',
+        sceneName: 'All Off',
+        locationId: 'test-location',
+      }],
+      sharedConfigLastSync: Date.now(),
+    }));
+
+    assert.equal(store.rehydrate(), true);
+
+    const runPromise = store.executeMainRoutine('turnOff');
+
+    assert.equal(store.rooms[0].lights[0].on, false);
+    assert.equal(toasts.items.length, 0);
+
+    resolveScene();
+    assert.equal(await runPromise, true);
+
+    assert.equal(store.rooms[0].lights[0].on, true);
+    assert.equal(toasts.items.length, 1);
+    assert.equal(toasts.items[0].titleKey, 'home.toasts.mainRoutineCheckTitle');
+    assert.equal(toasts.items[0].descriptionKey, 'home.toasts.mainRoutineTurnOffCheckDescription');
+  } finally {
+    toasts.clear();
+    store.clearCache();
+    localStorage.clear();
+    resetBackendProvider();
+  }
 });
