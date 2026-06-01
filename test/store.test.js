@@ -180,94 +180,98 @@ test('executeMainRoutine updates lights optimistically and shows a toast if the 
     resolveScene = resolve;
   });
 
-  setBackendProvider(createTestBackendProvider({
-    async executeScene(sceneId, locationId) {
-      assert.equal(sceneId, 'scene-off');
-      assert.equal(locationId, 'test-location');
-      await executeScenePromise;
-      return { ok: true };
-    },
-    async fetchRooms() {
-      return [{ roomId: 'living', name: 'Living Room' }];
-    },
-    async fetchDevices() {
-      return [{
-        deviceId: 'light-1',
-        label: 'Ceiling',
-        roomId: 'living',
-        components: [{ capabilities: [{ id: 'switch' }] }],
-        status: {
-          components: {
-            main: {
-              switch: {
-                switch: { value: 'on' },
+  try {
+    setBackendProvider(createTestBackendProvider({
+      async executeScene(sceneId, locationId) {
+        assert.equal(sceneId, 'scene-off');
+        assert.equal(locationId, 'test-location');
+        await executeScenePromise;
+        return { ok: true };
+      },
+      async fetchRooms() {
+        return [{ roomId: 'living', name: 'Living Room' }];
+      },
+      async fetchDevices() {
+        return [{
+          deviceId: 'light-1',
+          label: 'Ceiling',
+          roomId: 'living',
+          components: [{ capabilities: [{ id: 'switch' }] }],
+          status: {
+            components: {
+              main: {
+                switch: {
+                  switch: { value: 'on' },
+                },
               },
             },
           },
-        },
-      }];
-    },
-    async fetchHomeConfig() {
-      return {
+        }];
+      },
+      async fetchHomeConfig() {
+        return {
+          mainRoutines: {
+            turnOffSceneId: 'scene-off',
+          },
+        };
+      },
+    }));
+
+    toasts.clear();
+    localStorage.clear();
+    store.clearCache();
+
+    localStorage.setItem('st_home_state', JSON.stringify({
+      rooms: [{
+        id: 'living',
+        name: 'Living Room',
+        occupied: false,
+        climate: null,
+        lights: [{
+          id: 'light-1',
+          name: 'Ceiling',
+          on: true,
+        }],
+      }],
+      lastSync: Date.now(),
+      locationId: 'test-location',
+      mode: 'live',
+      homeConfig: {
         mainRoutines: {
+          turnOnConfirmEnabled: true,
+          turnOnConfirmTime: '21:00',
+          turnOnSceneId: null,
           turnOffSceneId: 'scene-off',
         },
-      };
-    },
-  }));
-
-  localStorage.setItem('st_home_state', JSON.stringify({
-    rooms: [{
-      id: 'living',
-      name: 'Living Room',
-      occupied: false,
-      climate: null,
-      lights: [{
-        id: 'light-1',
-        name: 'Ceiling',
-        on: true,
-      }],
-    }],
-    lastSync: Date.now(),
-    locationId: 'test-location',
-    mode: 'live',
-    homeConfig: {
-      mainRoutines: {
-        turnOnConfirmEnabled: true,
-        turnOnConfirmTime: '21:00',
-        turnOnSceneId: null,
-        turnOffSceneId: 'scene-off',
+        hiddenRoomIds: [],
+        roomSettings: {},
       },
-      hiddenRoomIds: [],
-      roomSettings: {},
-    },
-    scenes: [{
-      sceneId: 'scene-off',
-      sceneName: 'All Off',
-      locationId: 'test-location',
-    }],
-    sharedConfigLastSync: Date.now(),
-  }));
+      scenes: [{
+        sceneId: 'scene-off',
+        sceneName: 'All Off',
+        locationId: 'test-location',
+      }],
+      sharedConfigLastSync: Date.now(),
+    }));
 
-  toasts.clear();
-  store.clearCache();
-  assert.equal(store.rehydrate(), true);
+    assert.equal(store.rehydrate(), true);
 
-  const runPromise = store.executeMainRoutine('turnOff');
+    const runPromise = store.executeMainRoutine('turnOff');
 
-  assert.equal(store.rooms[0].lights[0].on, false);
-  assert.equal(toasts.items.length, 0);
+    assert.equal(store.rooms[0].lights[0].on, false);
+    assert.equal(toasts.items.length, 0);
 
-  resolveScene();
-  assert.equal(await runPromise, true);
+    resolveScene();
+    assert.equal(await runPromise, true);
 
-  assert.equal(store.rooms[0].lights[0].on, true);
-  assert.equal(toasts.items.length, 1);
-  assert.equal(toasts.items[0].titleKey, 'home.toasts.mainRoutineCheckTitle');
-  assert.equal(toasts.items[0].descriptionKey, 'home.toasts.mainRoutineTurnOffCheckDescription');
-
-  toasts.clear();
-  store.clearCache();
-  localStorage.clear();
-  resetBackendProvider();
+    assert.equal(store.rooms[0].lights[0].on, true);
+    assert.equal(toasts.items.length, 1);
+    assert.equal(toasts.items[0].titleKey, 'home.toasts.mainRoutineCheckTitle');
+    assert.equal(toasts.items[0].descriptionKey, 'home.toasts.mainRoutineTurnOffCheckDescription');
+  } finally {
+    toasts.clear();
+    store.clearCache();
+    localStorage.clear();
+    resetBackendProvider();
+  }
 });
