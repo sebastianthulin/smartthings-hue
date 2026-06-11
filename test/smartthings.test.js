@@ -8,6 +8,7 @@ import {
   describeRelayError,
   normalizeBaseUrl,
   readHomeConfigCache,
+  shouldRefreshSession,
   swapSubdomain,
   writeHomeConfigCache,
 } from '../src/services/smartthings.js';
@@ -77,4 +78,14 @@ test('home config cache reads, expires, and clears entries safely', () => {
   } finally {
     Date.now = originalDateNow;
   }
+});
+
+test('OAuth sessions refresh before they expire', () => {
+  const now = 1_000_000;
+  const refreshWindowMs = 60 * 60 * 1000;
+
+  assert.equal(shouldRefreshSession(now + refreshWindowMs + 1, { now, refreshWindowMs }), false);
+  assert.equal(shouldRefreshSession(now + refreshWindowMs, { now, refreshWindowMs }), true);
+  assert.equal(shouldRefreshSession(now + 1, { now, refreshWindowMs }), true);
+  assert.equal(shouldRefreshSession(now + refreshWindowMs + 1, { now, refreshWindowMs, force: true }), true);
 });

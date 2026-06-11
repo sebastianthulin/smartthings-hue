@@ -69,7 +69,7 @@ Non-goals, at least for now:
 - SmartThings OAuth login with a broker-backed code exchange.
 - Refresh-token-based session renewal.
 - Installed-PWA-safe login resume flow using a relay session.
-- Opportunistic foreground refresh for OAuth sessions on focus, visibility return, pageshow, and online once the stored session has expired.
+- Proactive foreground refresh for OAuth sessions before expiry, including checks on focus, visibility return, pageshow, online, and while the app remains open.
 
 ### Packaging and runtime
 
@@ -343,6 +343,8 @@ Install path:
 3. Tap `Add to Home Screen`.
 
 The login and setup screen includes a Safari-only install hint when the app is not yet running in standalone mode.
+
+Newer iOS releases support installed web apps and web push, but they still do not provide Periodic Background Sync or arbitrary background service worker execution for scheduled token refresh. SmartHue therefore refreshes OAuth sessions proactively while the app is open/foregrounded and immediately checks again when the installed app is resumed.
 
 This is currently the best no-Apple-fee route for a real app-like iPhone experience.
 

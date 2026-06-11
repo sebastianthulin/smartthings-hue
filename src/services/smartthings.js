@@ -37,6 +37,7 @@ const AUTH_RELAY_TTL_MS = 5 * 60 * 1000;
 const AUTH_RELAY_POLL_INTERVAL_MS = 2_000;
 const HOME_CONFIG_CACHE_KEY_PREFIX = 'st_home_config_cache:';
 const HOME_CONFIG_CACHE_TTL_MS = 5 * 60 * 1000;
+const OAUTH_SESSION_REFRESH_WINDOW_MS = 60 * 60 * 1000;
 
 const hasOAuthConfig = () => !!OAUTH_CLIENT_ID || !!AUTH_BASE_URL;
 
@@ -235,6 +236,18 @@ function clearHomeConfigCaches(storage = localStorage) {
   } catch {
     // Ignore browsers that block storage.
   }
+}
+
+function shouldRefreshSession(expiresAt, {
+  force = false,
+  now = Date.now(),
+  refreshWindowMs = OAUTH_SESSION_REFRESH_WINDOW_MS,
+} = {}) {
+  if (force) {
+    return true;
+  }
+
+  return Number(expiresAt) <= now + refreshWindowMs;
 }
 
 function createStateToken() {
@@ -612,7 +625,7 @@ export class SmartThingsAPI {
       return false;
     }
 
-    if (!force && this.#session.expiresAt > Date.now()) {
+    if (!shouldRefreshSession(this.#session.expiresAt, { force })) {
       return false;
     }
 
@@ -1139,6 +1152,7 @@ export {
   getHomeConfigCacheKey,
   normalizeBaseUrl,
   readHomeConfigCache,
+  shouldRefreshSession,
   swapSubdomain,
   writeHomeConfigCache,
 };

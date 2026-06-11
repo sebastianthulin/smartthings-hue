@@ -24,6 +24,8 @@ const appShellStyles = css`
   }
 `;
 
+const OAUTH_SESSION_REFRESH_CHECK_INTERVAL_MS = 15 * 60_000;
+
 export class AppShell extends LitElement {
   static properties = {
     _hasToken:             { state: true },
@@ -52,6 +54,7 @@ export class AppShell extends LitElement {
     this._pageTransitionActive = false;
     this._resumePendingOAuthPromise = null;
     this._refreshOAuthSessionPromise = null;
+    this._refreshOAuthSessionTimer = null;
   }
 
   _describeError(error, fallbackKey = 'tokenSetup.errors.invalid') {
@@ -82,6 +85,7 @@ export class AppShell extends LitElement {
           this._authMessage = this._describeError(event.detail, 'tokenSetup.errors.expired');
           this._hasToken  = false;
         });
+        this._syncOAuthSessionRefreshTimer();
       }
     };
 
@@ -154,6 +158,7 @@ export class AppShell extends LitElement {
     window.removeEventListener('pageshow', this._onPageShow);
     window.removeEventListener('online', this._onWindowOnline);
     window.removeEventListener('message', this._onAuthRelayMessage);
+    this._stopOAuthSessionRefreshTimer();
     store.stopSync();
   }
 
@@ -199,10 +204,12 @@ export class AppShell extends LitElement {
         this._authPendingMode = '';
         await this._boot();
         this._maybeRefreshOAuthSession();
+        this._syncOAuthSessionRefreshTimer();
         this._showQueuedAuthToast();
       } else if (this._authMode === 'oauth') {
         this._authMessage = backend.authConfigError;
         this._authPendingMode = backend.pendingLoginMode;
+        this._syncOAuthSessionRefreshTimer();
       }
     } catch (error) {
       backend.clearToken();
@@ -210,6 +217,7 @@ export class AppShell extends LitElement {
       this._authError = true;
       this._authMessage = this._describeError(error);
       this._authPendingMode = '';
+      this._syncOAuthSessionRefreshTimer();
     } finally {
       this._authPending = false;
     }
@@ -239,6 +247,7 @@ export class AppShell extends LitElement {
           this._authPendingMode = '';
           await this._boot();
           this._maybeRefreshOAuthSession();
+          this._syncOAuthSessionRefreshTimer();
           this._showQueuedAuthToast();
           return true;
         }
@@ -252,6 +261,7 @@ export class AppShell extends LitElement {
         this._authMessage = this._describeError(error);
         this._authPendingMode = '';
         this._authPending = false;
+        this._syncOAuthSessionRefreshTimer();
         return false;
       }
     })();
@@ -289,6 +299,33 @@ export class AppShell extends LitElement {
     }
   }
 
+  _syncOAuthSessionRefreshTimer() {
+    if (this._authMode === 'oauth' && this._hasToken) {
+      this._startOAuthSessionRefreshTimer();
+    } else {
+      this._stopOAuthSessionRefreshTimer();
+    }
+  }
+
+  _startOAuthSessionRefreshTimer() {
+    if (this._refreshOAuthSessionTimer) {
+      return;
+    }
+
+    this._refreshOAuthSessionTimer = globalThis.setInterval(() => {
+      this._maybeRefreshOAuthSession();
+    }, OAUTH_SESSION_REFRESH_CHECK_INTERVAL_MS);
+  }
+
+  _stopOAuthSessionRefreshTimer() {
+    if (!this._refreshOAuthSessionTimer) {
+      return;
+    }
+
+    globalThis.clearInterval(this._refreshOAuthSessionTimer);
+    this._refreshOAuthSessionTimer = null;
+  }
+
   async _handleTokenSet(e) {
     const { token } = e.detail;
     backend.setToken(token);
@@ -298,6 +335,7 @@ export class AppShell extends LitElement {
       this._authMessage = '';
     });
     this._boot();
+    this._syncOAuthSessionRefreshTimer();
   }
 
   async _handleLoginStart() {
@@ -326,6 +364,7 @@ export class AppShell extends LitElement {
         this._authPendingMode = '';
         await this._boot();
         this._maybeRefreshOAuthSession();
+        this._syncOAuthSessionRefreshTimer();
         this._showQueuedAuthToast();
       }
     } catch (error) {
