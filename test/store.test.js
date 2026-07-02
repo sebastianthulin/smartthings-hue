@@ -174,10 +174,12 @@ test('time validation and cached mode inference handle legacy values', () => {
   assert.equal(inferCachedMode({ locationId: 'real-location' }), 'live');
 });
 
-test('executeMainRoutine updates lights optimistically and shows a toast if the sync disagrees', async () => {
-  let resolveScene = null;
-  const executeScenePromise = new Promise((resolve) => {
-    resolveScene = resolve;
+test('executeMainRoutine updates lights optimistically and waits before checking backend state', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let fetchDevicesCalls = 0;
+  let resolveSyncStarted = null;
+  const syncStarted = new Promise((resolve) => {
+    resolveSyncStarted = resolve;
   });
 
   try {
@@ -185,13 +187,14 @@ test('executeMainRoutine updates lights optimistically and shows a toast if the 
       async executeScene(sceneId, locationId) {
         assert.equal(sceneId, 'scene-off');
         assert.equal(locationId, 'test-location');
-        await executeScenePromise;
         return { ok: true };
       },
       async fetchRooms() {
         return [{ roomId: 'living', name: 'Living Room' }];
       },
       async fetchDevices() {
+        fetchDevicesCalls += 1;
+        resolveSyncStarted();
         return [{
           deviceId: 'light-1',
           label: 'Ceiling',
@@ -260,11 +263,28 @@ test('executeMainRoutine updates lights optimistically and shows a toast if the 
 
     assert.equal(store.rooms[0].lights[0].on, false);
     assert.equal(toasts.items.length, 0);
+    assert.equal(fetchDevicesCalls, 0);
 
-    resolveScene();
     assert.equal(await runPromise, true);
+    assert.equal(store.rooms[0].lights[0].on, false);
+    assert.equal(fetchDevicesCalls, 0);
+    assert.equal(toasts.items.length, 0);
+
+    t.mock.timers.tick(999);
+    assert.equal(fetchDevicesCalls, 0);
+    assert.equal(store.rooms[0].lights[0].on, false);
+    assert.equal(toasts.items.length, 0);
+
+    const synced = new Promise((resolve) => {
+      store.addEventListener('synced', resolve, { once: true });
+    });
+    t.mock.timers.tick(1);
+    await syncStarted;
+    await synced;
+    await Promise.resolve();
 
     assert.equal(store.rooms[0].lights[0].on, true);
+    assert.equal(fetchDevicesCalls, 1);
     assert.equal(toasts.items.length, 1);
     assert.equal(toasts.items[0].titleKey, 'home.toasts.mainRoutineCheckTitle');
     assert.equal(toasts.items[0].descriptionKey, 'home.toasts.mainRoutineTurnOffCheckDescription');

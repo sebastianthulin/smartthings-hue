@@ -19,6 +19,7 @@ const SYNC_INTERVAL = 30_000; // ms
 const HOME_CONFIG_SYNC_INTERVAL = 5 * 60_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
 const COLOR_DEBOUNCE_MS = 120;
+const MAIN_ROUTINE_SYNC_GRACE_PERIOD_MS = 1_000;
 const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
 const MOCK_LOCATION_ID = 'mock-location';
 const TIME_VALUE_PATTERN = /^\d{2}:\d{2}$/;
@@ -211,6 +212,7 @@ class HomeStore extends EventTarget {
   #lightColorTemperatureTimers = new Map();
   #lightLevelTimers = new Map();
   #roomLevelTimers  = new Map();
+  #mainRoutineSyncTimer = null;
 
   get rooms()     { return this.#snapshotRooms(); }
   get syncing()   { return this.#syncing; }
@@ -278,6 +280,10 @@ class HomeStore extends EventTarget {
     this.#scenes = [];
     this.#sharedConfigLastSync = 0;
     this.#sharedConfigEnabled = backend.sharedConfigEnabled;
+    if (this.#mainRoutineSyncTimer) {
+      clearTimeout(this.#mainRoutineSyncTimer);
+      this.#mainRoutineSyncTimer = null;
+    }
   }
 
   // ── Sync ───────────────────────────────────────────────────────────────────
@@ -626,21 +632,29 @@ class HomeStore extends EventTarget {
 
     try {
       await backend.executeScene(sceneId, this.#locationId);
-      await this.#syncOnce();
     } catch (error) {
       void this.#syncOnce();
       throw error;
     }
 
-    if (this.#rooms.some(room => room.lights.some(light => light.on !== target))) {
-      toasts.show({
-        tone: 'info',
-        titleKey: 'home.toasts.mainRoutineCheckTitle',
-        descriptionKey: target
-          ? 'home.toasts.mainRoutineTurnOnCheckDescription'
-          : 'home.toasts.mainRoutineTurnOffCheckDescription',
-      });
+    if (this.#mainRoutineSyncTimer) {
+      clearTimeout(this.#mainRoutineSyncTimer);
     }
+
+    this.#mainRoutineSyncTimer = setTimeout(async () => {
+      this.#mainRoutineSyncTimer = null;
+      await this.#syncOnce();
+
+      if (this.#rooms.some(room => room.lights.some(light => light.on !== target))) {
+        toasts.show({
+          tone: 'info',
+          titleKey: 'home.toasts.mainRoutineCheckTitle',
+          descriptionKey: target
+            ? 'home.toasts.mainRoutineTurnOnCheckDescription'
+            : 'home.toasts.mainRoutineTurnOffCheckDescription',
+        });
+      }
+    }, MAIN_ROUTINE_SYNC_GRACE_PERIOD_MS);
 
     return true;
   }
