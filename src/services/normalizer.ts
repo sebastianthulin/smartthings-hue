@@ -9,6 +9,15 @@ export type LightColor = {
   saturation: number;
 };
 
+export type LightEffectControl = {
+  component: string;
+  capability: string;
+  command: string;
+  attribute: string;
+  options: string[];
+  value: string;
+};
+
 export type Light = {
   id: string;
   name: string;
@@ -16,6 +25,7 @@ export type Light = {
   brightness?: number;
   color?: LightColor;
   colorTemp?: number;
+  effectControl?: LightEffectControl;
 };
 
 export type Climate = {
@@ -40,9 +50,11 @@ type RoomAccumulator = Room & {
 
 type RawCapability = {
   id?: string;
+  version?: number;
 };
 
 type RawComponent = {
+  id?: string;
   capabilities?: RawCapability[];
 };
 
@@ -50,6 +62,7 @@ type RawDevice = {
   deviceId: string;
   label?: string;
   name?: string;
+  manufacturerName?: string;
   roomId?: string;
   components?: RawComponent[];
 };
@@ -69,6 +82,19 @@ type RawHealth = {
   state?: string;
 };
 
+type CapabilityDefinition = {
+  attributes?: Record<string, {
+    setter?: string;
+  }>;
+  commands?: Record<string, {
+    arguments?: Array<{
+      schema?: { enum?: unknown };
+    }>;
+  }>;
+};
+
+type CapabilityCommand = NonNullable<CapabilityDefinition['commands']>[string];
+
 type ZoneState = {
   state?: string;
 };
@@ -78,6 +104,7 @@ export function normalizeHome(
   rawRooms: RawRoom[],
   statusMap: Record<string, RawStatus>,
   healthMap: Record<string, RawHealth> = {},
+  capabilityDefinitions: Record<string, CapabilityDefinition> = {},
 ): Room[] {
   const roomMap = new Map<string, RoomAccumulator>();
   for (const r of rawRooms) {
@@ -95,7 +122,7 @@ export function normalizeHome(
     const room = (device.roomId && roomMap.get(device.roomId)) ?? unassigned;
 
     if (isLightDevice(caps)) {
-      room.lights.push(normalizeLight(device, caps, status));
+      room.lights.push(normalizeLight(device, caps, status, capabilityDefinitions));
     }
 
     if (caps.has('temperatureMeasurement')) {
@@ -249,6 +276,7 @@ function normalizeLight(
   device: RawDevice,
   caps: Set<SupportedCapability>,
   status: RawStatus | null,
+  capabilityDefinitions: Record<string, CapabilityDefinition>,
 ): Light {
   const light: Light = {
     id: device.deviceId,
@@ -279,7 +307,55 @@ function normalizeLight(
     if (ct !== null) light.colorTemp = ct;
   }
 
+  const effectControl = getTwinklyEffectControl(device, status, capabilityDefinitions);
+  if (effectControl) {
+    light.effectControl = effectControl;
+  }
+
   return light;
+}
+
+function getTwinklyEffectControl(
+  device: RawDevice,
+  status: RawStatus | null,
+  capabilityDefinitions: Record<string, CapabilityDefinition>,
+): LightEffectControl | undefined {
+  const isTwinklyDevice = /twinkly/i.test(device.manufacturerName ?? '');
+
+  for (const component of device.components ?? []) {
+    for (const capability of component.capabilities ?? []) {
+      const capabilityId = capability.id ?? '';
+      if (!/twinkly/i.test(capabilityId) && !(isTwinklyDevice && capabilityId.includes('.'))) continue;
+
+      const definition = capabilityDefinitions[capabilityId];
+      const attributes = definition?.attributes ?? {};
+      const attribute = Object.keys(attributes).find(name => /^(scene|effect|mode)$/i.test(name));
+      const command = attribute ? attributes[attribute]?.setter : undefined;
+      const options = command ? getEnumCommandOptions(definition?.commands?.[command]) : [];
+      const value = attribute
+        ? readAttr<string>(status, capabilityId, attribute)
+        : null;
+
+      if (attribute && command && options.length && value != null) {
+        return {
+          component: component.id || 'main',
+          capability: capabilityId,
+          command,
+          attribute,
+          options,
+          value,
+        };
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function getEnumCommandOptions(command: CapabilityCommand | undefined): string[] {
+  const enumValues = command?.arguments?.[0]?.schema?.enum;
+  if (!Array.isArray(enumValues)) return [];
+  return enumValues.filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
 }
 
 function readAttr<T>(status: RawStatus | null, capability: string, attribute: string): T | null {

@@ -25,6 +25,7 @@ const MOCK_DEVICES = [
   makeDevice('kitchen-sensor', 'Kitchen Sensor', 'kitchen', ['temperatureMeasurement', 'relativeHumidityMeasurement', 'motionSensor']),
   makeDevice('bedside-left', 'Bedside Left', 'bedroom', ['switch', 'switchLevel', 'colorTemperature']),
   makeDevice('bedside-right', 'Bedside Right', 'bedroom', ['switch', 'switchLevel', 'colorTemperature']),
+  makeDevice('twinkly-tree', 'Twinkly Tree', 'living-room', ['switch', 'switchLevel', 'colorControl', 'twinkly.effects']),
   makeDevice('bedroom-sensor', 'Bedroom Sensor', 'bedroom', ['temperatureMeasurement', 'relativeHumidityMeasurement']),
 ];
 
@@ -40,6 +41,13 @@ const INITIAL_STATUSES = {
     switch: 'on',
     level: 42,
     colorTemperature: 3000,
+  }),
+  'twinkly-tree': makeStatus({
+    switch: 'on',
+    level: 65,
+    hue: 72,
+    saturation: 80,
+    twinklyEffect: 'rainbow',
   }),
   'living-sensor': makeStatus({
     temperature: 21.4,
@@ -75,6 +83,28 @@ const INITIAL_STATUSES = {
 const mockState = {
   health: Object.fromEntries(MOCK_DEVICES.map(device => [device.deviceId, { state: 'ONLINE' }])),
   statuses: clone(INITIAL_STATUSES),
+};
+
+const MOCK_CAPABILITY_DEFINITIONS = {
+  'twinkly.effects': {
+    id: 'twinkly.effects',
+    version: 1,
+    attributes: {
+      effect: {
+        setter: 'setEffect',
+      },
+    },
+    commands: {
+      setEffect: {
+        arguments: [{
+          name: 'effect',
+          schema: {
+            enum: ['rainbow', 'sparkle', 'candyCane', 'warmGlow'],
+          },
+        }],
+      },
+    },
+  },
 };
 
 const mockHomeConfigState = {
@@ -126,6 +156,12 @@ export async function handleMockSmartThingsRequest(path, options = {}) {
       ? []
       : MOCK_SCENES;
     return { items: clone(scenes) };
+  }
+
+  if (method === 'GET' && pathname.startsWith('/capabilities/')) {
+    const capabilityId = decodeURIComponent(pathname.split('/')[2] ?? '');
+    const definition = MOCK_CAPABILITY_DEFINITIONS[capabilityId];
+    if (definition) return clone(definition);
   }
 
   if (method === 'GET' && pathname.startsWith('/devices/') && pathname.endsWith('/status')) {
@@ -218,6 +254,7 @@ function makeStatus({
   humidity,
   occupancy,
   motion,
+  twinklyEffect,
 }) {
   const main = {};
 
@@ -257,6 +294,9 @@ function makeStatus({
     main.motionSensor = {
       motion: { value: motion },
     };
+  }
+  if (twinklyEffect != null) {
+    main['twinkly.effects'] = { effect: { value: twinklyEffect } };
   }
 
   return { components: { main } };
@@ -301,6 +341,10 @@ function applyCommands(deviceId, commands) {
       main.colorTemperature = {
         colorTemperature: { value: Number(command.arguments?.[0] ?? 0) },
       };
+    }
+
+    if (command.capability === 'twinkly.effects' && command.command === 'setEffect') {
+      main['twinkly.effects'] = { effect: { value: String(command.arguments?.[0] ?? '') } };
     }
   }
 }

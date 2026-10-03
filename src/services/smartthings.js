@@ -699,6 +699,11 @@ export class SmartThingsAPI {
     return data.items ?? [];
   }
 
+  /** Fetch a capability definition, including supported command values. */
+  async fetchCapabilityDefinition(capabilityId, version = 1) {
+    return this.#request(`/capabilities/${encodeURIComponent(capabilityId)}/${version}`);
+  }
+
   /** Fetch all scenes (optionally scoped to a location). */
   async fetchScenes(locationId) {
     const qs = locationId ? `?locationId=${encodeURIComponent(locationId)}` : '';

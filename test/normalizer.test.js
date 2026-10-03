@@ -148,3 +148,46 @@ test('sortHome sorts rooms and light names using numeric-aware comparison', () =
     },
   ]);
 });
+
+test('normalizeHome exposes the current Twinkly effect and its supported choices', () => {
+  const rooms = [{ roomId: 'living', name: 'Living room' }];
+  const devices = [{
+    deviceId: 'twinkly-tree',
+    label: 'Tree',
+    roomId: 'living',
+    components: [{
+      id: 'main',
+      capabilities: [{ id: 'switch' }, { id: 'twinkly.effects', version: 1 }],
+    }],
+  }];
+  const statusMap = {
+    'twinkly-tree': {
+      components: {
+        main: {
+          switch: { switch: { value: 'on' } },
+          'twinkly.effects': { effect: { value: 'rainbow' } },
+        },
+      },
+    },
+  };
+  const capabilityDefinitions = {
+    'twinkly.effects': {
+      attributes: { effect: { setter: 'setEffect' } },
+      commands: {
+        setEffect: {
+          arguments: [{ schema: { enum: ['rainbow', 'sparkle'] } }],
+        },
+      },
+    },
+  };
+
+  const [room] = normalizeHome(devices, rooms, statusMap, {}, capabilityDefinitions);
+  assert.deepEqual(room.lights[0].effectControl, {
+    component: 'main',
+    capability: 'twinkly.effects',
+    command: 'setEffect',
+    attribute: 'effect',
+    options: ['rainbow', 'sparkle'],
+    value: 'rainbow',
+  });
+});

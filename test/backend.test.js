@@ -48,6 +48,9 @@ function createTestBackendProvider() {
     async fetchDevices() {
       return [];
     },
+    async fetchCapabilityDefinition() {
+      return {};
+    },
     async fetchHomeConfig() {
       return null;
     },

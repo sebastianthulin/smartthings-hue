@@ -46,6 +46,9 @@ function createTestBackendProvider(overrides = {}) {
     async fetchDevices() {
       return [];
     },
+    async fetchCapabilityDefinition() {
+      return {};
+    },
     async fetchHomeConfig() {
       return null;
     },
@@ -174,7 +177,7 @@ test('time validation and cached mode inference handle legacy values', () => {
   assert.equal(inferCachedMode({ locationId: 'real-location' }), 'live');
 });
 
-test('executeMainRoutine updates lights optimistically and waits before checking backend state', async (t) => {
+test('executeMainRoutine updates lights optimistically and refreshes the backend state without a turn-off warning', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let fetchDevicesCalls = 0;
   let resolveSyncStarted = null;
@@ -285,9 +288,7 @@ test('executeMainRoutine updates lights optimistically and waits before checking
 
     assert.equal(store.rooms[0].lights[0].on, true);
     assert.equal(fetchDevicesCalls, 1);
-    assert.equal(toasts.items.length, 1);
-    assert.equal(toasts.items[0].titleKey, 'home.toasts.mainRoutineCheckTitle');
-    assert.equal(toasts.items[0].descriptionKey, 'home.toasts.mainRoutineTurnOffCheckDescription');
+    assert.equal(toasts.items.length, 0);
   } finally {
     toasts.clear();
     store.clearCache();

@@ -337,6 +337,23 @@ export class LightGroup extends LocalizedElement {
       opacity: 0.4;
     }
 
+    .effect-select {
+      width: 100%;
+      min-height: 38px;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-high);
+      color: var(--color-text-primary);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .effect-select:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
   `;
 
   constructor() {
@@ -383,6 +400,10 @@ export class LightGroup extends LocalizedElement {
   _onColorTemperatureChange(lightId, kelvin) {
     this._setTemperaturePreview(lightId, kelvin);
     store.setLightColorTemperature(lightId, kelvin);
+  }
+
+  _onEffectChange(light, e) {
+    store.setLightEffect(light.id, light.effectControl, e.target.value);
   }
 
   _supportsPreset(light, preset) {
@@ -604,6 +625,7 @@ export class LightGroup extends LocalizedElement {
         ${this._sortedLights.map(light => html`
           ${(() => {
             const hasColorControls = Boolean(light.color || light.colorTemp != null);
+            const hasExpandedControls = hasColorControls || Boolean(light.effectControl);
             const showTemperatureSlider = light.colorTemp != null && !light.color;
             const displayColor = this._getDisplayColor(light);
             const displayTemperature = this._getDisplayTemperature(light);
@@ -615,15 +637,15 @@ export class LightGroup extends LocalizedElement {
                 <span class="light-value ${this._activeLightId === light.id && this._activeLightBrightness != null && this._lightValueVisible ? 'visible' : ''}">${this._lightValueLabel(light)}</span>
               </span>
               <div class="light-actions">
-                ${hasColorControls ? html`
+                ${hasExpandedControls ? html`
                   <button
                     class="icon-action ${this._openColorLightId === light.id ? 'active' : ''}"
                     type="button"
                     ?disabled=${!light.on}
                     @click=${() => this._toggleColorControls(light.id)}
                     aria-label=${this._openColorLightId === light.id
-                      ? this.t('room.closeLightColorControls', { name: light.name })
-                      : this.t('room.openLightColorControls', { name: light.name })}
+                      ? this.t('room.closeLightControls', { name: light.name })
+                      : this.t('room.openLightControls', { name: light.name })}
                     aria-expanded=${String(this._openColorLightId === light.id)}
                   >
                     <span class="material-symbols" aria-hidden="true">palette</span>
@@ -642,12 +664,12 @@ export class LightGroup extends LocalizedElement {
             </div>
 
             <div class="light-controls">
-              ${hasColorControls ? html`
+              ${hasExpandedControls ? html`
                 <div class="color-controls-shell ${this._openColorLightId === light.id ? 'open' : ''}" aria-hidden=${String(this._openColorLightId !== light.id)}>
                   <div class="color-controls-shell-inner">
                     <div class="color-controls">
                       <div class="color-controls-header">
-                        <span>${this.t('room.lightColorControls')}</span>
+                        <span>${this.t('room.lightControls')}</span>
                       </div>
                       <div class="color-control-group">
                         <span class="color-control-group-title">${this.t('room.lightPresetSection')}</span>
@@ -699,6 +721,23 @@ export class LightGroup extends LocalizedElement {
                           ></temperature-slider>
                         </div>
                       ` : ''}
+
+                      ${light.effectControl ? html`
+                        <label class="color-control-group">
+                          <span class="color-control-group-title">${this.t('room.lightEffectSection')}</span>
+                          <select
+                            class="effect-select"
+                            .value=${light.effectControl.value}
+                            ?disabled=${!light.on || this._openColorLightId !== light.id}
+                            @change=${e => this._onEffectChange(light, e)}
+                            aria-label=${this.t('room.chooseLightEffect', { name: light.name })}
+                          >
+                            ${light.effectControl.options.map(effect => html`
+                              <option value=${effect}>${this._formatEffectName(effect)}</option>
+                            `)}
+                          </select>
+                        </label>
+                      ` : ''}
                     </div>
                   </div>
                 </div>
@@ -719,6 +758,13 @@ export class LightGroup extends LocalizedElement {
         `)}
       </div>
     `;
+  }
+
+  _formatEffectName(effect) {
+    return String(effect)
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/^./, character => character.toUpperCase());
   }
 }
 

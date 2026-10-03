@@ -18,6 +18,7 @@ const REQUIRED_BACKEND_PROVIDER_MEMBERS = [
   'fetchLocations',
   'fetchRooms',
   'fetchDevices',
+  'fetchCapabilityDefinition',
   'fetchHomeConfig',
   'saveHomeConfig',
   'fetchDeviceStatus',

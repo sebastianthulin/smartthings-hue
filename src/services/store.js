@@ -19,7 +19,9 @@ const SYNC_INTERVAL = 30_000; // ms
 const HOME_CONFIG_SYNC_INTERVAL = 5 * 60_000; // ms
 const BRIGHTNESS_DEBOUNCE_MS = 180;
 const COLOR_DEBOUNCE_MS = 120;
-const MAIN_ROUTINE_SYNC_GRACE_PERIOD_MS = 3_000;
+// Fetch the device state promptly after a global routine so the list reflects
+// SmartThings' actual state instead of only the optimistic update.
+const MAIN_ROUTINE_SYNC_GRACE_PERIOD_MS = 1_000;
 const DEFAULT_TURN_ON_CONFIRM_TIME = '21:00';
 const MOCK_LOCATION_ID = 'mock-location';
 const TIME_VALUE_PATTERN = /^\d{2}:\d{2}$/;
@@ -213,6 +215,7 @@ class HomeStore extends EventTarget {
   #lightLevelTimers = new Map();
   #roomLevelTimers  = new Map();
   #mainRoutineSyncTimer = null;
+  #capabilityDefinitions = new Map();
 
   get rooms()     { return this.#snapshotRooms(); }
   get syncing()   { return this.#syncing; }
@@ -280,6 +283,7 @@ class HomeStore extends EventTarget {
     this.#scenes = [];
     this.#sharedConfigLastSync = 0;
     this.#sharedConfigEnabled = backend.sharedConfigEnabled;
+    this.#capabilityDefinitions.clear();
     if (this.#mainRoutineSyncTimer) {
       clearTimeout(this.#mainRoutineSyncTimer);
       this.#mainRoutineSyncTimer = null;
@@ -304,6 +308,40 @@ class HomeStore extends EventTarget {
       clearInterval(this.#syncTimer);
       this.#syncTimer = null;
     }
+  }
+
+  async #getTwinklyCapabilityDefinitions(rawDevices) {
+    const references = new Map();
+
+    for (const device of rawDevices) {
+      const isTwinklyDevice = /twinkly/i.test(device.manufacturerName ?? '');
+      for (const component of device.components ?? []) {
+        for (const capability of component.capabilities ?? []) {
+          const capabilityId = typeof capability?.id === 'string' ? capability.id : '';
+          if (
+            (!/twinkly/i.test(capabilityId) && !(isTwinklyDevice && capabilityId.includes('.')))
+            || this.#capabilityDefinitions.has(capabilityId)
+          ) continue;
+          references.set(capabilityId, Number(capability.version) || 1);
+        }
+      }
+    }
+
+    const results = await Promise.allSettled(
+      [...references].map(async ([capabilityId, version]) => [
+        capabilityId,
+        await backend.fetchCapabilityDefinition(capabilityId, version),
+      ])
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        const [capabilityId, definition] = result.value;
+        this.#capabilityDefinitions.set(capabilityId, definition);
+      }
+    }
+
+    return Object.fromEntries(this.#capabilityDefinitions);
   }
 
   async #syncOnce() {
@@ -334,6 +372,7 @@ class HomeStore extends EventTarget {
         this.#homeConfig = normalizeHomeConfig(this.#locationId, null);
         this.#scenes = [];
         this.#sharedConfigLastSync = 0;
+        this.#capabilityDefinitions.clear();
       }
 
       const sharedConfigPromise = this.#syncSharedHomeData({ force: locationChanged })
@@ -348,6 +387,7 @@ class HomeStore extends EventTarget {
           includeHealth: true,
         }),
       ]);
+      const capabilityDefinitions = await this.#getTwinklyCapabilityDefinitions(rawDevices);
 
       const statusMap = {};
       const healthMap = {};
@@ -399,7 +439,7 @@ class HomeStore extends EventTarget {
         }
       }
 
-      this.#rooms    = normalizeHome(rawDevices, rawRooms, statusMap, healthMap);
+      this.#rooms    = normalizeHome(rawDevices, rawRooms, statusMap, healthMap, capabilityDefinitions);
       this.#lastSync = Date.now();
       this.#save();
       this.#emit();
@@ -531,6 +571,23 @@ class HomeStore extends EventTarget {
     }, COLOR_DEBOUNCE_MS));
   }
 
+  async setLightEffect(lightId, effectControl, effect) {
+    const light = this.#findLight(lightId);
+    if (!light?.effectControl || !effectControl?.options?.includes(effect)) return;
+
+    light.effectControl = { ...light.effectControl, value: effect };
+    this.#emit();
+
+    await Promise.allSettled([
+      backend.sendCommand(lightId, [{
+        component: effectControl.component,
+        capability: effectControl.capability,
+        command: effectControl.command,
+        arguments: [effect],
+      }]),
+    ]);
+  }
+
   /** Set brightness for all lights in a room. */
   async setRoomBrightness(roomId, brightness) {
     const room = this.#findRoom(roomId);
@@ -645,13 +702,14 @@ class HomeStore extends EventTarget {
       this.#mainRoutineSyncTimer = null;
       await this.#syncOnce();
 
-      if (this.#rooms.some(room => room.lights.some(light => light.on !== target))) {
+      if (
+        target
+        && this.#rooms.some(room => room.lights.some(light => light.on !== target))
+      ) {
         toasts.show({
           tone: 'info',
           titleKey: 'home.toasts.mainRoutineCheckTitle',
-          descriptionKey: target
-            ? 'home.toasts.mainRoutineTurnOnCheckDescription'
-            : 'home.toasts.mainRoutineTurnOffCheckDescription',
+          descriptionKey: 'home.toasts.mainRoutineTurnOnCheckDescription',
         });
       }
     }, MAIN_ROUTINE_SYNC_GRACE_PERIOD_MS);
